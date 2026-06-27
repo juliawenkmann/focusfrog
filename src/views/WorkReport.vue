@@ -62,25 +62,26 @@ div
   div(v-if="hasData && !loading")
     h5.mt-4 Daily Breakdown
 
-    table.table.table-sm.table-hover
-      thead
-        tr
-          th Date
-          th.text-right Work Time
-          th.text-right Sessions
-          th.text-right Avg Session
-      tbody
-        tr(v-for="day in dailyData" :key="day.date")
-          td {{ day.date }}
-          td.text-right {{ formatDuration(day.duration) }}
-          td.text-right {{ day.sessions }}
-          td.text-right {{ formatDuration(day.avgSession) }}
-      tfoot
-        tr.font-weight-bold
-          td Total
-          td.text-right {{ formatDuration(totalDuration) }}
-          td.text-right {{ totalSessions }}
-          td.text-right {{ formatDuration(avgSessionLength) }}
+    div.table-responsive
+      table.table.table-sm.table-hover
+        thead
+          tr
+            th Date
+            th.text-right Work Time
+            th.text-right Sessions
+            th.text-right Avg Session
+        tbody
+          tr(v-for="day in dailyData" :key="day.date")
+            td {{ day.date }}
+            td.text-right {{ formatDuration(day.duration) }}
+            td.text-right {{ day.sessions }}
+            td.text-right {{ formatDuration(day.avgSession) }}
+        tfoot
+          tr.font-weight-bold
+            td Total
+            td.text-right {{ formatDuration(totalDuration) }}
+            td.text-right {{ totalSessions }}
+            td.text-right {{ formatDuration(avgSessionLength) }}
 
 </template>
 
@@ -90,12 +91,17 @@ import { getClient } from '~/util/awclient';
 import { useCategoryStore } from '~/stores/categories';
 import { useSettingsStore } from '~/stores/settings';
 import { useBucketsStore } from '~/stores/buckets';
-import { get_day_start_with_offset, get_day_end_with_offset } from '~/util/time';
+import {
+  get_day_start_with_offset,
+  get_day_end_with_offset,
+  get_today_with_offset,
+} from '~/util/time';
 import {
   getSupportedWorkReportHosts,
   getWorkReportHostOptions,
   getUnsupportedWorkReportHosts,
   buildWorkReportQuery,
+  expandSelectedCategories,
 } from '~/util/workReport';
 
 import 'vue-awesome/icons/sync';
@@ -134,7 +140,7 @@ export default {
 
       selectedHosts: [] as string[],
       selectedCategories: [JSON.stringify(['Work'])],
-      breakTime: 5,
+      breakTime: 0,
       dateRange: 'last7d',
 
       loading: false,
@@ -249,35 +255,9 @@ export default {
         );
         const timeperiods = this.getTimeperiods();
         const breakTimeSeconds = this.breakTime * 60;
-        // Auto-expand the selection to include subcategories. Selecting
-        // "Work" should also match "Work > Programming", "Work > Email",
-        // etc., which is what users intuitively expect — aw-query's
-        // filter_keyvals only does exact-array matches on $category.
         const allCategories = (this.categoryStore.all_categories || []) as string[][];
         const selected: string[][] = this.selectedCategories.map(c => JSON.parse(c));
-        const isDescendant = (sel: string[], cat: string[]) =>
-          cat.length >= sel.length && sel.every((seg, i) => cat[i] === seg);
-        const expanded: string[][] = [];
-        const seen = new Set<string>();
-        for (const cat of allCategories) {
-          if (selected.some(sel => isDescendant(sel, cat))) {
-            const key = JSON.stringify(cat);
-            if (!seen.has(key)) {
-              seen.add(key);
-              expanded.push(cat);
-            }
-          }
-        }
-        // Also keep the originally-selected categories even if they aren't
-        // in all_categories (defensive).
-        for (const sel of selected) {
-          const key = JSON.stringify(sel);
-          if (!seen.has(key)) {
-            seen.add(key);
-            expanded.push(sel);
-          }
-        }
-        const categoriesFilter = expanded;
+        const categoriesFilter = expandSelectedCategories(allCategories, selected);
 
         const categories = this.categoryStore.classes_for_query;
         const categoriesStr = JSON.stringify(categories).replace(/\\\\/g, '\\');
@@ -334,23 +314,23 @@ export default {
       // "thisMonth" the start anchors to the calendar boundary (not "N days
       // ago"), so on a Wednesday "thisMonth" gives Mar 1..Mar 5, not Mar 1..N.
       let startDate: moment.Moment;
-      const today = moment().startOf('day');
+      const today = moment(get_today_with_offset(offset));
 
       if (this.dateRange === 'last7d') {
         startDate = today.clone().subtract(6, 'days');
       } else if (this.dateRange === 'last30d') {
         startDate = today.clone().subtract(29, 'days');
       } else if (this.dateRange === 'thisWeek') {
-        startDate = moment().startOf('isoWeek');
+        startDate = today.clone().startOf('isoWeek');
       } else if (this.dateRange === 'thisMonth') {
-        startDate = moment().startOf('month');
+        startDate = today.clone().startOf('month');
       } else {
         startDate = today.clone().subtract(6, 'days');
       }
 
       const days = today.diff(startDate, 'days') + 1;
       for (let i = days - 1; i >= 0; i--) {
-        const date = moment().subtract(i, 'days');
+        const date = today.clone().subtract(i, 'days');
         const start = get_day_start_with_offset(date, offset);
         const end = get_day_end_with_offset(date, offset);
         timeperiods.push(start + '/' + end);

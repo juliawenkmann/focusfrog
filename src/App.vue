@@ -41,6 +41,12 @@ export default {
     await settingsStore.ensureLoaded();
     const theme = settingsStore.theme;
     const detectedTheme = theme === 'auto' ? detectPreferredTheme() : theme;
+    document.documentElement.dataset.dashboardTheme =
+      settingsStore.focusFrogTheme === 'contrast'
+        ? 'contrast'
+        : settingsStore.focusFrogTheme === 'flower'
+        ? 'flower'
+        : 'bright';
 
     // Apply the dark theme if detected
     if (detectedTheme === 'dark') {

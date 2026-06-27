@@ -98,8 +98,7 @@ export function createClient(force?: boolean): AWClient {
   // If running with `npm node dev`, use testing server as origin.
   // Works since CORS is enabled by default when running `aw-server --testing`.
   if (!production) {
-    const aw_server_url = typeof AW_SERVER_URL !== 'undefined' && AW_SERVER_URL;
-    baseURL = aw_server_url || 'http://127.0.0.1:5666';
+    baseURL = typeof AW_SERVER_URL !== 'undefined' ? AW_SERVER_URL : 'http://127.0.0.1:5666';
   }
 
   if (!_client || force) {

@@ -5,13 +5,14 @@ div
       h5.mt-1.mb-2.mb-sm-0 Landing page
     div
       b-select.landingpage(v-if="loaded" size="sm" :value="landingpage", @change="landingpage = $event")
-        option(value="/home") Home
+        option(value="/home") Hours
         option(:value="'/activity/' + hostname + '/view/'" v-for="hostname in hostnames") Activity ({{hostname}})
         option(value="/timeline") Timeline
+        option(value="/todos") Todos
       span(v-else)
         .aw-loading Loading...
   small.text-muted
-    | The page to open when opening ActivityWatch, or clicking the logo in the top menu.
+    | The page to open when opening FocusFrog, or clicking the logo in the top menu.
 </template>
 
 <script lang="ts">

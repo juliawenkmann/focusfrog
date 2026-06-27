@@ -1,7 +1,13 @@
 import { defineStore } from 'pinia';
 import moment, { Moment } from 'moment';
 import { getClient } from '~/util/awclient';
-import { Category, CategorySet, defaultCategories, cleanCategory } from '~/util/classes';
+import {
+  Category,
+  CategorySet,
+  defaultCategories,
+  cleanCategory,
+  normalizeFocusFrogCategories,
+} from '~/util/classes';
 import { SavedQuery } from '~/util/savedQueries';
 import { View, defaultViews } from '~/stores/views';
 import type { PrivacyFilterRule } from '~/util/privacyFilters';
@@ -14,6 +20,16 @@ function jsonEq(a: any, b: any) {
 }
 
 let settingsLoadPromise: Promise<void> | null = null;
+
+export type FocusFrogTheme = 'bright' | 'contrast' | 'flower';
+
+function normalizeFocusFrogTheme(theme: unknown): FocusFrogTheme {
+  return theme === 'contrast' || theme === 'flower' ? theme : 'bright';
+}
+
+function normalizeLegacySettingsKey(key: string): string {
+  return key === 'timetracker.dashboardTheme' || key === 'dayBloomTheme' ? 'focusFrogTheme' : key;
+}
 
 // Backoffs for NewReleaseNotification
 export const SHORT_BACKOFF_PERIOD = 24 * 60 * 60;
@@ -32,6 +48,7 @@ interface State {
   useColorFallback: boolean;
   landingpage: string;
   theme: 'light' | 'dark' | 'auto';
+  focusFrogTheme: FocusFrogTheme;
 
   newReleaseCheckData: Record<string, any>;
   userSatisfactionPollData: {
@@ -79,6 +96,7 @@ export const useSettingsStore = defineStore('settings', {
     landingpage: '/home',
 
     theme: 'auto',
+    focusFrogTheme: 'bright',
 
     newReleaseCheckData: {
       isEnabled: true,
@@ -154,41 +172,52 @@ export const useSettingsStore = defineStore('settings', {
       // 1. Server settings take priority
       for (const key of Object.keys(server_settings)) {
         if (key.startsWith('_')) continue;
-        storage[key] = server_settings[key];
-        used.add(key);
+        const targetKey = normalizeLegacySettingsKey(key);
+        storage[targetKey] = server_settings[key];
+        used.add(targetKey);
       }
 
       // 2. localStorage fills in gaps, but skip missing keys (null)
       for (const key of Object.keys(localStorage)) {
-        if (key.startsWith('_') || used.has(key)) continue;
+        const targetKey = normalizeLegacySettingsKey(key);
+        if (targetKey.startsWith('_') || used.has(targetKey)) continue;
         const raw = localStorage.getItem(key);
         if (raw === null || raw === 'null') continue; // key absent or stored as null → keep state() default
 
         // Keys ending with 'Data' are JSON-serialized objects in localStorage
         const isJsonKey =
-          key.endsWith('Data') ||
-          key == 'views' ||
-          key == 'classes' ||
-          key == 'category_sets' ||
-          key == 'active_set_ids' ||
-          key == 'saved_queries';
+          targetKey.endsWith('Data') ||
+          targetKey == 'views' ||
+          targetKey == 'classes' ||
+          targetKey == 'category_sets' ||
+          targetKey == 'active_set_ids' ||
+          targetKey == 'saved_queries';
         try {
           if (isJsonKey) {
             let parsed = JSON.parse(raw);
-            if (key == 'classes') {
+            if (targetKey == 'classes') {
               parsed = parsed.map(cleanCategory);
             }
-            storage[key] = parsed;
+            storage[targetKey] = parsed;
           } else if (raw === 'true' || raw === 'false') {
-            storage[key] = raw === 'true';
+            storage[targetKey] = raw === 'true';
           } else {
-            storage[key] = raw;
+            storage[targetKey] = raw;
           }
+          used.add(targetKey);
         } catch (e) {
           console.error('failed to parse', key, raw, e);
         }
       }
       this.$patch({ ...storage, _loaded: true });
+      this.$patch({
+        focusFrogTheme: normalizeFocusFrogTheme(this.focusFrogTheme),
+        classes: normalizeFocusFrogCategories(this.classes || []),
+        category_sets: (this.category_sets || []).map(set => ({
+          ...set,
+          categories: normalizeFocusFrogCategories(set.categories || []),
+        })),
+      });
 
       // Since `requestTimeout` is used to initialize the client, we need to set it again
       // https://github.com/ActivityWatch/activitywatch/issues/979
@@ -226,7 +255,12 @@ export const useSettingsStore = defineStore('settings', {
 
         // Save to localStorage
         // NOTE: we always save the theme and landingpage to localStorage, since they are used before the settings are loaded
-        if (saveToLocalStorage || key == 'theme' || key == 'landingpage') {
+        if (
+          saveToLocalStorage ||
+          key == 'theme' ||
+          key == 'landingpage' ||
+          key == 'focusFrogTheme'
+        ) {
           if (typeof value === 'object') {
             localStorage.setItem(key, JSON.stringify(value));
           } else {

@@ -1,10 +1,18 @@
 {
-  "name": "aw-webui",
+  "name": "focusfrog",
   "version": "1.0.0",
   "private": true,
-  "description": "A webui for ActivityWatch built in Vue.js",
-  "author": "ActivityWatch Developers",
+  "description": "A local-first focus dashboard and planning UI forked from ActivityWatch aw-webui.",
+  "author": "Julia Wenkmann; based on ActivityWatch aw-webui",
   "license": "MPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/juliawenkmann/focusfrog.git"
+  },
+  "homepage": "https://github.com/juliawenkmann/focusfrog#readme",
+  "bugs": {
+    "url": "https://github.com/juliawenkmann/focusfrog/issues"
+  },
   "type": "module",
   "scripts": {
     "serve": "vue-cli-service serve",
@@ -91,7 +99,6 @@
     "@vue/test-utils": "^1.3.0",
     "@vue/vue2-jest": "^29.2.4",
     "babel-loader": "^9.1.3",
-    "babel-plugin-lodash": "^3.3.4",
     "connect-history-api-fallback": "^2.0.0",
     "copy-webpack-plugin": "^14.0.0",
     "crypto-js": "^4.1.1",
@@ -119,7 +126,7 @@
     "prettier": "^2.5.1",
     "pug": "^3.0",
     "pug-plain-loader": "^1.0.0",
-    "sass-loader": "^8.0.2",
+    "sass-loader": "^16.0.8",
     "shelljs": "^0.8.5",
     "ts-jest": "^29",
     "ts-loader": "^9.5",

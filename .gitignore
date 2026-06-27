@@ -8,11 +8,14 @@ selenium-debug.log
 
 # copied from media
 static/logo*
+!static/logo.png
 
 # outputs
 coverage
 coverage-ts
 screenshots
+!docs/screenshots/
+!docs/screenshots/*.jpg
 test/unit/coverage
 test/e2e/reports
 *.map

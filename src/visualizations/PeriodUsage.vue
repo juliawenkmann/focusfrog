@@ -3,7 +3,7 @@ svg
 </template>
 
 <style scoped lang="scss">
-@import '../style/globals';
+@use '../style/globals' as *;
 
 svg {
   width: 100%;

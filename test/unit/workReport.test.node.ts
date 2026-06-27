@@ -1,5 +1,7 @@
 import {
+  buildWorkSummaryQuery,
   buildWorkReportQuery,
+  expandSelectedCategories,
   getSupportedWorkReportHosts,
   getUnsupportedWorkReportHosts,
   getWorkReportHostOptions,
@@ -60,6 +62,26 @@ describe('workReport host helpers', () => {
   test('buildWorkReportQuery produces a snapshot-stable query for multiple hosts', () => {
     const query = buildWorkReportQuery(['laptop', 'desktop'], '[]', [['Work']]);
     expect(query).toMatchSnapshot();
+  });
+
+  test('buildWorkSummaryQuery returns active events for dashboard categorization', () => {
+    const query = buildWorkSummaryQuery(['laptop'], '[]', [['Work'], ['Work', 'Programming']]);
+    expect(query).toContain('active_0 = flood(query_bucket("aw-watcher-window_laptop"));');
+    expect(query).toContain('active_duration = sum_durations(active);');
+    expect(query).toContain(
+      'RETURN = {"activeDuration": active_duration, "activeEvents": active};'
+    );
+    expect(query).not.toContain('work_duration');
+    expect(query).not.toContain('filter_keyvals(work');
+  });
+
+  test('expandSelectedCategories includes descendants and keeps missing selected parents', () => {
+    const categories = [['Work'], ['Work', 'Programming'], ['Media'], ['Media', 'Video']];
+    expect(expandSelectedCategories(categories, [['Work']])).toEqual([
+      ['Work'],
+      ['Work', 'Programming'],
+    ]);
+    expect(expandSelectedCategories(categories, [['Deep', 'Work']])).toEqual([['Deep', 'Work']]);
   });
 
   test('getSupportedWorkReportHosts preserves selected host order', () => {

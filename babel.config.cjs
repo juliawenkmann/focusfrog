@@ -1,5 +1,6 @@
 module.exports = {
   presets: ['@vue/cli-plugin-babel/preset'],
-  plugins: ['lodash', '@babel/plugin-proposal-nullish-coalescing-operator'],
+  plugins: ['@babel/plugin-proposal-nullish-coalescing-operator'],
+  compact: false,
   comments: false,
 };

@@ -50,6 +50,8 @@ export function mergeCategorySets(sets: CategorySet[]): Category[] {
 }
 
 const COLOR_UNCAT = '#CCC';
+const PROGRAMMING_TERMINAL_PATTERN =
+  'Terminal|Apple Terminal|iTerm|iTerm2|iTerm\\.app|iTerm2\\.app|com\\.apple\\.Terminal|com\\.googlecode\\.iterm2';
 
 // The default categories
 // Should be run through createMissingParents before being used in most cases.
@@ -63,12 +65,36 @@ export const defaultCategories: Category[] = [
     name: ['Work', 'Programming'],
     rule: {
       type: 'regex',
-      regex: 'GitHub|Stack Overflow|BitBucket|Gitlab|vim|Spyder|kate|Ghidra|Scite',
+      regex: `ActivityWatch|aw-|Codex|GitHub|github\\.com|Stack Overflow|stackoverflow|BitBucket|Gitlab|gitlab\\.com|VS Code|VSCode|Visual Studio Code|Visual Studio|VSCodium|Cursor|vim|neovim|Spyder|kate|Ghidra|Scite|PyCharm|Jupyter|RStudio|Xcode|${PROGRAMMING_TERMINAL_PATTERN}|Docker`,
+      ignore_case: true,
     },
   },
   {
-    name: ['Work', 'Programming', 'ActivityWatch'],
-    rule: { type: 'regex', regex: 'ActivityWatch|aw-', ignore_case: true },
+    name: ['Work', 'Writing'],
+    rule: {
+      type: 'regex',
+      regex:
+        'Overleaf|overleaf\\.com|arXiv|arxiv\\.org|LaTeX|TeXstudio|Texmaker|BibTeX|Zotero|Google Docs|docs\\.google\\.com|Microsoft Word|Pages|Manuscript|paper draft',
+      ignore_case: true,
+    },
+  },
+  {
+    name: ['Work', 'Email'],
+    rule: {
+      type: 'regex',
+      regex:
+        'Mail|Gmail|mail\\.google\\.com|Outlook|Thunderbird|Spark|Superhuman|mutt|alpine|Proton Mail|proton\\.me/mail|Fastmail',
+      ignore_case: true,
+    },
+  },
+  {
+    name: ['Work', 'Messages & Calls'],
+    rule: {
+      type: 'regex',
+      regex:
+        'WhatsApp|Telegram|LinkedIn|linkedin\\.com|Messages|iMessage|Telephone|Phone|FaceTime|Signal|Slack|Microsoft Teams|Teams|Zoom|Google Meet|meet\\.google\\.com|Skype|Mattermost|Element|Discord',
+      ignore_case: true,
+    },
   },
   { name: ['Work', 'Image'], rule: { type: 'regex', regex: 'GIMP|Inkscape' } },
   { name: ['Work', 'Video'], rule: { type: 'regex', regex: 'Kdenlive' } },
@@ -86,17 +112,28 @@ export const defaultCategories: Category[] = [
   },
   {
     name: ['Media', 'Video'],
-    rule: { type: 'regex', regex: 'YouTube|Plex|VLC' },
+    rule: { type: 'regex', regex: 'Plex|VLC' },
     data: { color: '#F33' },
   },
   {
-    name: ['Media', 'Social Media'],
+    name: ['Social Media'],
     rule: {
       type: 'regex',
-      regex: 'reddit|Facebook|Twitter|Instagram|devRant',
+      regex:
+        'YouTube|youtu\\.be|youtube\\.com|Pinterest|pinterest|TikTok|Instagram|Facebook|Threads|Twitter|X\\.com|Reddit|Snapchat|LinkedIn|Tumblr|Mastodon|Bluesky|bsky\\.app|Discord|WhatsApp|Telegram|Twitch|WeChat|VK|VKontakte|Line|BeReal|Nextdoor|devRant',
       ignore_case: true,
     },
     data: { color: '#FCC400' },
+  },
+  {
+    name: ['Food'],
+    rule: {
+      type: 'regex',
+      regex:
+        'food|recipe|restaurant|cooking|meal|lunch|dinner|breakfast|brunch|snack|bakery|cafe|pizza|burger|sushi|pasta|kitchen|chef|menu|delivery|takeaway|takeout|Uber Eats|UberEats|DoorDash|Grubhub|Deliveroo|Just Eat|Lieferando|Wolt|OpenTable|Yelp',
+      ignore_case: true,
+    },
+    data: { color: '#B91C1C' },
   },
   {
     name: ['Media', 'Music'],
@@ -218,9 +255,24 @@ export function cleanCategory(cat: Category): Category {
   return cat;
 }
 
+export function normalizeFocusFrogCategories(classes: Category[] = []): Category[] {
+  return classes.map(category => {
+    const normalized = _.cloneDeep(category);
+    if (_.isEqual(normalized.name, ['Work', 'Programming']) && normalized.rule?.type === 'regex') {
+      const regex = normalized.rule.regex || '';
+      const hasTerminal = /Terminal/i.test(regex);
+      const hasITerm = /iTerm/i.test(regex);
+      if (!hasTerminal || !hasITerm) {
+        normalized.rule.regex = [regex, PROGRAMMING_TERMINAL_PATTERN].filter(Boolean).join('|');
+      }
+    }
+    return normalized;
+  });
+}
+
 export function loadClasses(): Category[] {
   const settingsStore = useSettingsStore();
-  return settingsStore.classes;
+  return normalizeFocusFrogCategories(settingsStore.classes);
 }
 
 /**
@@ -254,13 +306,19 @@ export function loadCategories(): { sets: CategorySet[]; activeIds: string[] } {
   const activeIds: string[] = settingsStore.active_set_ids;
 
   if (sets && sets.length > 0) {
-    return { sets, activeIds: activeIds && activeIds.length > 0 ? activeIds : [sets[0].id] };
+    return {
+      sets: sets.map(set => ({
+        ...set,
+        categories: normalizeFocusFrogCategories(set.categories),
+      })),
+      activeIds: activeIds && activeIds.length > 0 ? activeIds : [sets[0].id],
+    };
   }
 
   // Migration path: no sets defined yet — wrap the existing flat classes into a "default" set
   const legacyClasses = settingsStore.classes || defaultCategories;
   return {
-    sets: [{ id: 'default', categories: legacyClasses }],
+    sets: [{ id: 'default', categories: normalizeFocusFrogCategories(legacyClasses) }],
     activeIds: ['default'],
   };
 }

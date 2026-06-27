@@ -149,7 +149,8 @@ div
 </template>
 
 <style lang="scss" scoped>
-@import '../../style/globals';
+@use 'sass:color';
+@use '../../style/globals' as *;
 
 .activity-toolbar {
   // row-gap kicks in only when items wrap to a second line, so the
@@ -181,19 +182,19 @@ div
       // default bootstrap vertical padding was too high
       padding: 0.25rem 1rem;
 
-      color: lighten(black, 40%);
+      color: color.adjust(black, $lightness: 40%);
       cursor: pointer;
       border: none;
 
       &:hover {
         color: black !important;
-        border-bottom: 3px solid lighten(black, 70%);
+        border-bottom: 3px solid color.adjust(black, $lightness: 70%);
         border-radius: 0;
       }
 
       &.router-link-exact-active {
         color: $activeHighlightColor !important;
-        border-bottom: 3px solid lighten($activeHighlightColor, 15%);
+        border-bottom: 3px solid color.adjust($activeHighlightColor, $lightness: 15%);
         border-radius: 0;
 
         // Does nothing for Verala Round

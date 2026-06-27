@@ -1,91 +1,64 @@
 <template lang="pug">
 div(:class="{'fixed-top-padding': fixedTopMenu}")
   b-navbar.aw-navbar(toggleable="lg" :fixed="fixedTopMenu ? 'top' : null")
-    // Brand on mobile
-    b-navbar-nav.d-block.d-lg-none
-      b-navbar-brand(to="/" style="background-color: transparent;")
-        img.aligh-middle(src="/logo.png" style="height: 1.5em;")
-        span.ml-2.align-middle(style="font-size: 1em; color: #000;") ActivityWatch
-
+    b-navbar-brand.app-brand(to="/home" aria-label="FocusFrog home")
+      span.brand-logo(aria-hidden="true")
+        span.brand-logo-eye.brand-logo-eye--left
+          span.brand-logo-pupil
+        span.brand-logo-eye.brand-logo-eye--right
+          span.brand-logo-pupil
+        span.brand-logo-face
+          span.brand-logo-hand.brand-logo-hand--left
+          span.brand-logo-hand.brand-logo-hand--right
+          span.brand-logo-center
+          span.brand-logo-mouth
+      span.brand-copy
+        span.brand-name FocusFrog
+        span.brand-tagline eat the frog first
     b-navbar-toggle(target="nav-collapse")
 
     b-collapse#nav-collapse(is-nav)
       b-navbar-nav
-        // If only a single view (the default) is available
-        b-nav-item(v-if="activityViews && activityViews.length === 1", v-for="view in activityViews", :key="view.name", :to="view.pathUrl")
+        b-nav-item(to="/home")
           div.px-2.px-lg-1
-            icon(name="calendar-day")
-            | Activity
-
-        // If multiple (or no) activity views are available
-        b-nav-item-dropdown(v-if="!activityViews || activityViews.length !== 1")
-          template(slot="button-content")
-            div.d-inline.px-2.px-lg-1
-              icon(name="calendar-day")
-              | Activity
-          b-dropdown-item(v-if="activityViews === null", disabled)
-            span.text-muted Loading...
-            br
-          b-dropdown-item(v-else-if="activityViews && activityViews.length <= 0", disabled)
-            | No activity reports available
-            br
-            small Make sure you have both an AFK and window watcher running
-          b-dropdown-item(v-for="view in activityViews", :key="view.name", :to="view.pathUrl")
-            icon(:name="view.icon")
-            | {{ view.name }}
+            icon(name="clock")
+            | Hours
 
         b-nav-item(to="/timeline" style="font-color: #000;")
           div.px-2.px-lg-1
             icon(name="stream")
             | Timeline
 
-        b-nav-item(to="/stopwatch")
+        b-nav-item(to="/pomodoro")
           div.px-2.px-lg-1
-            icon(name="stopwatch")
-            | Stopwatch
-
-      // Brand on large screens (centered)
-      b-navbar-nav.abs-center.d-none.d-lg-block
-        b-navbar-brand(to="/" style="background-color: transparent;")
-          img.ml-0.aligh-middle(src="/logo.png" style="height: 1.5em;")
-          span.ml-2.align-middle(style="font-size: 1.0em; color: #000;") ActivityWatch
+            icon(name="clock")
+            | Pomodoro
+        b-nav-item(to="/todos")
+          div.px-2.px-lg-1
+            icon(name="tasks")
+            | Todos
 
       b-navbar-nav.ml-auto
-        b-nav-item-dropdown
-          template(slot="button-content")
-            div.d-inline.px-2.px-lg-1
-              icon(name="tools")
-              | Tools
-          b-dropdown-item(to="/search")
-            icon(name="search")
-            | Search
-          b-dropdown-item(to="/work-report")
-            icon(name="briefcase")
-            | Work Report
-          b-dropdown-item(to="/trends" v-if="devmode")
-            icon(name="chart-line")
-            | Trends
-          b-dropdown-item(to="/report" v-if="devmode")
-            icon(name="chart-pie")
-            | Report
-          b-dropdown-item(to="/alerts" v-if="devmode")
-            icon(name="flag-checkered")
-            | Alerts
-          b-dropdown-item(to="/timespiral" v-if="devmode")
-            icon(name="history")
-            | Timespiral
-          b-dropdown-item(to="/query")
-            icon(name="code")
-            | Query
-          b-dropdown-item(to="/graph" v-if="devmode")
-            // TODO: use circle-nodes instead in the future
-            icon(name="project-diagram")
-            | Graph
+        b-nav-form.app-theme-toggle-form
+          b-button-group.app-theme-toggle(size="sm" aria-label="FocusFrog theme")
+            b-button(
+              v-for="option in focusFrogThemeOptions"
+              :key="option.value"
+              :variant="focusFrogTheme === option.value ? 'primary' : 'outline-secondary'"
+              :title="option.title"
+              :aria-label="option.title"
+              @click="setFocusFrogTheme(option.value)"
+            )
+              span.theme-flower-symbol(v-if="option.value === 'flower'" aria-hidden="true")
+                span.theme-flower-petal.theme-flower-petal--1
+                span.theme-flower-petal.theme-flower-petal--2
+                span.theme-flower-petal.theme-flower-petal--3
+                span.theme-flower-petal.theme-flower-petal--4
+                span.theme-flower-petal.theme-flower-petal--5
+                span.theme-flower-petal.theme-flower-petal--6
+                span.theme-flower-center
+              icon(v-else :name="option.icon")
 
-        b-nav-item(to="/buckets")
-          div.px-2.px-lg-1
-            icon(name="database")
-            | Raw Data
         b-nav-item(to="/settings")
           div.px-2.px-lg-1
             icon(name="cog")
@@ -100,99 +73,237 @@ div(:class="{'fixed-top-padding': fixedTopMenu}")
 
 <script lang="ts">
 // only import the icons you use to reduce bundle size
-import 'vue-awesome/icons/calendar-day';
-import 'vue-awesome/icons/briefcase';
-import 'vue-awesome/icons/calendar-week';
+import 'vue-awesome/icons/clock';
 import 'vue-awesome/icons/stream';
-import 'vue-awesome/icons/database';
-import 'vue-awesome/icons/search';
-import 'vue-awesome/icons/code';
-import 'vue-awesome/icons/chart-line'; // TODO: switch to chart-column, when vue-awesome supports FA v6
-import 'vue-awesome/icons/chart-pie';
-import 'vue-awesome/icons/flag-checkered';
-import 'vue-awesome/icons/stopwatch';
 import 'vue-awesome/icons/cog';
-import 'vue-awesome/icons/tools';
-import 'vue-awesome/icons/history';
-
-// TODO: use circle-nodes instead in the future
-import 'vue-awesome/icons/project-diagram';
-//import 'vue-awesome/icons/cicle-nodes';
-
-import 'vue-awesome/icons/ellipsis-h';
-
-import 'vue-awesome/icons/mobile';
-import 'vue-awesome/icons/desktop';
-
-import _ from 'lodash';
+import 'vue-awesome/icons/tasks';
+import 'vue-awesome/icons/moon';
+import 'vue-awesome/icons/sun';
 
 import { mapState } from 'pinia';
 import { useSettingsStore } from '~/stores/settings';
-import { useBucketsStore } from '~/stores/buckets';
-import { IBucket } from '~/util/interfaces';
 
 export default {
   name: 'Header',
   data() {
     return {
-      activityViews: null,
       // Make configurable?
       fixedTopMenu: this.$isAndroid,
     };
   },
   computed: {
-    ...mapState(useSettingsStore, ['devmode']),
+    ...mapState(useSettingsStore, ['focusFrogTheme']),
+    focusFrogThemeOptions() {
+      return [
+        {
+          value: 'bright',
+          text: 'Bright',
+          icon: 'sun',
+          title: 'Use the brighter FocusFrog style',
+        },
+        {
+          value: 'contrast',
+          text: 'Contrast',
+          icon: 'moon',
+          title: 'Use the higher-contrast FocusFrog style',
+        },
+        {
+          value: 'flower',
+          text: 'Flower',
+          icon: '',
+          title: 'Use the nostalgic flower FocusFrog style',
+        },
+      ];
+    },
   },
-  mounted: async function () {
-    const bucketStore = useBucketsStore();
-    await bucketStore.ensureLoaded();
-    const buckets: IBucket[] = bucketStore.buckets;
-    const types_by_host = {};
-
-    const activityViews = [];
-
-    // TODO: Change to use same bucket detection logic as get_buckets/set_available in store/modules/activity.ts
-    _.each(buckets, v => {
-      types_by_host[v.hostname] = types_by_host[v.hostname] || {};
-      types_by_host[v.hostname].afk ||= v.type == 'afkstatus';
-      types_by_host[v.hostname].window ||= v.type == 'currentwindow';
-      // TODO: Use other bucket type ID in the future
-      types_by_host[v.hostname].android ||= v.type == 'currentwindow' && v.id.includes('android');
-    });
-    //console.log(types_by_host);
-
-    _.each(types_by_host, (types, hostname) => {
-      if (types['android']) {
-        activityViews.push({
-          name: `${hostname} (Android)`,
-          hostname: hostname,
-          type: 'android',
-          pathUrl: `/activity/${hostname}`,
-          icon: 'mobile',
-        });
-      } else if (hostname != 'unknown') {
-        activityViews.push({
-          name: hostname,
-          hostname: hostname,
-          type: 'default',
-          pathUrl: `/activity/${hostname}`,
-          icon: 'desktop',
-        });
-      }
-    });
-
-    this.activityViews = activityViews;
+  watch: {
+    focusFrogTheme(theme) {
+      this.applyFocusFrogTheme(theme);
+    },
+  },
+  mounted() {
+    this.applyFocusFrogTheme(this.focusFrogTheme);
+  },
+  methods: {
+    applyFocusFrogTheme(theme) {
+      if (typeof document === 'undefined') return;
+      document.documentElement.dataset.dashboardTheme =
+        theme === 'contrast' ? 'contrast' : theme === 'flower' ? 'flower' : 'bright';
+    },
+    async setFocusFrogTheme(theme) {
+      const nextTheme =
+        theme === 'contrast' ? 'contrast' : theme === 'flower' ? 'flower' : 'bright';
+      this.applyFocusFrogTheme(nextTheme);
+      if (this.focusFrogTheme === nextTheme) return;
+      await useSettingsStore().update({ focusFrogTheme: nextTheme });
+    },
   },
 };
 </script>
 
 <style lang="scss" scoped>
-@import '../style/globals';
+@use '../style/globals' as *;
 
 .aw-navbar {
   background-color: white;
   border: solid $lightBorderColor;
   border-width: 0 0 1px 0;
+  min-height: 3.6rem;
+}
+
+.aw-navbar .navbar-brand:not(.app-brand),
+.aw-navbar .abs-center {
+  display: none !important;
+}
+
+.app-brand {
+  display: flex !important;
+  align-items: center;
+  gap: 0.55rem;
+  margin-right: 0.95rem;
+  padding: 0.22rem 0.7rem 0.22rem 0.2rem;
+  border-radius: 999px;
+  color: #102033 !important;
+  text-decoration: none;
+}
+
+.app-brand:hover,
+.app-brand:focus {
+  background-color: rgba(5, 150, 105, 0.1);
+  color: #102033 !important;
+  text-decoration: none;
+}
+
+.brand-logo {
+  position: relative;
+  flex: 0 0 auto;
+  width: 2.4rem;
+  height: 2.35rem;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f8fbff 0%, #ffffff 56%, #fff7ed 100%);
+  box-shadow: 0 9px 20px rgba(15, 23, 42, 0.14);
+  overflow: visible;
+}
+
+.brand-logo-face {
+  position: absolute;
+  inset: 0.42rem 0.12rem 0.08rem;
+  border: 2px solid #047857;
+  border-radius: 54% 54% 48% 48%;
+  background: radial-gradient(circle at 28% 74%, rgba(236, 72, 153, 0.35) 0 9%, transparent 10%),
+    radial-gradient(circle at 72% 74%, rgba(236, 72, 153, 0.35) 0 9%, transparent 10%),
+    radial-gradient(circle at 50% 53%, rgba(255, 255, 255, 0.74) 0 18%, transparent 19%),
+    conic-gradient(from 0deg, rgba(255, 255, 255, 0.75) 0deg 4deg, transparent 4deg 30deg),
+    linear-gradient(135deg, #16a34a 0%, #86efac 100%);
+  box-shadow: inset 0 -0.16rem 0 rgba(4, 120, 87, 0.22), inset 0 0.16rem 0 rgba(255, 255, 255, 0.42);
+}
+
+.brand-logo-eye {
+  position: absolute;
+  top: 0.05rem;
+  z-index: 3;
+  width: 0.77rem;
+  height: 0.77rem;
+  border: 2px solid #047857;
+  border-radius: 50%;
+  background: radial-gradient(circle at 68% 28%, #ffffff 0 10%, transparent 11%), #f8fafc;
+  box-shadow: 0 0.08rem 0 rgba(4, 120, 87, 0.2);
+}
+
+.brand-logo-eye--left {
+  left: 0.2rem;
+}
+
+.brand-logo-eye--right {
+  right: 0.2rem;
+}
+
+.brand-logo-pupil {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.27rem;
+  height: 0.27rem;
+  border-radius: 50%;
+  background: #0f172a;
+  transform: translate(-50%, -50%);
+}
+
+.brand-logo-pupil::after {
+  position: absolute;
+  top: 0.04rem;
+  left: 0.05rem;
+  width: 0.08rem;
+  height: 0.08rem;
+  border-radius: 50%;
+  background: #ffffff;
+  content: '';
+}
+
+.brand-logo-hand {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  height: 0.08rem;
+  border-radius: 999px;
+  background: #102033;
+  transform-origin: left center;
+}
+
+.brand-logo-hand--left {
+  width: 0.62rem;
+  background: #059669;
+  transform: rotate(-138deg);
+}
+
+.brand-logo-hand--right {
+  width: 0.62rem;
+  background: #db2777;
+  transform: rotate(-42deg);
+}
+
+.brand-logo-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  width: 0.2rem;
+  height: 0.2rem;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #2563eb;
+  transform: translate(-50%, -50%);
+}
+
+.brand-logo-mouth {
+  position: absolute;
+  bottom: 0.26rem;
+  left: 50%;
+  width: 0.72rem;
+  height: 0.3rem;
+  border-bottom: 0.09rem solid #9d174d;
+  border-radius: 0 0 999px 999px;
+  transform: translateX(-50%);
+}
+
+.brand-copy {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.02;
+}
+
+.brand-name {
+  color: #102033 !important;
+  font-size: 1.08rem;
+  font-weight: 800;
+}
+
+.brand-tagline {
+  color: #64748b !important;
+  font-size: 0.68rem;
+  font-weight: 650;
 }
 
 .nav-item {
@@ -207,10 +318,107 @@ export default {
   }
 }
 
-.abs-center {
+.app-theme-toggle-form {
+  align-items: center;
+  margin: 0.25rem 0.55rem 0.25rem 0;
+}
+
+.app-theme-toggle {
+  align-items: center;
+}
+
+.app-theme-toggle .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  width: 2.25rem;
+  min-height: 2rem;
+  padding-right: 0;
+  padding-left: 0;
+  border-color: rgba(100, 116, 139, 0.55);
+  font-weight: 650;
+  line-height: 1;
+}
+
+.app-theme-toggle .btn-primary {
+  border-color: #2563eb;
+  background: #2563eb;
+}
+
+.theme-flower-symbol {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0 auto;
+}
+
+.theme-flower-petal,
+.theme-flower-center {
   position: absolute;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
+  display: block;
+}
+
+.theme-flower-petal {
+  width: 0.38rem;
+  height: 0.52rem;
+  border: 1px solid rgba(30, 64, 110, 0.28);
+  border-radius: 999px 999px 760px 760px;
+  background: linear-gradient(180deg, #bfdbfe, #3b82f6);
+  transform: translate(-50%, -50%) rotate(var(--theme-flower-angle)) translateY(-0.34rem);
+  transform-origin: 50% 50%;
+}
+
+.theme-flower-petal--1 {
+  --theme-flower-angle: 0deg;
+}
+
+.theme-flower-petal--2 {
+  --theme-flower-angle: 60deg;
+}
+
+.theme-flower-petal--3 {
+  --theme-flower-angle: 120deg;
+}
+
+.theme-flower-petal--4 {
+  --theme-flower-angle: 180deg;
+}
+
+.theme-flower-petal--5 {
+  --theme-flower-angle: 240deg;
+}
+
+.theme-flower-petal--6 {
+  --theme-flower-angle: 300deg;
+}
+
+.theme-flower-center {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: #fffdf4;
+  box-shadow: inset 0 0 0 1px rgba(30, 64, 110, 0.28);
+  transform: translate(-50%, -50%);
+}
+
+@media (max-width: 991.98px) {
+  .app-brand {
+    margin-right: auto;
+  }
+
+  .brand-tagline {
+    display: none;
+  }
+
+  .app-theme-toggle-form {
+    margin-left: 0.2rem;
+  }
 }
 </style>
 
@@ -220,5 +428,369 @@ export default {
   .nav-link {
     color: #555 !important;
   }
+}
+
+html[data-dashboard-theme='bright'] .aw-navbar {
+  background: linear-gradient(135deg, rgba(248, 251, 255, 0.98), rgba(255, 247, 242, 0.94)),
+    linear-gradient(315deg, rgba(236, 253, 245, 0.98), rgba(239, 246, 255, 0.98));
+  border-color: rgba(148, 163, 184, 0.45);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+html[data-dashboard-theme='bright'] .aw-navbar .nav-link,
+html[data-dashboard-theme='bright'] .aw-navbar .nav-link span,
+html[data-dashboard-theme='bright'] .aw-navbar .nav-link div,
+html[data-dashboard-theme='bright'] .aw-navbar .fa-icon,
+html[data-dashboard-theme='bright'] .aw-navbar .dropdown-toggle {
+  color: #0f172a !important;
+  fill: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .aw-navbar .nav-item:hover {
+  background-color: #e0f2fe;
+}
+
+html[data-dashboard-theme='bright'] .aw-navbar .app-theme-toggle .btn-outline-secondary {
+  background-color: rgba(255, 255, 255, 0.72);
+  color: #0f172a;
+}
+
+html[data-dashboard-theme='bright'] .aw-navbar .app-theme-toggle .btn-outline-secondary .fa-icon {
+  fill: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .aw-navbar .app-brand,
+html[data-dashboard-theme='bright'] .aw-navbar .app-brand:hover,
+html[data-dashboard-theme='bright'] .aw-navbar .app-brand:focus {
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .aw-navbar .app-brand:hover,
+html[data-dashboard-theme='bright'] .aw-navbar .app-brand:focus {
+  background-color: rgba(5, 150, 105, 0.12);
+}
+
+html[data-dashboard-theme='bright'] .aw-navbar .brand-name {
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .aw-navbar .brand-tagline {
+  color: #475569 !important;
+}
+
+html[data-dashboard-theme='flower'] body {
+  background: linear-gradient(rgba(255, 253, 245, 0.56), rgba(255, 249, 244, 0.68)),
+    url('~@/assets/focusfrog-flower-chinoiserie-bg.webp') center top / 460px auto repeat fixed,
+    linear-gradient(135deg, #fff7ed 0%, #fdf2f8 48%, #eff6ff 100%) !important;
+  color: #10213a !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar {
+  background: linear-gradient(135deg, rgba(255, 253, 245, 0.98), rgba(239, 246, 255, 0.96)),
+    linear-gradient(315deg, rgba(219, 234, 254, 0.9), rgba(255, 253, 245, 0.72));
+  border-color: rgba(30, 64, 110, 0.24);
+  box-shadow: 0 8px 24px rgba(15, 38, 71, 0.1);
+}
+
+html[data-dashboard-theme='flower'] .aw-container {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 253, 245, 0.96) !important;
+  border-color: rgba(30, 64, 110, 0.28) !important;
+  box-shadow: 0 22px 55px rgba(15, 38, 71, 0.14) !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-container::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(rgba(255, 253, 245, 0.66), rgba(255, 253, 245, 0.84)),
+    url('~@/assets/focusfrog-flower-chinoiserie-bg.webp') center top / 390px auto repeat;
+  content: '';
+  opacity: 0.82;
+  pointer-events: none;
+}
+
+html[data-dashboard-theme='flower'] .aw-container > * {
+  position: relative;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .nav-link,
+html[data-dashboard-theme='flower'] .aw-navbar .nav-link span,
+html[data-dashboard-theme='flower'] .aw-navbar .nav-link div,
+html[data-dashboard-theme='flower'] .aw-navbar .fa-icon,
+html[data-dashboard-theme='flower'] .aw-navbar .dropdown-toggle {
+  color: #102a4c !important;
+  fill: #102a4c !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .nav-item:hover {
+  background-color: rgba(219, 234, 254, 0.72);
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .app-theme-toggle .btn-outline-secondary {
+  border-color: rgba(30, 64, 110, 0.42);
+  background-color: rgba(255, 253, 245, 0.94);
+  color: #102a4c;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .app-theme-toggle .btn-outline-secondary .fa-icon {
+  fill: #102a4c !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .app-theme-toggle .btn-primary {
+  border-color: #ec4899;
+  background: #ec4899;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .app-brand,
+html[data-dashboard-theme='flower'] .aw-navbar .app-brand:hover,
+html[data-dashboard-theme='flower'] .aw-navbar .app-brand:focus {
+  color: #102a4c !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .app-brand:hover,
+html[data-dashboard-theme='flower'] .aw-navbar .app-brand:focus {
+  background-color: rgba(219, 234, 254, 0.56);
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .brand-name {
+  color: #102a4c !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .brand-tagline {
+  color: #38506f !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .brand-logo {
+  border-color: rgba(30, 64, 110, 0.28);
+  background: linear-gradient(135deg, #fffdf4 0%, #ffffff 56%, #fdf2f8 100%);
+}
+
+html[data-dashboard-theme='flower'] .btn-primary {
+  border-color: #10b981 !important;
+  background-color: #10b981 !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='flower'] .btn-outline-secondary,
+html[data-dashboard-theme='flower'] .btn-outline-primary,
+html[data-dashboard-theme='flower'] .btn-outline-dark {
+  border-color: rgba(30, 64, 110, 0.44) !important;
+  background-color: rgba(255, 253, 245, 0.94) !important;
+  color: #102a4c !important;
+}
+
+html[data-dashboard-theme='flower'] .btn-outline-secondary:hover,
+html[data-dashboard-theme='flower'] .btn-outline-primary:hover,
+html[data-dashboard-theme='flower'] .btn-outline-dark:hover {
+  border-color: rgba(30, 64, 110, 0.56) !important;
+  background-color: #dbeafe !important;
+  color: #102a4c !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page,
+html[data-dashboard-theme='flower'] .timeline-page,
+html[data-dashboard-theme='flower'] .settings-layout,
+html[data-dashboard-theme='flower'] .settings-title,
+html[data-dashboard-theme='flower'] .modal-content {
+  color: #10213a !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page h3,
+html[data-dashboard-theme='flower'] .todos-page h5,
+html[data-dashboard-theme='flower'] .timeline-page h3,
+html[data-dashboard-theme='flower'] .settings-title,
+html[data-dashboard-theme='flower'] .settings-section__title,
+html[data-dashboard-theme='flower'] .modal-title {
+  color: #071b33 !important;
+}
+
+html[data-dashboard-theme='flower'] .text-muted,
+html[data-dashboard-theme='flower'] .todo-card-meta,
+html[data-dashboard-theme='flower'] .todo-card-notes,
+html[data-dashboard-theme='flower'] .todo-mini-meta,
+html[data-dashboard-theme='flower'] .todo-matrix-axis,
+html[data-dashboard-theme='flower'] .todo-plan-subtle,
+html[data-dashboard-theme='flower'] .todo-drag-handle,
+html[data-dashboard-theme='flower'] .todo-calendar-lane-label,
+html[data-dashboard-theme='flower'] .todo-empty,
+html[data-dashboard-theme='flower'] .timeline-table-empty,
+html[data-dashboard-theme='flower'] .timeline-schedule-block-meta,
+html[data-dashboard-theme='flower'] .timeline-schedule-block-title,
+html[data-dashboard-theme='flower'] .settings-content .text-muted,
+html[data-dashboard-theme='flower'] .settings-content small,
+html[data-dashboard-theme='flower'] .settings-section .form-text {
+  color: #38506f !important;
+  opacity: 1 !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-section,
+html[data-dashboard-theme='flower'] .todo-plan-view,
+html[data-dashboard-theme='flower'] .todo-plan-panel,
+html[data-dashboard-theme='flower'] .todo-plan-card,
+html[data-dashboard-theme='flower'] .todo-plan-choice,
+html[data-dashboard-theme='flower'] .todo-calendar-view,
+html[data-dashboard-theme='flower'] .todo-matrix-view,
+html[data-dashboard-theme='flower'] .todo-matrix-quadrant,
+html[data-dashboard-theme='flower'] .todo-matrix-card,
+html[data-dashboard-theme='flower'] .todo-card,
+html[data-dashboard-theme='flower'] .todo-mini-card,
+html[data-dashboard-theme='flower'] .todo-check-button,
+html[data-dashboard-theme='flower'] .todo-priority-flag,
+html[data-dashboard-theme='flower'] .timeline-day-panel,
+html[data-dashboard-theme='flower'] .timeline-table-card,
+html[data-dashboard-theme='flower'] .timeline-schedule-block,
+html[data-dashboard-theme='flower'] .modal-content {
+  border-color: rgba(30, 64, 110, 0.32) !important;
+  background: rgba(255, 253, 245, 0.97) !important;
+  color: #10213a !important;
+}
+
+html[data-dashboard-theme='flower'] .timeline-schedule-block--not-work,
+html[data-dashboard-theme='flower'] .todo-card--upcoming,
+html[data-dashboard-theme='flower'] .todo-matrix-quadrant--delegate {
+  background: #f8fbff !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-card--due,
+html[data-dashboard-theme='flower'] .todo-plan-panel--selected,
+html[data-dashboard-theme='flower'] .todo-calendar-day-header--today {
+  background: linear-gradient(
+    180deg,
+    rgba(239, 246, 255, 0.96),
+    rgba(255, 253, 245, 0.98)
+  ) !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-check-button,
+html[data-dashboard-theme='flower'] .todo-check-button--action,
+html[data-dashboard-theme='flower'] .todo-check-button--mini {
+  border-color: rgba(16, 185, 129, 0.58) !important;
+  background: #ffffff !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-check-button:hover,
+html[data-dashboard-theme='flower'] .todo-check-button:focus {
+  border-color: #10b981 !important;
+  background: #ecfdf5 !important;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14) !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-check-button--complete,
+html[data-dashboard-theme='flower'] .todo-check-button--done {
+  border-color: #10b981 !important;
+  background: #10b981 !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-count,
+html[data-dashboard-theme='flower'] .todo-plan-index {
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-plan-card--frog .todo-plan-index,
+html[data-dashboard-theme='flower'] .todo-frog-badge {
+  border-color: #ec4899 !important;
+  background: #fdf2f8 !important;
+  color: #9d174d !important;
+}
+
+html[data-dashboard-theme='flower'] .custom-control-label::before {
+  border-color: rgba(16, 185, 129, 0.56) !important;
+  background-color: #fffdf5 !important;
+}
+
+html[data-dashboard-theme='flower'] .custom-control-label::after {
+  background-color: #ffffff !important;
+}
+
+html[data-dashboard-theme='flower'] .custom-control-input:checked ~ .custom-control-label::before {
+  border-color: #10b981 !important;
+  background-color: #10b981 !important;
+}
+
+html[data-dashboard-theme='flower'] .custom-control-input:focus ~ .custom-control-label::before {
+  box-shadow: 0 0 0 0.2rem rgba(16, 185, 129, 0.22) !important;
+}
+
+html[data-dashboard-theme='flower'] .custom-switch .custom-control-label::before {
+  background-color: #fdf2f8 !important;
+  border-color: rgba(236, 72, 153, 0.46) !important;
+}
+
+html[data-dashboard-theme='flower']
+  .custom-switch
+  .custom-control-input:checked
+  ~ .custom-control-label::before {
+  background-color: #10b981 !important;
+  border-color: #10b981 !important;
+}
+
+html[data-dashboard-theme='flower'] .settings-nav .nav-link {
+  color: #38506f !important;
+}
+
+html[data-dashboard-theme='flower'] .settings-nav .nav-link:hover {
+  background-color: #dbeafe !important;
+  color: #102a4c !important;
+}
+
+html[data-dashboard-theme='flower'] .settings-nav .nav-link.active,
+html[data-dashboard-theme='flower'] .settings-nav .nav-link.active:hover {
+  background-color: #10b981 !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar {
+  background: #0f131a;
+  border-color: #ffffff;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar .nav-link,
+html[data-dashboard-theme='contrast'] .aw-navbar .nav-link span,
+html[data-dashboard-theme='contrast'] .aw-navbar .nav-link div,
+html[data-dashboard-theme='contrast'] .aw-navbar .fa-icon,
+html[data-dashboard-theme='contrast'] .aw-navbar .dropdown-toggle {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar .nav-item:hover {
+  background-color: #343a40;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar .app-theme-toggle .btn-outline-secondary {
+  border-color: #ffffff;
+  background-color: #151922;
+  color: #ffffff;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar .app-theme-toggle .btn-primary {
+  border-color: #ffffff;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar .app-brand,
+html[data-dashboard-theme='contrast'] .aw-navbar .app-brand:hover,
+html[data-dashboard-theme='contrast'] .aw-navbar .app-brand:focus {
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar .app-brand:hover,
+html[data-dashboard-theme='contrast'] .aw-navbar .app-brand:focus {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar .brand-name,
+html[data-dashboard-theme='contrast'] .aw-navbar .brand-tagline {
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar .brand-logo {
+  border-color: #ffffff;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 58%, #eff6ff 100%);
 }
 </style>

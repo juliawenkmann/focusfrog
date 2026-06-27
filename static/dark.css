@@ -4,11 +4,20 @@
   color-scheme: dark;
 }
 
-a, button, span, div, select {
+a,
+button,
+span,
+div,
+select {
   outline: none;
 }
 
-body, button, html, table, pre, code {
+body,
+button,
+html,
+table,
+pre,
+code {
   color: #e9ebf0 !important;
 }
 
@@ -28,6 +37,978 @@ hr {
 .aw-navbar {
   background-color: #1a1d24 !important;
   border-color: #282c32 !important;
+}
+
+.aw-navbar .navbar-brand:not(.app-brand),
+.aw-navbar .abs-center {
+  display: none !important;
+}
+
+.aw-navbar .app-brand {
+  display: flex !important;
+  color: #e9ebf0 !important;
+}
+
+.aw-navbar .app-brand:hover,
+.aw-navbar .app-brand:focus {
+  color: #ffffff !important;
+}
+
+.aw-navbar .app-brand span {
+  color: inherit !important;
+}
+
+.aw-navbar .app-brand .brand-name {
+  color: #f8fafc !important;
+}
+
+.aw-navbar .app-brand .brand-tagline {
+  color: #cbd5e1 !important;
+}
+
+html[data-dashboard-theme='bright'] .aw-navbar .app-brand,
+html[data-dashboard-theme='bright'] .aw-navbar .app-brand:hover,
+html[data-dashboard-theme='bright'] .aw-navbar .app-brand:focus {
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .aw-navbar .app-brand .brand-name {
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .aw-navbar .app-brand .brand-tagline {
+  color: #475569 !important;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar .app-brand,
+html[data-dashboard-theme='contrast'] .aw-navbar .app-brand:hover,
+html[data-dashboard-theme='contrast'] .aw-navbar .app-brand:focus {
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar .app-brand .brand-name,
+html[data-dashboard-theme='contrast'] .aw-navbar .app-brand .brand-tagline {
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='bright'] .aw-navbar {
+  background: linear-gradient(135deg, rgba(248, 251, 255, 0.98), rgba(255, 247, 242, 0.94)),
+    linear-gradient(315deg, rgba(236, 253, 245, 0.98), rgba(239, 246, 255, 0.98)) !important;
+  border-color: rgba(148, 163, 184, 0.45) !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06) !important;
+}
+
+html[data-dashboard-theme='bright'] body {
+  background: radial-gradient(circle at top left, rgba(236, 253, 245, 0.86), transparent 32rem),
+    radial-gradient(circle at top right, rgba(219, 234, 254, 0.78), transparent 30rem),
+    linear-gradient(135deg, #f8fbff 0%, #fff7f2 48%, #f6fbff 100%) !important;
+}
+
+html[data-dashboard-theme='bright'] .aw-container {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border-color: rgba(148, 163, 184, 0.34) !important;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08) !important;
+}
+
+html[data-dashboard-theme='bright'] .aw-navbar .nav-link,
+html[data-dashboard-theme='bright'] .aw-navbar .nav-link span,
+html[data-dashboard-theme='bright'] .aw-navbar .nav-link div,
+html[data-dashboard-theme='bright'] .aw-navbar .fa-icon,
+html[data-dashboard-theme='bright'] .aw-navbar .dropdown-toggle {
+  color: #0f172a !important;
+  fill: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .aw-navbar .nav-item:hover {
+  background-color: #e0f2fe !important;
+}
+
+html[data-dashboard-theme='bright'] .aw-navbar .app-theme-toggle .btn-outline-secondary {
+  background-color: rgba(255, 255, 255, 0.78) !important;
+  border-color: rgba(100, 116, 139, 0.52) !important;
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .aw-navbar .app-theme-toggle .btn-outline-secondary .fa-icon {
+  fill: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .navbar-toggler-icon {
+  filter: none !important;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar {
+  background: #0f131a !important;
+  border-color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] body,
+html[data-dashboard-theme='contrast'] body a,
+html[data-dashboard-theme='contrast'] body button,
+html[data-dashboard-theme='contrast'] body div,
+html[data-dashboard-theme='contrast'] body h1,
+html[data-dashboard-theme='contrast'] body h2,
+html[data-dashboard-theme='contrast'] body h3,
+html[data-dashboard-theme='contrast'] body h4,
+html[data-dashboard-theme='contrast'] body h5,
+html[data-dashboard-theme='contrast'] body h6,
+html[data-dashboard-theme='contrast'] body label,
+html[data-dashboard-theme='contrast'] body p,
+html[data-dashboard-theme='contrast'] body small,
+html[data-dashboard-theme='contrast'] body span,
+html[data-dashboard-theme='contrast'] body strong {
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar .nav-link,
+html[data-dashboard-theme='contrast'] .aw-navbar .nav-link span,
+html[data-dashboard-theme='contrast'] .aw-navbar .nav-link div,
+html[data-dashboard-theme='contrast'] .aw-navbar .fa-icon,
+html[data-dashboard-theme='contrast'] .aw-navbar .dropdown-toggle {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar .nav-item:hover {
+  background-color: #343a40 !important;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar .app-theme-toggle .btn-outline-secondary {
+  background-color: #151922 !important;
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar .app-theme-toggle .btn-primary {
+  border-color: #ffffff !important;
+}
+
+html[data-dashboard-theme='flower'] body {
+  background: linear-gradient(rgba(255, 253, 245, 0.56), rgba(255, 249, 244, 0.68)),
+    url('/focusfrog-flower-chinoiserie-bg.webp') center top / 460px auto repeat fixed,
+    linear-gradient(135deg, #fff7ed 0%, #fdf2f8 48%, #eff6ff 100%) !important;
+}
+
+html[data-dashboard-theme='flower'],
+html[data-dashboard-theme='flower'] body,
+html[data-dashboard-theme='flower'] button,
+html[data-dashboard-theme='flower'] table,
+html[data-dashboard-theme='flower'] pre,
+html[data-dashboard-theme='flower'] code {
+  color: #0b1f35 !important;
+}
+
+html[data-dashboard-theme='flower'] body a,
+html[data-dashboard-theme='flower'] body div,
+html[data-dashboard-theme='flower'] body h1,
+html[data-dashboard-theme='flower'] body h2,
+html[data-dashboard-theme='flower'] body h3,
+html[data-dashboard-theme='flower'] body h4,
+html[data-dashboard-theme='flower'] body h5,
+html[data-dashboard-theme='flower'] body h6,
+html[data-dashboard-theme='flower'] body label,
+html[data-dashboard-theme='flower'] body li,
+html[data-dashboard-theme='flower'] body p,
+html[data-dashboard-theme='flower'] body small,
+html[data-dashboard-theme='flower'] body span,
+html[data-dashboard-theme='flower'] body strong,
+html[data-dashboard-theme='flower'] body td,
+html[data-dashboard-theme='flower'] body th {
+  color: #0b1f35 !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar {
+  background: linear-gradient(135deg, rgba(255, 253, 245, 0.98), rgba(239, 246, 255, 0.96)),
+    linear-gradient(315deg, rgba(219, 234, 254, 0.9), rgba(255, 253, 245, 0.72)) !important;
+  border-color: rgba(30, 64, 110, 0.24) !important;
+  box-shadow: 0 8px 24px rgba(15, 38, 71, 0.1) !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-container {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 253, 245, 0.96) !important;
+  border-color: rgba(30, 64, 110, 0.28) !important;
+  box-shadow: 0 22px 55px rgba(15, 38, 71, 0.14) !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-container::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(rgba(255, 253, 245, 0.66), rgba(255, 253, 245, 0.84)),
+    url('/focusfrog-flower-chinoiserie-bg.webp') center top / 390px auto repeat;
+  content: '';
+  opacity: 0.82;
+  pointer-events: none;
+}
+
+html[data-dashboard-theme='flower'] .aw-container > * {
+  position: relative;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .nav-link,
+html[data-dashboard-theme='flower'] .aw-navbar .nav-link span,
+html[data-dashboard-theme='flower'] .aw-navbar .nav-link div,
+html[data-dashboard-theme='flower'] .aw-navbar .fa-icon,
+html[data-dashboard-theme='flower'] .aw-navbar .dropdown-toggle {
+  color: #0b1f35 !important;
+  fill: #0b1f35 !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .nav-item:hover {
+  background-color: rgba(219, 234, 254, 0.72) !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .app-theme-toggle .btn-outline-secondary {
+  border-color: rgba(30, 64, 110, 0.42) !important;
+  background-color: rgba(255, 253, 245, 0.94) !important;
+  color: #0b1f35 !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .app-theme-toggle .btn-outline-secondary .fa-icon {
+  fill: #0b1f35 !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .app-theme-toggle .btn-primary {
+  border-color: #ec4899 !important;
+  background: #ec4899 !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .app-brand,
+html[data-dashboard-theme='flower'] .aw-navbar .app-brand:hover,
+html[data-dashboard-theme='flower'] .aw-navbar .app-brand:focus {
+  color: #0b1f35 !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .app-brand:hover,
+html[data-dashboard-theme='flower'] .aw-navbar .app-brand:focus {
+  background-color: rgba(219, 234, 254, 0.56) !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .brand-name {
+  color: #0b1f35 !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .brand-tagline {
+  color: #263f5f !important;
+}
+
+html[data-dashboard-theme='flower'] .aw-navbar .brand-logo {
+  border-color: rgba(30, 64, 110, 0.28) !important;
+  background: linear-gradient(135deg, #fffdf4 0%, #ffffff 56%, #fdf2f8 100%) !important;
+}
+
+html[data-dashboard-theme='flower'] .form-control,
+html[data-dashboard-theme='flower'] .custom-select,
+html[data-dashboard-theme='flower'] select,
+html[data-dashboard-theme='flower'] textarea {
+  background-color: rgba(255, 253, 245, 0.96) !important;
+  border-color: rgba(30, 64, 110, 0.42) !important;
+  color: #0b1f35 !important;
+}
+
+html[data-dashboard-theme='flower'] .btn-primary {
+  border-color: #10b981 !important;
+  background-color: #10b981 !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='flower'] .btn-primary div,
+html[data-dashboard-theme='flower'] .btn-primary span,
+html[data-dashboard-theme='flower'] .btn-primary strong,
+html[data-dashboard-theme='flower'] .btn-primary .fa-icon {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+html[data-dashboard-theme='flower'] .btn-outline-secondary,
+html[data-dashboard-theme='flower'] .btn-outline-primary,
+html[data-dashboard-theme='flower'] .btn-outline-dark {
+  border-color: rgba(30, 64, 110, 0.44) !important;
+  background-color: rgba(255, 253, 245, 0.94) !important;
+  color: #0b1f35 !important;
+}
+
+html[data-dashboard-theme='flower'] .btn-outline-secondary:hover,
+html[data-dashboard-theme='flower'] .btn-outline-primary:hover,
+html[data-dashboard-theme='flower'] .btn-outline-dark:hover {
+  border-color: rgba(30, 64, 110, 0.56) !important;
+  background-color: #dbeafe !important;
+  color: #0b1f35 !important;
+}
+
+html[data-dashboard-theme='flower'] .time-dashboard.theme-flower,
+html[data-dashboard-theme='flower'] .todos-page,
+html[data-dashboard-theme='flower'] .timeline-page,
+html[data-dashboard-theme='flower'] .settings-layout,
+html[data-dashboard-theme='flower'] .settings-title,
+html[data-dashboard-theme='flower'] .pomodoro-page {
+  color: #0b1f35 !important;
+}
+
+html[data-dashboard-theme='flower'] .time-dashboard.theme-flower h3,
+html[data-dashboard-theme='flower'] .time-dashboard.theme-flower h5,
+html[data-dashboard-theme='flower'] .todos-page h3,
+html[data-dashboard-theme='flower'] .todos-page h5,
+html[data-dashboard-theme='flower'] .timeline-page h3,
+html[data-dashboard-theme='flower'] .settings-title,
+html[data-dashboard-theme='flower'] .settings-section__title,
+html[data-dashboard-theme='flower'] .pomodoro-page h3,
+html[data-dashboard-theme='flower'] .pomodoro-page h4,
+html[data-dashboard-theme='flower'] .pomodoro-page h5,
+html[data-dashboard-theme='flower'] .pomodoro-page h6 {
+  color: #071b33 !important;
+}
+
+html[data-dashboard-theme='flower'] .text-muted,
+html[data-dashboard-theme='flower'] .todo-card-meta,
+html[data-dashboard-theme='flower'] .todo-card-notes,
+html[data-dashboard-theme='flower'] .todo-frog-copy,
+html[data-dashboard-theme='flower'] .todo-frog-meta,
+html[data-dashboard-theme='flower'] .todo-frog-pill,
+html[data-dashboard-theme='flower'] .todo-mini-meta,
+html[data-dashboard-theme='flower'] .todo-matrix-axis,
+html[data-dashboard-theme='flower'] .todo-plan-subtle,
+html[data-dashboard-theme='flower'] .todo-drag-handle,
+html[data-dashboard-theme='flower'] .todo-calendar-lane-label,
+html[data-dashboard-theme='flower'] .todo-empty,
+html[data-dashboard-theme='flower'] .timeline-table-empty,
+html[data-dashboard-theme='flower'] .timeline-schedule-block-meta,
+html[data-dashboard-theme='flower'] .timeline-schedule-block-title,
+html[data-dashboard-theme='flower'] .settings-content .text-muted,
+html[data-dashboard-theme='flower'] .settings-content small,
+html[data-dashboard-theme='flower'] .settings-section .form-text,
+html[data-dashboard-theme='flower'] .pomodoro-subtitle,
+html[data-dashboard-theme='flower'] .pomodoro-running-note,
+html[data-dashboard-theme='flower'] .pomodoro-session-meta,
+html[data-dashboard-theme='flower'] .pomodoro-empty,
+html[data-dashboard-theme='flower'] .pomodoro-mode-label,
+html[data-dashboard-theme='flower'] .pomodoro-caption,
+html[data-dashboard-theme='flower'] .pomodoro-date,
+html[data-dashboard-theme='flower'] .pomodoro-distraction-copy span {
+  color: #263f5f !important;
+  opacity: 1 !important;
+}
+
+html[data-dashboard-theme='flower'] .metric-tile,
+html[data-dashboard-theme='flower'] .balance-section,
+html[data-dashboard-theme='flower'] .chart-section,
+html[data-dashboard-theme='flower'] .timeline-section,
+html[data-dashboard-theme='flower'] .todo-section,
+html[data-dashboard-theme='flower'] .todo-plan-view,
+html[data-dashboard-theme='flower'] .todo-plan-panel,
+html[data-dashboard-theme='flower'] .todo-plan-card,
+html[data-dashboard-theme='flower'] .todo-plan-choice,
+html[data-dashboard-theme='flower'] .todo-frog-card,
+html[data-dashboard-theme='flower'] .todo-frog-pill,
+html[data-dashboard-theme='flower'] .todo-calendar-view,
+html[data-dashboard-theme='flower'] .todo-matrix-view,
+html[data-dashboard-theme='flower'] .todo-matrix-quadrant,
+html[data-dashboard-theme='flower'] .todo-matrix-card,
+html[data-dashboard-theme='flower'] .todo-card,
+html[data-dashboard-theme='flower'] .todo-mini-card,
+html[data-dashboard-theme='flower'] .todo-check-button,
+html[data-dashboard-theme='flower'] .todo-priority-flag,
+html[data-dashboard-theme='flower'] .timeline-day-panel,
+html[data-dashboard-theme='flower'] .timeline-table-card,
+html[data-dashboard-theme='flower'] .timeline-schedule-block,
+html[data-dashboard-theme='flower'] .pomodoro-card,
+html[data-dashboard-theme='flower'] .pomodoro-mode-button,
+html[data-dashboard-theme='flower'] .pomodoro-legend-pill,
+html[data-dashboard-theme='flower'] .pomodoro-face,
+html[data-dashboard-theme='flower'] .pomodoro-active-label,
+html[data-dashboard-theme='flower'] .pomodoro-next-card,
+html[data-dashboard-theme='flower'] .pomodoro-distraction-popup,
+html[data-dashboard-theme='flower'] .modal-content {
+  border-color: rgba(30, 64, 110, 0.32) !important;
+  background: rgba(255, 253, 245, 0.97) !important;
+  color: #0b1f35 !important;
+}
+
+html[data-dashboard-theme='flower'] .timeline-schedule-block--not-work,
+html[data-dashboard-theme='flower'] .todo-card--upcoming,
+html[data-dashboard-theme='flower'] .todo-matrix-quadrant--delegate {
+  background: #f8fbff !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-card--due,
+html[data-dashboard-theme='flower'] .todo-plan-panel--selected,
+html[data-dashboard-theme='flower'] .todo-calendar-day-header--today {
+  background: linear-gradient(
+    180deg,
+    rgba(239, 246, 255, 0.96),
+    rgba(255, 253, 245, 0.98)
+  ) !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-plan-panel--available,
+html[data-dashboard-theme='flower'] .todo-frog-pill--active,
+html[data-dashboard-theme='flower'] .timeline-day-chip,
+html[data-dashboard-theme='flower'] .timeline-date-input {
+  background: rgba(255, 253, 245, 0.97) !important;
+  border-color: rgba(30, 64, 110, 0.34) !important;
+  color: #0b1f35 !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-frog-card {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 253, 245, 0.98),
+    rgba(219, 234, 254, 0.84)
+  ) !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-frog-card--drop-active {
+  border-style: dashed !important;
+  border-color: rgba(236, 72, 153, 0.72) !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-frog-card--drop-over {
+  background: #fdf2f8 !important;
+  border-color: #ec4899 !important;
+  box-shadow: 0 16px 34px rgba(236, 72, 153, 0.2) !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-frog-card--eaten {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 253, 245, 0.98),
+    rgba(255, 241, 242, 0.9)
+  ) !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-frog-copy {
+  color: #0b1f35 !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-frog-pill--active {
+  border-color: #ec4899 !important;
+  background: #fdf2f8 !important;
+  color: #9d174d !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-check-button,
+html[data-dashboard-theme='flower'] .todo-check-button--action,
+html[data-dashboard-theme='flower'] .todo-check-button--mini {
+  border-color: rgba(16, 185, 129, 0.58) !important;
+  background: #ffffff !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-check-button:hover,
+html[data-dashboard-theme='flower'] .todo-check-button:focus {
+  border-color: #10b981 !important;
+  background: #ecfdf5 !important;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14) !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-check-button--complete,
+html[data-dashboard-theme='flower'] .todo-check-button--done {
+  border-color: #10b981 !important;
+  background: #10b981 !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-check-button--complete .fa-icon,
+html[data-dashboard-theme='flower'] .todo-check-button--done .fa-icon {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-count,
+html[data-dashboard-theme='flower'] .todo-plan-index {
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-plan-card--frog .todo-plan-index,
+html[data-dashboard-theme='flower'] .todo-frog-badge {
+  border-color: #ec4899 !important;
+  background: #fdf2f8 !important;
+  color: #9d174d !important;
+}
+
+html[data-dashboard-theme='flower'] .custom-control-label::before {
+  border-color: rgba(16, 185, 129, 0.56) !important;
+  background-color: #fffdf5 !important;
+}
+
+html[data-dashboard-theme='flower'] .custom-control-label::after {
+  background-color: #ffffff !important;
+}
+
+html[data-dashboard-theme='flower'] .custom-control-input:checked ~ .custom-control-label::before {
+  border-color: #10b981 !important;
+  background-color: #10b981 !important;
+}
+
+html[data-dashboard-theme='flower'] .custom-control-input:checked ~ .custom-control-label::after {
+  background-color: #ffffff !important;
+}
+
+html[data-dashboard-theme='flower'] .custom-control-input:focus ~ .custom-control-label::before {
+  box-shadow: 0 0 0 0.2rem rgba(16, 185, 129, 0.22) !important;
+}
+
+html[data-dashboard-theme='flower'] .custom-switch .custom-control-label::before {
+  background-color: #fdf2f8 !important;
+  border-color: rgba(236, 72, 153, 0.46) !important;
+}
+
+html[data-dashboard-theme='flower']
+  .custom-switch
+  .custom-control-input:checked
+  ~ .custom-control-label::before {
+  background-color: #10b981 !important;
+  border-color: #10b981 !important;
+}
+
+html[data-dashboard-theme='flower'] .timeline-day-chip--selected,
+html[data-dashboard-theme='flower'] .timeline-day-chip--selected:hover,
+html[data-dashboard-theme='flower'] .timeline-day-panel .btn-primary {
+  background: #10b981 !important;
+  border-color: #10b981 !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='flower'] .settings-nav .nav-link {
+  color: #263f5f !important;
+}
+
+html[data-dashboard-theme='flower'] .settings-nav .nav-link:hover {
+  background-color: #dbeafe !important;
+  color: #0b1f35 !important;
+}
+
+html[data-dashboard-theme='flower'] .settings-nav .nav-link.active,
+html[data-dashboard-theme='flower'] .settings-nav .nav-link.active:hover {
+  background-color: #10b981 !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='flower'] .pomodoro-page {
+  background: linear-gradient(rgba(255, 253, 245, 0.8), rgba(248, 252, 255, 0.88)),
+    url('/focusfrog-flower-chinoiserie-bg.webp') center top / 430px auto repeat,
+    linear-gradient(135deg, rgba(255, 253, 245, 0.96), rgba(239, 246, 255, 0.88) 52%) !important;
+}
+
+html[data-dashboard-theme='flower'] .pomodoro-bloom {
+  display: block !important;
+}
+
+html[data-dashboard-theme='flower'] .pomodoro-kicker,
+html[data-dashboard-theme='flower'] .pomodoro-distraction-copy strong,
+html[data-dashboard-theme='flower'] .pomodoro-next-card--break strong {
+  color: #db2777 !important;
+}
+
+html[data-dashboard-theme='flower'] .pomodoro-distraction-icon {
+  background: #fdf2f8 !important;
+  color: #db2777 !important;
+}
+
+html[data-dashboard-theme='flower'] .pomodoro-distraction-close {
+  border-color: rgba(16, 185, 129, 0.42) !important;
+  background: #ffffff !important;
+  color: #059669 !important;
+}
+
+html[data-dashboard-theme='flower'] .pomodoro-distraction-close:hover,
+html[data-dashboard-theme='flower'] .pomodoro-distraction-close:focus {
+  border-color: #ec4899 !important;
+  background: #fdf2f8 !important;
+  color: #db2777 !important;
+}
+
+html[data-dashboard-theme='flower'] .pomodoro-next-card--focus strong,
+html[data-dashboard-theme='flower'] .pomodoro-legend-pill--focus {
+  color: #059669 !important;
+}
+
+html[data-dashboard-theme='flower'] .pomodoro-mode-button--focus.pomodoro-mode-button--active {
+  border-color: #059669 !important;
+  background: rgba(220, 252, 231, 0.82) !important;
+  color: #059669 !important;
+}
+
+html[data-dashboard-theme='flower'] .pomodoro-mode-button--break.pomodoro-mode-button--active {
+  border-color: #ec4899 !important;
+  background: rgba(253, 242, 248, 0.9) !important;
+  color: #db2777 !important;
+}
+
+.time-dashboard .metric-tile,
+.time-dashboard .balance-section,
+.time-dashboard .day-cell,
+.time-dashboard .chart-section,
+.time-dashboard .timeline-section {
+  background-color: #21252c !important;
+  border-color: #e9ebf0 !important;
+  color: #e9ebf0 !important;
+}
+
+.time-dashboard .metric-value,
+.time-dashboard .day-hours,
+.time-dashboard .day-hours span,
+.time-dashboard .chart-total,
+.time-dashboard .legend-name,
+.time-dashboard .legend-hours,
+.time-dashboard .legend-percent,
+.time-dashboard .pie-hole strong,
+.time-dashboard .timeline-legend-item {
+  color: #f4f7fb !important;
+}
+
+.time-dashboard .metric-label,
+.time-dashboard .section-label,
+.time-dashboard .day-name,
+.time-dashboard .metric-note,
+.time-dashboard .day-cell .text-muted,
+.time-dashboard .day-cell .text-muted span,
+.time-dashboard .pie-hole span {
+  color: #b9c0cc !important;
+}
+
+.time-dashboard .balance-labels,
+.time-dashboard .balance-hours,
+.time-dashboard .balance-labels span,
+.time-dashboard .balance-hours span {
+  color: #c9d0dc !important;
+}
+
+.time-dashboard .balance-bar {
+  background-color: #343a40 !important;
+  border-color: #e9ebf0 !important;
+}
+
+.time-dashboard .pie-chart,
+.time-dashboard .pie-hole,
+.time-dashboard .legend-color,
+.time-dashboard .timeline-legend-dot {
+  border-color: #e9ebf0 !important;
+}
+
+.time-dashboard .pie-hole {
+  background-color: #21252c !important;
+}
+
+.time-dashboard .timeline-axis {
+  stroke: #e9ebf0 !important;
+}
+
+.time-dashboard .timeline-grid {
+  stroke: rgba(233, 235, 240, 0.18) !important;
+}
+
+.time-dashboard .timeline-y-label,
+.time-dashboard .timeline-x-label,
+.time-dashboard .timeline-axis-title {
+  fill: #b9c0cc !important;
+}
+
+.time-dashboard .timeline-line-work {
+  stroke: #059669 !important;
+}
+
+.time-dashboard .timeline-line-not-work {
+  stroke: #db2777 !important;
+}
+
+.time-dashboard .timeline-line-total {
+  stroke: #93c5fd !important;
+}
+
+.time-dashboard .timeline-point-work {
+  fill: #059669 !important;
+}
+
+.time-dashboard .timeline-point-not-work {
+  fill: #db2777 !important;
+}
+
+.time-dashboard .timeline-point-total {
+  fill: #93c5fd !important;
+}
+
+.time-dashboard.theme-contrast,
+.time-dashboard.theme-contrast *,
+.time-dashboard.theme-contrast .text-muted,
+.time-dashboard.theme-contrast .metric-label,
+.time-dashboard.theme-contrast .section-label,
+.time-dashboard.theme-contrast .day-name,
+.time-dashboard.theme-contrast .metric-note,
+.time-dashboard.theme-contrast .day-cell .text-muted,
+.time-dashboard.theme-contrast .day-cell .text-muted span,
+.time-dashboard.theme-contrast .pie-hole span,
+.time-dashboard.theme-contrast .timeline-legend-item {
+  color: #ffffff !important;
+}
+
+.time-dashboard.theme-contrast .metric-tile,
+.time-dashboard.theme-contrast .balance-section,
+.time-dashboard.theme-contrast .day-cell,
+.time-dashboard.theme-contrast .chart-section,
+.time-dashboard.theme-contrast .timeline-section {
+  background-color: #151922 !important;
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
+.time-dashboard.theme-contrast .metric-tile {
+  position: relative;
+  overflow: hidden;
+}
+
+.time-dashboard.theme-contrast .metric-tile::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 6px;
+  content: '';
+}
+
+.time-dashboard.theme-contrast .metric-work {
+  background: linear-gradient(180deg, rgba(5, 150, 105, 0.34), #151922 76%) !important;
+  border-color: #059669 !important;
+}
+
+.time-dashboard.theme-contrast .metric-work::before {
+  background: #059669 !important;
+}
+
+.time-dashboard.theme-contrast .metric-not-work {
+  background: linear-gradient(180deg, rgba(219, 39, 119, 0.34), #151922 76%) !important;
+  border-color: #db2777 !important;
+}
+
+.time-dashboard.theme-contrast .metric-not-work::before {
+  background: #db2777 !important;
+}
+
+.time-dashboard.theme-contrast .metric-total {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.36), #151922 76%) !important;
+  border-color: #2563eb !important;
+}
+
+.time-dashboard.theme-contrast .metric-total::before {
+  background: #2563eb !important;
+}
+
+.time-dashboard.theme-contrast .balance-bar {
+  background-color: #343a40 !important;
+  border-color: #ffffff !important;
+}
+
+.time-dashboard.theme-contrast .pie-chart,
+.time-dashboard.theme-contrast .pie-hole,
+.time-dashboard.theme-contrast .legend-color,
+.time-dashboard.theme-contrast .timeline-legend-dot {
+  border-color: #ffffff !important;
+}
+
+.time-dashboard.theme-contrast .pie-hole {
+  background-color: #151922 !important;
+}
+
+.time-dashboard.theme-contrast .timeline-axis {
+  stroke: #ffffff !important;
+}
+
+.time-dashboard.theme-contrast .timeline-grid {
+  stroke: rgba(255, 255, 255, 0.24) !important;
+}
+
+.time-dashboard.theme-contrast .timeline-y-label,
+.time-dashboard.theme-contrast .timeline-x-label,
+.time-dashboard.theme-contrast .timeline-axis-title {
+  fill: #ffffff !important;
+}
+
+.time-dashboard.theme-bright {
+  background: linear-gradient(135deg, rgba(248, 251, 255, 0.96) 0%, rgba(255, 247, 242, 0.9) 47%),
+    linear-gradient(315deg, rgba(236, 253, 245, 0.95) 0%, rgba(239, 246, 255, 0.95) 68%) !important;
+  color: #0f172a !important;
+}
+
+.time-dashboard.theme-bright,
+.time-dashboard.theme-bright div,
+.time-dashboard.theme-bright span,
+.time-dashboard.theme-bright h3,
+.time-dashboard.theme-bright h5 {
+  color: #0f172a !important;
+}
+
+.time-dashboard.theme-bright .text-muted,
+.time-dashboard.theme-bright .metric-note,
+.time-dashboard.theme-bright .day-cell .text-muted,
+.time-dashboard.theme-bright .day-cell .text-muted span,
+.time-dashboard.theme-bright .pie-hole span {
+  color: #475569 !important;
+}
+
+.time-dashboard.theme-bright .metric-label,
+.time-dashboard.theme-bright .section-label,
+.time-dashboard.theme-bright .day-name,
+.time-dashboard.theme-bright .balance-labels,
+.time-dashboard.theme-bright .balance-hours,
+.time-dashboard.theme-bright .balance-labels span,
+.time-dashboard.theme-bright .balance-hours span {
+  color: #334155 !important;
+}
+
+.time-dashboard.theme-bright .btn-outline-secondary,
+.time-dashboard.theme-bright .btn-outline-primary {
+  background-color: rgba(255, 255, 255, 0.74) !important;
+  border-color: rgba(100, 116, 139, 0.55) !important;
+  color: #334155 !important;
+}
+
+.time-dashboard.theme-bright .btn-outline-secondary:hover,
+.time-dashboard.theme-bright .btn-outline-primary:hover {
+  background-color: #e0f2fe !important;
+  border-color: rgba(37, 99, 235, 0.52) !important;
+  color: #0f172a !important;
+}
+
+.time-dashboard.theme-bright .btn-primary,
+.time-dashboard.theme-bright .btn-primary span {
+  color: #ffffff !important;
+}
+
+.time-dashboard.theme-bright .metric-tile {
+  background-color: rgba(255, 255, 255, 0.88) !important;
+  border-color: rgba(148, 163, 184, 0.42) !important;
+  color: #0f172a !important;
+}
+
+.time-dashboard.theme-bright .metric-work {
+  background: linear-gradient(
+    180deg,
+    rgba(236, 253, 245, 0.92),
+    rgba(255, 255, 255, 0.9)
+  ) !important;
+}
+
+.time-dashboard.theme-bright .metric-not-work {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 247, 237, 0.94),
+    rgba(255, 255, 255, 0.9)
+  ) !important;
+}
+
+.time-dashboard.theme-bright .metric-total {
+  background: linear-gradient(
+    180deg,
+    rgba(239, 246, 255, 0.94),
+    rgba(255, 255, 255, 0.9)
+  ) !important;
+}
+
+.time-dashboard.theme-bright .metric-work::before {
+  background: #059669 !important;
+}
+
+.time-dashboard.theme-bright .metric-not-work::before {
+  background: #db2777 !important;
+}
+
+.time-dashboard.theme-bright .metric-total::before {
+  background: linear-gradient(90deg, #2563eb, #06b6d4) !important;
+}
+
+.time-dashboard.theme-bright .balance-section,
+.time-dashboard.theme-bright .chart-section,
+.time-dashboard.theme-bright .timeline-section,
+.time-dashboard.theme-bright .day-cell {
+  background-color: rgba(255, 255, 255, 0.82) !important;
+  border-color: rgba(148, 163, 184, 0.4) !important;
+  color: #0f172a !important;
+}
+
+.time-dashboard.theme-bright .balance-bar {
+  background-color: #e2e8f0 !important;
+  border-color: transparent !important;
+}
+
+.time-dashboard.theme-bright .balance-work,
+.time-dashboard.theme-bright .work-dot {
+  background: #059669 !important;
+}
+
+.time-dashboard.theme-bright .balance-not-work,
+.time-dashboard.theme-bright .not-work-dot {
+  background: #db2777 !important;
+}
+
+.time-dashboard.theme-bright .pie-chart,
+.time-dashboard.theme-bright .pie-hole,
+.time-dashboard.theme-bright .legend-color {
+  border-color: rgba(15, 23, 42, 0.68) !important;
+}
+
+.time-dashboard.theme-bright .pie-hole {
+  background-color: rgba(255, 255, 255, 0.94) !important;
+}
+
+.time-dashboard.theme-flower .pie-hole {
+  border-color: rgba(15, 23, 42, 0.42) !important;
+  background-color: rgba(255, 255, 255, 0.96) !important;
+}
+
+.time-dashboard.theme-flower .pie-hole span {
+  color: #475569 !important;
+}
+
+.time-dashboard.theme-flower .pie-hole strong {
+  color: #0f172a !important;
+}
+
+.time-dashboard.theme-bright .timeline-legend-item {
+  color: #0f172a !important;
+}
+
+.time-dashboard.theme-bright .timeline-legend-dot {
+  border-color: rgba(15, 23, 42, 0.55) !important;
+}
+
+.time-dashboard.theme-bright .timeline-axis {
+  stroke: rgba(15, 23, 42, 0.74) !important;
+}
+
+.time-dashboard.theme-bright .timeline-grid {
+  stroke: rgba(100, 116, 139, 0.24) !important;
+}
+
+.time-dashboard.theme-bright .timeline-y-label,
+.time-dashboard.theme-bright .timeline-x-label,
+.time-dashboard.theme-bright .timeline-axis-title {
+  fill: #475569 !important;
+}
+
+.time-dashboard.theme-bright .timeline-line-work {
+  stroke: #059669 !important;
+}
+
+.time-dashboard.theme-bright .timeline-line-not-work {
+  stroke: #db2777 !important;
+}
+
+.time-dashboard.theme-bright .timeline-line-total {
+  stroke: #2563eb !important;
+}
+
+.time-dashboard.theme-bright .timeline-point-work {
+  fill: #059669 !important;
+}
+
+.time-dashboard.theme-bright .timeline-point-not-work {
+  fill: #db2777 !important;
+}
+
+.time-dashboard.theme-bright .timeline-point-total {
+  fill: #2563eb !important;
 }
 
 .nav-item a.nav-link {
@@ -111,7 +1092,9 @@ hr {
   background-color: #282c32 !important;
 }
 
-.custom-select, .form-control, select {
+.custom-select,
+.form-control,
+select {
   background-color: #1a1d24 !important;
   border-color: #282c32 !important;
   color: #e9ebf0 !important;
@@ -157,24 +1140,24 @@ hr {
   color: #212529 !important;
 }
 
-[class*=table-responsive-] > .table,
+[class*='table-responsive-'] > .table,
 .table {
   color: #e9ebf0 !important;
 }
 
-[class*=table-responsive-] > .table *,
+[class*='table-responsive-'] > .table *,
 .table * {
   border-color: #454d55 !important;
 }
 
-[class*=table-responsive-] > .table tr:hover:not(thead tr),
+[class*='table-responsive-'] > .table tr:hover:not(thead tr),
 .table.b-table.table-hover tbody tr:hover,
 .table-hover tbody tr:hover {
   color: #fff !important;
-  background-color: hsla(0, 0%, 100%, .075) !important;
+  background-color: hsla(0, 0%, 100%, 0.075) !important;
 }
 
-[class*=table-responsive-] > .table .btn-outline-secondary {
+[class*='table-responsive-'] > .table .btn-outline-secondary {
   background-color: #ffc107 !important;
   color: #212529 !important;
 }
@@ -228,7 +1211,8 @@ hr {
   background-color: #282c32 !important;
 }
 
-#visualization *:not([style*="border:"]):not([style*="border-color:"]), svg,
+#visualization *:not([style*='border:']):not([style*='border-color:']),
+svg,
 .nav.nav-tabs,
 .btn-outline-secondary {
   border-color: #282c32 !important;
@@ -249,15 +1233,15 @@ svg#timespiral textPath {
   opacity: 0.95;
 }
 
-svg.appsummary g rect[style="fill: rgb(204, 204, 204);"] {
+svg.appsummary g rect[style='fill: rgb(204, 204, 204);'] {
   fill: #666666 !important;
 }
 
-svg.appsummary g rect[style="fill: rgb(184, 184, 184);"] {
+svg.appsummary g rect[style='fill: rgb(184, 184, 184);'] {
   fill: #555555 !important;
 }
 
-svg path[style="fill: rgb(255, 255, 255);"] {
+svg path[style='fill: rgb(255, 255, 255);'] {
   fill: #23272d !important;
 }
 
@@ -276,16 +1260,16 @@ ul.nav li.nav-item a.nav-link:hover h6 {
   padding: 5px 0 !important;
 }
 
-div[style="background-color: rgb(238, 238, 238);"] {
+div[style='background-color: rgb(238, 238, 238);'] {
   background-color: transparent !important;
 }
 
-div[style="color: rgb(85, 85, 85); font-size: 0.9em;"] {
+div[style='color: rgb(85, 85, 85); font-size: 0.9em;'] {
   color: #e9ebf0 !important;
 }
 
 .stopwatch-entry:hover,
-.category-builder-word:hover>* {
+.category-builder-word:hover > * {
   background-color: #282c32 !important;
 }
 
@@ -298,15 +1282,15 @@ div[style="color: rgb(85, 85, 85); font-size: 0.9em;"] {
   background-color: #1a1d24 !important;
 }
 
-[aria-sort="none"] {
+[aria-sort='none'] {
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='101' height='101' preserveAspectRatio='none' fill='white' opacity='.4'%3E%3Cpath d='m51 1 25 23 24 22H1l25-22zm0 100 25-23 24-22H1l25 22z'/%3E%3C/svg%3E") !important;
 }
 
-[aria-sort="ascending"] {
+[aria-sort='ascending'] {
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='101' height='101' preserveAspectRatio='none' fill='white'%3E%3Cpath opacity='.8' d='m51 1 25 23 24 22H1l25-22z'/%3E%3Cpath opacity='.4' d='m51 101 25-23 24-22H1l25 22z'/%3E%3C/svg%3E") !important;
 }
 
-[aria-sort="descending"] {
+[aria-sort='descending'] {
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='101' height='101' preserveAspectRatio='none' fill='white'%3E%3Cpath opacity='.4' d='m51 1 25 23 24 22H1l25-22z'/%3E%3Cpath opacity='.8' d='m51 101 25-23 24-22H1l25 22z'/%3E%3C/svg%3E") !important;
 }
 
@@ -372,6 +1356,202 @@ div[style="color: rgb(85, 85, 85); font-size: 0.9em;"] {
   color: #e9ebf0 !important;
 }
 
+.timeline-table-card {
+  background: #1a1d24 !important;
+  border-color: #282c32 !important;
+  color: #e9ebf0 !important;
+}
+
+.timeline-table-card .text-muted,
+.timeline-table-empty {
+  color: #cbd5e1 !important;
+}
+
+.timeline-table-header,
+.timeline-table th,
+.timeline-table td {
+  border-color: #282c32 !important;
+}
+
+.timeline-table th {
+  background: #101318 !important;
+  color: #fff !important;
+}
+
+.timeline-table tbody tr:hover {
+  background: #242936 !important;
+}
+
+.timeline-table-row--not-work {
+  background: rgba(219, 39, 119, 0.16) !important;
+}
+
+.timeline-category-pill {
+  background: rgba(15, 19, 26, 0.88) !important;
+  border-color: #374151 !important;
+  color: #fff !important;
+}
+
+.timeline-schedule-day + .timeline-schedule-day {
+  border-color: #282c32 !important;
+}
+
+.timeline-schedule-date,
+.timeline-schedule-time,
+.timeline-schedule-duration,
+.timeline-schedule-block-header strong {
+  color: #fff !important;
+}
+
+.timeline-schedule-track {
+  border-color: #cbd5e1 !important;
+}
+
+.timeline-schedule-block {
+  background: #151922 !important;
+  box-shadow: 0 7px 20px rgba(0, 0, 0, 0.28) !important;
+  color: #fff !important;
+}
+
+.timeline-schedule-block--not-work {
+  background: rgba(219, 39, 119, 0.22) !important;
+}
+
+.timeline-schedule-block-meta,
+.timeline-schedule-block-title {
+  color: #cbd5e1 !important;
+}
+
+.todos-page,
+.todos-page h3,
+.todos-page h5,
+.todos-page strong {
+  color: #fff !important;
+}
+
+.todos-page .text-muted,
+.todos-page .section-label,
+.todo-card-meta,
+.todo-card-notes,
+.todo-frog-copy,
+.todo-frog-meta,
+.todo-frog-pill,
+.todo-mini-meta,
+.todo-matrix-axis,
+.todo-plan-subtle,
+.todo-drag-handle,
+.todo-calendar-lane-label,
+.todo-empty {
+  color: #cbd5e1 !important;
+}
+
+.todo-editor,
+.todo-section,
+.todo-plan-view,
+.todo-plan-panel,
+.todo-plan-card,
+.todo-plan-choice,
+.todo-frog-card,
+.todo-frog-pill,
+.todo-calendar-view,
+.todo-matrix-view,
+.todo-matrix-quadrant,
+.todo-matrix-card,
+.todo-priority-flag,
+.todo-card,
+.todo-mini-card,
+.todo-check-button,
+.todo-calendar-day-header {
+  background: #1a1d24 !important;
+  border-color: #282c32 !important;
+  color: #fff !important;
+}
+
+.todo-card--due,
+.todo-plan-panel--selected,
+.todo-plan-card--frog,
+.todo-calendar-day-header--today {
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.16), #1a1d24) !important;
+}
+
+.todo-frog-card {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(236, 72, 153, 0.12)) !important;
+  border-color: rgba(16, 185, 129, 0.55) !important;
+}
+
+.todo-frog-card--drop-active {
+  border-style: dashed !important;
+  border-color: rgba(236, 72, 153, 0.72) !important;
+}
+
+.todo-frog-card--drop-over {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(236, 72, 153, 0.24)) !important;
+  border-color: #ec4899 !important;
+}
+
+.todo-frog-card--eaten {
+  background: linear-gradient(
+    135deg,
+    rgba(16, 185, 129, 0.16),
+    rgba(255, 255, 255, 0.04)
+  ) !important;
+}
+
+.todo-frog-pill--active,
+.todo-frog-badge {
+  border-color: #ec4899 !important;
+  background: rgba(236, 72, 153, 0.2) !important;
+  color: #ffffff !important;
+}
+
+.todo-check-button {
+  border-color: #94a3b8 !important;
+}
+
+.todo-check-button:hover {
+  background: rgba(16, 185, 129, 0.18) !important;
+  border-color: #10b981 !important;
+}
+
+.todo-check-button--complete,
+.todo-check-button--done {
+  background: #10b981 !important;
+  border-color: #10b981 !important;
+  color: #ffffff !important;
+}
+
+.todo-calendar-lane--over,
+.todo-matrix-body--over {
+  background: rgba(16, 185, 129, 0.18) !important;
+  box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.84) !important;
+}
+
+.todo-plan-panel--available {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.16), #1a1d24) !important;
+}
+
+.todo-card:hover,
+.todo-plan-card:hover,
+.todo-plan-choice:hover,
+.todo-matrix-card:hover {
+  border-color: rgba(16, 185, 129, 0.72) !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28) !important;
+}
+
+.todo-count,
+.todo-plan-index {
+  background: #282c32 !important;
+  color: #fff !important;
+}
+
+.todo-calendar-grid,
+.todo-calendar-day,
+.todo-calendar-lane,
+.todo-matrix-quadrant {
+  background: #151922 !important;
+  border-color: #282c32 !important;
+}
+
 /* Quick-range chips (InputTimeInterval) */
 .input-time-interval .btn-group .btn-light {
   background: #1a1d24 !important;
@@ -383,6 +1563,360 @@ div[style="color: rgb(85, 85, 85); font-size: 0.9em;"] {
   background: #e9ebf0 !important;
   border-color: #e9ebf0 !important;
   color: #1a1d24 !important;
+}
+
+/* FocusFrog global page themes */
+html[data-dashboard-theme='bright'] .input-time-interval .btn-group .btn-light {
+  background: rgba(255, 255, 255, 0.84) !important;
+  border-color: rgba(100, 116, 139, 0.42) !important;
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright']
+  .input-time-interval
+  .btn-group
+  input[type='radio']:checked
+  + label {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='bright'] .form-control,
+html[data-dashboard-theme='bright'] .custom-select,
+html[data-dashboard-theme='bright'] select,
+html[data-dashboard-theme='bright'] textarea {
+  background-color: #ffffff !important;
+  border-color: rgba(100, 116, 139, 0.42) !important;
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .btn-outline-secondary {
+  border-color: rgba(100, 116, 139, 0.42) !important;
+  color: #334155 !important;
+}
+
+html[data-dashboard-theme='bright'] .btn-outline-secondary:hover,
+html[data-dashboard-theme='bright'] .btn-outline-secondary:focus {
+  background-color: #e0f2fe !important;
+  border-color: rgba(37, 99, 235, 0.52) !important;
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-table-card {
+  background: rgba(255, 255, 255, 0.86) !important;
+  border-color: rgba(148, 163, 184, 0.4) !important;
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-table-card .text-muted,
+html[data-dashboard-theme='bright'] .timeline-table-empty {
+  color: #64748b !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-table-header,
+html[data-dashboard-theme='bright'] .timeline-table th,
+html[data-dashboard-theme='bright'] .timeline-table td {
+  border-color: rgba(148, 163, 184, 0.28) !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-table th {
+  background: #f8fafc !important;
+  color: #334155 !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-schedule-day + .timeline-schedule-day {
+  border-color: rgba(148, 163, 184, 0.28) !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-schedule-date,
+html[data-dashboard-theme='bright'] .timeline-schedule-time,
+html[data-dashboard-theme='bright'] .timeline-schedule-duration,
+html[data-dashboard-theme='bright'] .timeline-schedule-block-header strong {
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-schedule-track {
+  border-color: rgba(100, 116, 139, 0.34) !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-schedule-block {
+  background: rgba(248, 250, 252, 0.95) !important;
+  box-shadow: 0 7px 20px rgba(15, 23, 42, 0.08) !important;
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-schedule-block--not-work {
+  background: rgba(253, 242, 248, 0.9) !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-schedule-block-meta,
+html[data-dashboard-theme='bright'] .timeline-schedule-block-title {
+  color: #64748b !important;
+}
+
+html[data-dashboard-theme='bright'] .todos-page,
+html[data-dashboard-theme='bright'] .todos-page h3,
+html[data-dashboard-theme='bright'] .todos-page h5,
+html[data-dashboard-theme='bright'] .todos-page strong {
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .todos-page .text-muted,
+html[data-dashboard-theme='bright'] .todos-page .section-label,
+html[data-dashboard-theme='bright'] .todo-card-meta,
+html[data-dashboard-theme='bright'] .todo-card-notes,
+html[data-dashboard-theme='bright'] .todo-frog-copy,
+html[data-dashboard-theme='bright'] .todo-frog-meta,
+html[data-dashboard-theme='bright'] .todo-frog-pill,
+html[data-dashboard-theme='bright'] .todo-mini-meta,
+html[data-dashboard-theme='bright'] .todo-matrix-axis,
+html[data-dashboard-theme='bright'] .todo-plan-subtle,
+html[data-dashboard-theme='bright'] .todo-drag-handle,
+html[data-dashboard-theme='bright'] .todo-calendar-lane-label,
+html[data-dashboard-theme='bright'] .todo-empty {
+  color: #64748b !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-editor,
+html[data-dashboard-theme='bright'] .todo-section,
+html[data-dashboard-theme='bright'] .todo-plan-view,
+html[data-dashboard-theme='bright'] .todo-plan-panel,
+html[data-dashboard-theme='bright'] .todo-plan-card,
+html[data-dashboard-theme='bright'] .todo-plan-choice,
+html[data-dashboard-theme='bright'] .todo-frog-card,
+html[data-dashboard-theme='bright'] .todo-frog-pill,
+html[data-dashboard-theme='bright'] .todo-calendar-view,
+html[data-dashboard-theme='bright'] .todo-matrix-view,
+html[data-dashboard-theme='bright'] .todo-matrix-quadrant,
+html[data-dashboard-theme='bright'] .todo-matrix-card,
+html[data-dashboard-theme='bright'] .todo-priority-flag,
+html[data-dashboard-theme='bright'] .todo-card,
+html[data-dashboard-theme='bright'] .todo-mini-card,
+html[data-dashboard-theme='bright'] .todo-check-button,
+html[data-dashboard-theme='bright'] .todo-calendar-day-header {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(148, 163, 184, 0.38) !important;
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-card--due,
+html[data-dashboard-theme='bright'] .todo-plan-panel--selected,
+html[data-dashboard-theme='bright'] .todo-plan-card--frog,
+html[data-dashboard-theme='bright'] .todo-calendar-day-header--today {
+  background: linear-gradient(180deg, rgba(236, 253, 245, 0.88), #ffffff) !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-frog-card {
+  background: linear-gradient(
+    135deg,
+    rgba(236, 253, 245, 0.94),
+    rgba(253, 242, 248, 0.86)
+  ) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-frog-card--drop-active {
+  border-style: dashed !important;
+  border-color: rgba(236, 72, 153, 0.68) !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-frog-card--drop-over {
+  background: linear-gradient(
+    135deg,
+    rgba(236, 253, 245, 0.98),
+    rgba(253, 242, 248, 0.96)
+  ) !important;
+  border-color: #ec4899 !important;
+  box-shadow: 0 16px 34px rgba(236, 72, 153, 0.2) !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-frog-card--eaten {
+  background: linear-gradient(
+    135deg,
+    rgba(240, 253, 244, 0.94),
+    rgba(255, 241, 242, 0.88)
+  ) !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-frog-copy {
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-frog-pill--active,
+html[data-dashboard-theme='bright'] .todo-frog-badge {
+  border-color: #ec4899 !important;
+  background: #fdf2f8 !important;
+  color: #831843 !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-plan-panel--available {
+  background: linear-gradient(180deg, rgba(239, 246, 255, 0.92), #ffffff) !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-check-button:hover {
+  background: #ecfdf5 !important;
+  border-color: #10b981 !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-check-button--complete,
+html[data-dashboard-theme='bright'] .todo-check-button--done {
+  background: #10b981 !important;
+  border-color: #10b981 !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-calendar-lane--over,
+html[data-dashboard-theme='bright'] .todo-matrix-body--over {
+  background: rgba(16, 185, 129, 0.12) !important;
+  box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.72) !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-count,
+html[data-dashboard-theme='bright'] .todo-plan-index {
+  background: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-calendar-grid,
+html[data-dashboard-theme='bright'] .todo-calendar-day,
+html[data-dashboard-theme='bright'] .todo-calendar-lane,
+html[data-dashboard-theme='bright'] .todo-matrix-quadrant {
+  background: rgba(248, 250, 252, 0.72) !important;
+  border-color: rgba(148, 163, 184, 0.28) !important;
+}
+
+html[data-dashboard-theme='bright'] .pomodoro-page,
+html[data-dashboard-theme='bright'] .pomodoro-page h3,
+html[data-dashboard-theme='bright'] .pomodoro-page h4,
+html[data-dashboard-theme='bright'] .pomodoro-page h5,
+html[data-dashboard-theme='bright'] .pomodoro-page h6,
+html[data-dashboard-theme='bright'] .pomodoro-page strong {
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .pomodoro-page {
+  background: linear-gradient(135deg, rgba(236, 253, 245, 0.95), rgba(255, 241, 242, 0.92)),
+    linear-gradient(315deg, rgba(255, 255, 255, 0.96), rgba(240, 249, 255, 0.88)) !important;
+}
+
+html[data-dashboard-theme='bright'] .pomodoro-subtitle,
+html[data-dashboard-theme='bright'] .pomodoro-running-note,
+html[data-dashboard-theme='bright'] .pomodoro-session-meta,
+html[data-dashboard-theme='bright'] .pomodoro-empty,
+html[data-dashboard-theme='bright'] .pomodoro-mode-label,
+html[data-dashboard-theme='bright'] .pomodoro-caption,
+html[data-dashboard-theme='bright'] .pomodoro-date,
+html[data-dashboard-theme='bright'] .pomodoro-distraction-copy span {
+  color: #64748b !important;
+}
+
+html[data-dashboard-theme='bright'] .pomodoro-card,
+html[data-dashboard-theme='bright'] .pomodoro-mode-button,
+html[data-dashboard-theme='bright'] .pomodoro-legend-pill,
+html[data-dashboard-theme='bright'] .pomodoro-face,
+html[data-dashboard-theme='bright'] .pomodoro-active-label,
+html[data-dashboard-theme='bright'] .pomodoro-next-card,
+html[data-dashboard-theme='bright'] .pomodoro-distraction-popup {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(148, 163, 184, 0.36) !important;
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .pomodoro-distraction-copy strong,
+html[data-dashboard-theme='bright'] .pomodoro-distraction-icon {
+  color: #db2777 !important;
+}
+
+html[data-dashboard-theme='bright'] .pomodoro-distraction-icon {
+  background: #fdf2f8 !important;
+}
+
+html[data-dashboard-theme='bright'] .pomodoro-distraction-close {
+  background: #f8fafc !important;
+  border-color: rgba(148, 163, 184, 0.44) !important;
+  color: #334155 !important;
+}
+
+html[data-dashboard-theme='bright'] .pomodoro-mode-button--focus.pomodoro-mode-button--active {
+  background: rgba(5, 150, 105, 0.12) !important;
+  border-color: #059669 !important;
+  color: #059669 !important;
+}
+
+html[data-dashboard-theme='bright'] .pomodoro-mode-button--break.pomodoro-mode-button--active {
+  background: rgba(219, 39, 119, 0.12) !important;
+  border-color: #db2777 !important;
+  color: #db2777 !important;
+}
+
+html[data-dashboard-theme='contrast'] .pomodoro-page {
+  background: #0f131a !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .pomodoro-page,
+html[data-dashboard-theme='contrast'] .pomodoro-page h3,
+html[data-dashboard-theme='contrast'] .pomodoro-page h4,
+html[data-dashboard-theme='contrast'] .pomodoro-page h5,
+html[data-dashboard-theme='contrast'] .pomodoro-page h6,
+html[data-dashboard-theme='contrast'] .pomodoro-page strong {
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .pomodoro-subtitle,
+html[data-dashboard-theme='contrast'] .pomodoro-running-note,
+html[data-dashboard-theme='contrast'] .pomodoro-session-meta,
+html[data-dashboard-theme='contrast'] .pomodoro-empty,
+html[data-dashboard-theme='contrast'] .pomodoro-mode-label,
+html[data-dashboard-theme='contrast'] .pomodoro-caption,
+html[data-dashboard-theme='contrast'] .pomodoro-date,
+html[data-dashboard-theme='contrast'] .pomodoro-distraction-copy span {
+  color: #cbd5e1 !important;
+}
+
+html[data-dashboard-theme='contrast'] .pomodoro-card,
+html[data-dashboard-theme='contrast'] .pomodoro-mode-button,
+html[data-dashboard-theme='contrast'] .pomodoro-legend-pill,
+html[data-dashboard-theme='contrast'] .pomodoro-face,
+html[data-dashboard-theme='contrast'] .pomodoro-active-label,
+html[data-dashboard-theme='contrast'] .pomodoro-next-card,
+html[data-dashboard-theme='contrast'] .pomodoro-distraction-popup {
+  background: #151922 !important;
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .pomodoro-distraction-copy strong,
+html[data-dashboard-theme='contrast'] .pomodoro-distraction-icon {
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .pomodoro-distraction-icon {
+  background: #db2777 !important;
+}
+
+html[data-dashboard-theme='contrast'] .pomodoro-distraction-close {
+  background: #0f131a !important;
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .pomodoro-side-section + .pomodoro-side-section,
+html[data-dashboard-theme='contrast'] .pomodoro-session-row {
+  border-color: rgba(255, 255, 255, 0.28) !important;
+}
+
+html[data-dashboard-theme='contrast'] .pomodoro-mode-button--focus.pomodoro-mode-button--active {
+  background: rgba(5, 150, 105, 0.34) !important;
+  border-color: #059669 !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .pomodoro-mode-button--break.pomodoro-mode-button--active {
+  background: rgba(219, 39, 119, 0.34) !important;
+  border-color: #db2777 !important;
+  color: #ffffff !important;
 }
 
 /* Buckets: ghost kebab + "unknown" device card */
@@ -473,4 +2007,274 @@ label.btn-outline-danger {
   background-color: #e9ebf0 !important;
   color: #0f131a !important;
   border-color: #e9ebf0 !important;
+}
+
+/* FocusFrog Settings: bright mode needs explicit contrast because the base
+   ActivityWatch stylesheet and dark button rules both still participate. */
+html[data-dashboard-theme='bright'] .settings-layout,
+html[data-dashboard-theme='bright'] .settings-content,
+html[data-dashboard-theme='bright'] .settings-section,
+html[data-dashboard-theme='bright'] .settings-section h4,
+html[data-dashboard-theme='bright'] .settings-section h5,
+html[data-dashboard-theme='bright'] .settings-section label,
+html[data-dashboard-theme='bright'] .settings-section legend,
+html[data-dashboard-theme='bright'] .settings-section .custom-control-label {
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .settings-title {
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .settings-section h4.settings-section__title,
+html[data-dashboard-theme='bright'] .settings-section__title {
+  color: #0f766e !important;
+}
+
+html[data-dashboard-theme='bright'] .settings-content .text-muted,
+html[data-dashboard-theme='bright'] .settings-content small,
+html[data-dashboard-theme='bright'] .settings-section .form-text,
+html[data-dashboard-theme='bright'] .settings-section .text-muted,
+html[data-dashboard-theme='bright'] .settings-section .col-form-label {
+  color: #475569 !important;
+  opacity: 1 !important;
+}
+
+html[data-dashboard-theme='bright'] .settings-section > .text-muted,
+html[data-dashboard-theme='bright'] .settings-section p.text-muted {
+  color: #334155 !important;
+}
+
+html[data-dashboard-theme='bright'] .settings-nav .nav-link {
+  color: #334155 !important;
+  border: 1px solid transparent !important;
+}
+
+html[data-dashboard-theme='bright'] .settings-nav .nav-link:hover {
+  background-color: #e0f2fe !important;
+  border-color: rgba(37, 99, 235, 0.28) !important;
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .settings-nav .nav-link.active,
+html[data-dashboard-theme='bright'] .settings-nav .nav-link.active:hover {
+  background-color: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22) !important;
+}
+
+html[data-dashboard-theme='bright'] .settings-content a {
+  color: #1d4ed8 !important;
+  font-weight: 600;
+}
+
+html[data-dashboard-theme='bright'] .settings-content .bg-light {
+  background: linear-gradient(135deg, #ecfeff 0%, #f0fdf4 100%) !important;
+  border: 1px solid rgba(20, 184, 166, 0.22) !important;
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .settings-content .btn-outline-dark {
+  background-color: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.42) !important;
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .settings-content .btn-outline-dark:hover,
+html[data-dashboard-theme='bright'] .settings-content .btn-outline-dark:focus,
+html[data-dashboard-theme='bright'] .settings-content .btn-outline-dark.active,
+html[data-dashboard-theme='bright']
+  .settings-content
+  .btn-outline-dark:not(:disabled):not(.disabled):active {
+  background-color: #dbeafe !important;
+  border-color: #2563eb !important;
+  color: #0f172a !important;
+}
+
+/* FocusFrog Timeline: keep the day selector and timetable crisp in both themes. */
+html[data-dashboard-theme='bright'] .timeline-page,
+html[data-dashboard-theme='bright'] .timeline-page h3,
+html[data-dashboard-theme='bright'] .timeline-page strong {
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-day-panel,
+html[data-dashboard-theme='bright'] .timeline-table-card {
+  background: #ffffff !important;
+  border-color: rgba(148, 163, 184, 0.48) !important;
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-day-panel {
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06) !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-day-panel,
+html[data-dashboard-theme='bright'] .timeline-day-panel .text-muted,
+html[data-dashboard-theme='bright'] .timeline-day-panel .btn,
+html[data-dashboard-theme='bright'] .timeline-day-chip,
+html[data-dashboard-theme='bright'] .timeline-date-input {
+  color: #334155 !important;
+  opacity: 1 !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-day-panel .btn-outline-secondary,
+html[data-dashboard-theme='bright'] .timeline-day-chip,
+html[data-dashboard-theme='bright'] .timeline-date-input {
+  background: #f8fafc !important;
+  border-color: rgba(37, 99, 235, 0.34) !important;
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-day-panel .btn-outline-secondary:hover,
+html[data-dashboard-theme='bright'] .timeline-day-chip:hover {
+  background: #e0f2fe !important;
+  border-color: rgba(37, 99, 235, 0.58) !important;
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-day-chip--selected,
+html[data-dashboard-theme='bright'] .timeline-day-chip--selected:hover,
+html[data-dashboard-theme='bright'] .timeline-day-panel .btn-primary {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-day-chip--today:not(.timeline-day-chip--selected) {
+  border-color: rgba(16, 185, 129, 0.82) !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-table-card .text-muted,
+html[data-dashboard-theme='bright'] .timeline-table-empty,
+html[data-dashboard-theme='bright'] .timeline-schedule-block-meta,
+html[data-dashboard-theme='bright'] .timeline-schedule-block-title {
+  color: #475569 !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-schedule-block {
+  background: #ffffff !important;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.1) !important;
+}
+
+html[data-dashboard-theme='bright'] .timeline-schedule-block--not-work {
+  background: #fff1f7 !important;
+}
+
+html[data-dashboard-theme='contrast'] .timeline-page,
+html[data-dashboard-theme='contrast'] .timeline-page h3,
+html[data-dashboard-theme='contrast'] .timeline-page strong,
+html[data-dashboard-theme='contrast'] .timeline-day-panel,
+html[data-dashboard-theme='contrast'] .timeline-day-panel .btn,
+html[data-dashboard-theme='contrast'] .timeline-day-chip,
+html[data-dashboard-theme='contrast'] .timeline-date-input {
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .timeline-day-panel,
+html[data-dashboard-theme='contrast'] .timeline-table-card {
+  background: #151922 !important;
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .timeline-day-panel .text-muted,
+html[data-dashboard-theme='contrast'] .timeline-table-card .text-muted,
+html[data-dashboard-theme='contrast'] .timeline-table-empty,
+html[data-dashboard-theme='contrast'] .timeline-schedule-block-meta,
+html[data-dashboard-theme='contrast'] .timeline-schedule-block-title {
+  color: #e2e8f0 !important;
+  opacity: 1 !important;
+}
+
+html[data-dashboard-theme='contrast'] .timeline-day-panel .btn-outline-secondary,
+html[data-dashboard-theme='contrast'] .timeline-day-chip,
+html[data-dashboard-theme='contrast'] .timeline-date-input {
+  background: #0f131a !important;
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+html[data-dashboard-theme='contrast'] .timeline-day-panel .btn-outline-secondary:hover,
+html[data-dashboard-theme='contrast'] .timeline-day-chip:hover {
+  background: #1f2937 !important;
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .timeline-day-chip--selected,
+html[data-dashboard-theme='contrast'] .timeline-day-chip--selected:hover,
+html[data-dashboard-theme='contrast'] .timeline-day-panel .btn-primary {
+  background: #2563eb !important;
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .timeline-day-chip--today:not(.timeline-day-chip--selected) {
+  border-color: #10b981 !important;
+}
+
+/* Todo modal editor and contextual add targets */
+.todo-editor.todo-editor--modal,
+html[data-dashboard-theme='bright'] .todo-editor.todo-editor--modal,
+html[data-dashboard-theme='contrast'] .todo-editor.todo-editor--modal {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: inherit !important;
+}
+
+html[data-dashboard-theme='bright'] .modal-content {
+  background: #ffffff !important;
+  border-color: rgba(148, 163, 184, 0.48) !important;
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .modal-content .modal-header,
+html[data-dashboard-theme='bright'] .modal-content .modal-footer {
+  border-color: rgba(148, 163, 184, 0.34) !important;
+}
+
+html[data-dashboard-theme='bright'] .modal-content .modal-title,
+html[data-dashboard-theme='bright'] .modal-content label,
+html[data-dashboard-theme='bright'] .modal-content .close {
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='bright'] .modal-content .close {
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
+html[data-dashboard-theme='contrast'] .modal-content {
+  background: #151922 !important;
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .modal-content .modal-header,
+html[data-dashboard-theme='contrast'] .modal-content .modal-footer {
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+html[data-dashboard-theme='contrast'] .modal-content .modal-title,
+html[data-dashboard-theme='contrast'] .modal-content label,
+html[data-dashboard-theme='contrast'] .modal-content .close {
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .modal-content .close {
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-calendar-lane:hover,
+html[data-dashboard-theme='bright'] .todo-matrix-body:hover {
+  background: rgba(16, 185, 129, 0.08) !important;
+}
+
+html[data-dashboard-theme='contrast'] .todo-calendar-lane:hover,
+html[data-dashboard-theme='contrast'] .todo-matrix-body:hover {
+  background: rgba(16, 185, 129, 0.16) !important;
 }

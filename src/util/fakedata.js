@@ -5,7 +5,7 @@ export const window_events = [
       app: 'Firefox',
       title: 'ActivityWatch/activitywatch: Track how you spend your time - Mozilla Firefox',
       url: 'https://github.com/ActivityWatch/activitywatch',
-      $category: ['Work', 'Programming', 'ActivityWatch'],
+      $category: ['Work', 'Programming'],
     },
   },
   {
@@ -58,7 +58,7 @@ export const window_events = [
     data: {
       app: 'Terminal',
       title: 'vim ~/code/activitywatch/aw-server/aw-webui/src',
-      $category: ['Work', 'Programming', 'ActivityWatch'],
+      $category: ['Work', 'Programming'],
     },
   },
   {
@@ -66,7 +66,7 @@ export const window_events = [
     data: {
       app: 'Terminal',
       title: 'bash ~/code/activitywatch',
-      $category: ['Work', 'Programming', 'ActivityWatch'],
+      $category: ['Work', 'Programming'],
     },
   },
   {

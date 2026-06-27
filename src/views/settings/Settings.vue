@@ -1,6 +1,6 @@
 <template lang="pug">
 div
-  h3.mb-3 Settings
+  h3.settings-title.mb-3 Settings
 
   div.settings-layout
     nav.settings-nav

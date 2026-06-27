@@ -1,115 +1,202 @@
-# aw-webui
+<p align="center">
+  <img src="static/logo.png" width="112" alt="FocusFrog logo" />
+</p>
 
-A web-based UI for ActivityWatch, built with Vue.js
+<h1 align="center">FocusFrog</h1>
 
-[![Build Status](https://github.com/ActivityWatch/aw-webui/workflows/Build/badge.svg)](https://github.com/ActivityWatch/aw-webui/actions)
-[![Coverage Status](https://codecov.io/gh/ActivityWatch/aw-webui/branch/master/graph/badge.svg)](https://codecov.io/gh/ActivityWatch/aw-webui)
-[![Known Vulnerabilities](https://snyk.io/test/github/ActivityWatch/aw-webui/badge.svg)](https://snyk.io/test/github/ActivityWatch/aw-webui)
+<p align="center">
+  <strong>Local-first time tracking, day planning, and Pomodoro focus built on ActivityWatch.</strong>
+</p>
 
-## Getting started
+<p align="center">
+  See how your laptop time is spent, plan what matters today, and stay on track without sending your data to a cloud service.
+</p>
 
-Getting started with setting up the development environment is pretty straightforward:
+---
+
+## What It Is
+
+FocusFrog is a custom web UI for ActivityWatch. It keeps ActivityWatch's local time-tracking foundation, then adds a more opinionated daily workflow:
+
+- understand work vs. non-work time at a glance
+- inspect exactly when different kinds of activity happened
+- plan today's todos in order
+- choose the one task to do first
+- run Pomodoro sessions with gentle distraction nudges
+
+It is meant to feel like a quiet personal dashboard: useful enough for daily use, but not loud or gamified for its own sake.
+
+## Fork Notice
+
+FocusFrog is a fork/customization of the ActivityWatch web interface. It is built on top of the open-source ActivityWatch project and keeps the same local tracking foundation.
+
+- Upstream project: [activitywatch/activitywatch](https://github.com/activitywatch/activitywatch)
+- Web UI base: [ActivityWatch/aw-webui](https://github.com/ActivityWatch/aw-webui)
+- License: MPL-2.0, inherited from ActivityWatch aw-webui
+
+## Screenshots
+
+### Hours Dashboard
+
+Work, not-work, active total, pie charts, and a cumulative Today timeline.
+
+![FocusFrog hours dashboard](docs/screenshots/hours-dashboard.jpg)
+
+### Timeline
+
+A day-level timetable that groups activity into readable category blocks.
+
+![FocusFrog timeline timetable](docs/screenshots/timeline-timetable.jpg)
+
+### Todos And Planning
+
+Plan the day, order todos, and pick the first important task to handle.
+
+![FocusFrog plan day view](docs/screenshots/todos-plan-day.jpg)
+
+<table>
+  <tr>
+    <td width="50%">
+      <strong>Calendar</strong><br />
+      <img src="docs/screenshots/todos-calendar.jpg" alt="FocusFrog todo calendar" />
+    </td>
+    <td width="50%">
+      <strong>Eisenhower Matrix</strong><br />
+      <img src="docs/screenshots/todos-eisenhower.jpg" alt="FocusFrog Eisenhower matrix" />
+    </td>
+  </tr>
+</table>
+
+### Pomodoro
+
+A focus timer with work and break modes, session history, and a distraction reminder when tracked activity looks off-task.
+
+![FocusFrog Pomodoro view](docs/screenshots/pomodoro.jpg)
+
+## Highlights
+
+### Time That Is Actually Useful
+
+The Hours page turns ActivityWatch events into a practical work dashboard:
+
+- Today, Week, and Since recording ranges
+- Monday-to-Sunday week view
+- work, not-work, and active-total summaries
+- work vs. not-work pie chart
+- work sub-category pie chart
+- cumulative Today chart showing how work builds over the day
+- detailed report and raw data links when you need to inspect the source
+
+### A Timeline You Can Read
+
+The Timeline page is built for answering "when did I do what?" without opening raw event tables.
+
+- full-day vertical timetable
+- half-hour anchors
+- category-colored activity blocks
+- summarized repeated activity
+- day selector for moving through history
+
+### Todos With Multiple Views
+
+Todos are stored locally in the browser and can be viewed in the shape that fits the moment.
+
+- Plan day view for choosing today's work
+- List view for due and upcoming tasks
+- Calendar view for moving tasks between morning, afternoon, evening, and anytime
+- Eisenhower matrix for urgent/important sorting
+- recurring todos
+- modal todo editor that opens only when needed
+- drag-and-drop movement between calendar lanes and matrix quadrants
+
+### Frog Of The Day
+
+The planning view keeps one task visually front and center. Drag a todo into the frog card, or let the first planned todo become the default. Completing it gives a small visual reward and keeps the frog done for the rest of the day.
+
+### Pomodoro That Uses Your Activity
+
+The Pomodoro page is connected to the same categorization logic as the time dashboard.
+
+- focus, short break, and long break modes
+- session labels
+- recent session history
+- flower animation while a timer runs
+- optional distraction popup when current activity looks like non-work during a focus session
+
+### Themes
+
+FocusFrog includes three visual modes:
+
+- bright mode for everyday use
+- contrast mode for stronger readability
+- flower mode with a softer decorative background
+
+The theme switcher is global, so Hours, Timeline, Pomodoro, Todos, and Settings stay consistent.
+
+## How It Works
+
+FocusFrog reads local ActivityWatch buckets, especially:
+
+- `aw-watcher-window` for active app/window events
+- `aw-watcher-afk` for filtering out away time
+
+Those events are categorized into useful groups such as programming, writing, email, messages and calls, social media, food, and uncategorized work. The UI then uses those categories across charts, timelines, Pomodoro distraction checks, and reports.
+
+## Quick Start
+
+Start ActivityWatch first:
 
 ```bash
-# Start an instance of aw-server running in testing mode (on port 5666, with a separate database),
-# This is what the web UI will connect to by default when run in development mode.
-aw-qt --testing
-# or, to run without watchers:
-aw-server --testing
+aw-qt
+```
 
-# Install dependencies
+Then run the web UI:
+
+```bash
 npm install
-# or, to get exact versions of dependencies:
-npm ci
-
-# start aw-webui in dev mode
 npm run serve
 ```
 
-Alternatively, you can run `make dev` to install dependencies and serve the application locally.
+Open:
 
-You might have to configure CORS for it to work, see the CORS section below.
+```text
+http://127.0.0.1:27180
+```
 
-You may also want to generate fake data so you have something to test with, see: https://github.com/ActivityWatch/aw-fakedata/
-
-## Building
-
-To build the production bundle, simply run the following:
+For a production build:
 
 ```bash
-# Install dependencies
-npm ci
-
-# Build for production
 npm run build
 ```
 
-## Using a pre-release with your main install
+The built files are written to `dist/`.
 
-**Note:** Running a development version of aw-webui with an old aw-server can lead to issues due to version incompatibilities.
+## Using It With ActivityWatch
 
-### By copying the web-assets to your main install
-
-You can run a development version of aw-webui with your main version of ActivityWatch by building it (or fetching the latest build from CI) and replacing the contents of the `static` directory of your aw-server (or aw-server-rust) installation. For simplicity, back up the original directory for easier switching back.
-
-The assets are stored in the following directories (relative to your installation directory), depending on if you use aw-server-python (default) or aw-server-rust:
-
- - aw-server-python: `activitywatch/aw-server/aw_server/static/`
- - aw-server-rust: `activitywatch/aw-server-rust/static/`
-
-You can copy the assets manually from your `make build` or `npm run build` output to the above locations.
-
-Once you've put the files in the directories, you may have to do a hard refresh in your browser to invalidate any stale caches.
-
-### Using `--webpath` with aw-server-rust
-
-Instead of copying files, `aw-server-rust` supports loading the web UI from a custom path via the `--webpath` flag. This is especially useful on platforms where the server bundles static assets into the executable (e.g. Windows):
+If you want to use a built version with your normal ActivityWatch install, copy the `dist/` assets into the static web directory used by your ActivityWatch server, or point `aw-server-rust` at the build output:
 
 ```bash
-# Point aw-server-rust to your local build output
 aw-server-rust --webpath /path/to/aw-webui/dist
 ```
 
-This avoids having to copy files and makes it easy to switch between development and production builds.
+If you are developing against a local ActivityWatch server, the dev server proxies API requests to the local backend.
 
-### Using your main install's data
+## Privacy
 
-If you want to actively iterate on `aw-webui` with your local production data (with your production server running), you'll want to use a development build, automatically update it, and connect to your production data. To do this, in `aw-webui` source directory, in one terminal window run:
-
-```bash
-AW_SERVER_URL="'http://localhost:5600'" npx vue-cli-service build --watch --dest=../aw-server/static
-```
-
-If you want to add `debugger` statements in your code and otherwise break linting rules, you'll need to add a `--skip-plugins=no-debugger` to that command.
-Then, in another terminal (with your venv activated) run:
-
-```shell
-python3 -m http.server --bind 127.0.0.1 27180 --directory ../aw-server/static
-```
-
-## Tests
-
-Tests can be run with:
-
-```bash
-npm test
-```
-
-There are also E2E tests. You need to have an aw-server and the web UI running in development mode (with `npm run serve`, as instructed above). After you have that setup, you can run the tests with:
-
-```bash
-make test-e2e
-```
+FocusFrog is local-first. It reads from your local ActivityWatch server and does not require an account. Your time data, todos, and planning state stay on your machine unless you choose to export or publish them yourself.
 
 ## Development
 
-### CORS
+Common commands:
 
-For development, you'll also have to add/change CORS configuration in the `aw-server` configs by adding `cors_origins = http://localhost:27180` to your
-configuration file `/activitywatch/aw-server/aw-server.toml` under respective sections (`server-testing` section when running server in testing mode).
+```bash
+npm run serve
+npm run build
+npm test
+```
 
-### Code structure
+The app is built with Vue 2, BootstrapVue, Pinia, and the ActivityWatch client APIs.
 
-One of the first things that happen in the application is the execution of `src/main.js`. This loads things such as bootstrap-vue and a bunch of other stuff that's globally used (filters, resources).
+## Credits
 
-The main.js file then loads the `src/App.vue` file, which is the root component of the application.
+FocusFrog is built on top of [ActivityWatch](https://activitywatch.net/) and the original `aw-webui` project. ActivityWatch provides the local tracking foundation; FocusFrog adds the focused dashboard, planning, theme, and Pomodoro workflow on top.
