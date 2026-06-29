@@ -1,15 +1,15 @@
 <template lang="pug">
 div#wrapper(v-if="loaded")
-  aw-header
+  aw-header(v-if="!chromeless")
 
   div(:class="{'container': !fullContainer, 'container-fluid': fullContainer}").px-0.px-md-2
-    div.aw-container.my-sm-3.p-3
+    div.aw-container.my-sm-3.p-3(:class="{ 'aw-container-widget': chromeless }")
       error-boundary
-        user-satisfaction-poll
-        new-release-notification(v-if="isNewReleaseCheckEnabled")
+        user-satisfaction-poll(v-if="!chromeless")
+        new-release-notification(v-if="!chromeless && isNewReleaseCheckEnabled")
         router-view
 
-  aw-footer
+  aw-footer(v-if="!chromeless")
 </template>
 
 <script lang="ts">
@@ -32,6 +32,9 @@ export default {
   computed: {
     fullContainer() {
       return this.$route.meta.fullContainer;
+    },
+    chromeless() {
+      return Boolean(this.$route.meta.chromeless);
     },
   },
 

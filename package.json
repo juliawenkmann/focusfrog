@@ -21,7 +21,11 @@
     "test:unit": "jest --selectProjects jsdom",
     "test:e2e": "vue-cli-service test:e2e",
     "lint": "vue-cli-service lint",
-    "lint_old": "eslint --ignore-path=.gitignore --ext .vue,.js,.ts ."
+    "lint_old": "eslint --ignore-path=.gitignore --ext .vue,.js,.ts .",
+    "start:app": "node scripts/focusfrog-server.mjs",
+    "package:mac": "bash scripts/package-macos-app.sh",
+    "package:mac-widget": "bash scripts/package-macos-widget.sh",
+    "package:windows": "node scripts/package-windows-app.mjs"
   },
   "dependencies": {
     "@egjs/hammerjs": "^2.0.17",

@@ -1,4 +1,5 @@
 import {
+  addAfkGraceToActiveEvents,
   buildWorkSummaryQuery,
   buildWorkReportQuery,
   expandSelectedCategories,
@@ -67,12 +68,40 @@ describe('workReport host helpers', () => {
   test('buildWorkSummaryQuery returns active events for dashboard categorization', () => {
     const query = buildWorkSummaryQuery(['laptop'], '[]', [['Work'], ['Work', 'Programming']]);
     expect(query).toContain('active_0 = flood(query_bucket("aw-watcher-window_laptop"));');
+    expect(query).toContain('raw_active_0 = active_0;');
+    expect(query).toContain('raw_active = union_no_overlap(raw_active, raw_active_0);');
     expect(query).toContain('active_duration = sum_durations(active);');
     expect(query).toContain(
-      'RETURN = {"activeDuration": active_duration, "activeEvents": active};'
+      'RETURN = {"activeDuration": active_duration, "activeEvents": active, "rawActiveEvents": raw_active};'
     );
     expect(query).not.toContain('work_duration');
     expect(query).not.toContain('filter_keyvals(work');
+  });
+
+  test('addAfkGraceToActiveEvents adds only the short post-active focused window time', () => {
+    const activeEvents = [
+      {
+        timestamp: '2026-06-27T10:00:00.000Z',
+        duration: 120,
+        data: { app: 'Google Chrome', title: 'Paper' },
+      },
+    ];
+    const rawEvents = [
+      {
+        timestamp: '2026-06-27T10:00:00.000Z',
+        duration: 900,
+        data: { app: 'Google Chrome', title: 'Paper' },
+      },
+    ];
+
+    const events = addAfkGraceToActiveEvents(activeEvents, rawEvents, 300);
+
+    expect(events).toHaveLength(2);
+    expect(events[1]).toMatchObject({
+      timestamp: '2026-06-27T10:02:00.000Z',
+      duration: 300,
+      data: { app: 'Google Chrome', title: 'Paper', $afk_grace: true },
+    });
   });
 
   test('expandSelectedCategories includes descendants and keeps missing selected parents', () => {

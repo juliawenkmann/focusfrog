@@ -13,6 +13,7 @@ const QueryExplorer = () => import('./views/QueryExplorer.vue');
 const Timeline = () => import('./views/Timeline.vue');
 const Todos = () => import('./views/Todos.vue');
 const Trends = () => import('./views/Trends.vue');
+const Widget = () => import('./views/Widget.vue');
 const Settings = () => import('./views/settings/Settings.vue');
 // CategoryBuilder is no longer a top-level route — it's embedded inside
 // CategorizationSettings. The /settings/category-builder path is now a
@@ -65,6 +66,7 @@ const router = new VueRouter({
     { path: '/todos', component: Todos, meta: { fullContainer: true } },
     { path: '/trends', component: Trends, meta: { fullContainer: true } },
     { path: '/trends/:host', component: Trends, meta: { fullContainer: true } },
+    { path: '/widget', component: Widget, meta: { fullContainer: true, chromeless: true } },
     { path: '/report', component: Report },
     { path: '/query', component: QueryExplorer },
     { path: '/alerts', component: Alerts },

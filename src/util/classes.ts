@@ -50,8 +50,21 @@ export function mergeCategorySets(sets: CategorySet[]): Category[] {
 }
 
 const COLOR_UNCAT = '#CCC';
+const PROGRAMMING_GITHUB_PATTERN =
+  'GitHub|github|github\\.com|github\\.dev|githubusercontent\\.com';
 const PROGRAMMING_TERMINAL_PATTERN =
   'Terminal|Apple Terminal|iTerm|iTerm2|iTerm\\.app|iTerm2\\.app|com\\.apple\\.Terminal|com\\.googlecode\\.iterm2';
+const PROGRAMMING_NOTEBOOK_PATTERN = 'JupyterLab|Jupyter Notebook|\\.ipynb\\b|ipynb';
+const WRITING_REMARKABLE_PATTERN = 'reMarkable|remarkable';
+const EMAIL_IFICHAT_PATTERN = 'ifiChat';
+const AI_CHATS_PATTERN = 'ChatGPT|chatgpt\\.com|chat\\.openai\\.com|Claude|claude\\.ai|Anthropic';
+const SOCIAL_STREAMING_NEWS_PATTERN =
+  'Netflix|Prime Video|Amazon Prime Video|Amazon Video|Amazon\\..*Prime Video|primevideo\\.com|Eurosport|tagesschau|tagesschau\\.de';
+
+const AI_CHATS_CATEGORY: Category = {
+  name: ['Work', 'AI Chats'],
+  rule: { type: 'regex', regex: AI_CHATS_PATTERN, ignore_case: true },
+};
 
 // The default categories
 // Should be run through createMissingParents before being used in most cases.
@@ -65,7 +78,7 @@ export const defaultCategories: Category[] = [
     name: ['Work', 'Programming'],
     rule: {
       type: 'regex',
-      regex: `ActivityWatch|aw-|Codex|GitHub|github\\.com|Stack Overflow|stackoverflow|BitBucket|Gitlab|gitlab\\.com|VS Code|VSCode|Visual Studio Code|Visual Studio|VSCodium|Cursor|vim|neovim|Spyder|kate|Ghidra|Scite|PyCharm|Jupyter|RStudio|Xcode|${PROGRAMMING_TERMINAL_PATTERN}|Docker`,
+      regex: `ActivityWatch|aw-|Codex|${PROGRAMMING_GITHUB_PATTERN}|Stack Overflow|stackoverflow|BitBucket|Gitlab|gitlab\\.com|VS Code|VSCode|Visual Studio Code|Visual Studio|VSCodium|Cursor|vim|neovim|Spyder|kate|Ghidra|Scite|PyCharm|Jupyter|${PROGRAMMING_NOTEBOOK_PATTERN}|RStudio|Xcode|${PROGRAMMING_TERMINAL_PATTERN}|Docker`,
       ignore_case: true,
     },
   },
@@ -73,8 +86,7 @@ export const defaultCategories: Category[] = [
     name: ['Work', 'Writing'],
     rule: {
       type: 'regex',
-      regex:
-        'Overleaf|overleaf\\.com|arXiv|arxiv\\.org|LaTeX|TeXstudio|Texmaker|BibTeX|Zotero|Google Docs|docs\\.google\\.com|Microsoft Word|Pages|Manuscript|paper draft',
+      regex: `Overleaf|overleaf\\.com|arXiv|arxiv\\.org|LaTeX|TeXstudio|Texmaker|BibTeX|Zotero|${WRITING_REMARKABLE_PATTERN}|Google Docs|docs\\.google\\.com|Microsoft Word|Pages|Manuscript|paper draft`,
       ignore_case: true,
     },
   },
@@ -82,11 +94,11 @@ export const defaultCategories: Category[] = [
     name: ['Work', 'Email'],
     rule: {
       type: 'regex',
-      regex:
-        'Mail|Gmail|mail\\.google\\.com|Outlook|Thunderbird|Spark|Superhuman|mutt|alpine|Proton Mail|proton\\.me/mail|Fastmail',
+      regex: `Mail|Gmail|mail\\.google\\.com|Outlook|${EMAIL_IFICHAT_PATTERN}|Thunderbird|Spark|Superhuman|mutt|alpine|Proton Mail|proton\\.me/mail|Fastmail`,
       ignore_case: true,
     },
   },
+  AI_CHATS_CATEGORY,
   {
     name: ['Work', 'Messages & Calls'],
     rule: {
@@ -119,8 +131,7 @@ export const defaultCategories: Category[] = [
     name: ['Social Media'],
     rule: {
       type: 'regex',
-      regex:
-        'YouTube|youtu\\.be|youtube\\.com|Pinterest|pinterest|TikTok|Instagram|Facebook|Threads|Twitter|X\\.com|Reddit|Snapchat|LinkedIn|Tumblr|Mastodon|Bluesky|bsky\\.app|Discord|WhatsApp|Telegram|Twitch|WeChat|VK|VKontakte|Line|BeReal|Nextdoor|devRant',
+      regex: `YouTube|youtu\\.be|youtube\\.com|Pinterest|pinterest|${SOCIAL_STREAMING_NEWS_PATTERN}|TikTok|Instagram|Facebook|Threads|Twitter|X\\.com|Reddit|Snapchat|LinkedIn|Tumblr|Mastodon|Bluesky|bsky\\.app|Discord|WhatsApp|Telegram|Twitch|WeChat|VK|VKontakte|Line|BeReal|Nextdoor|devRant`,
       ignore_case: true,
     },
     data: { color: '#FCC400' },
@@ -256,18 +267,49 @@ export function cleanCategory(cat: Category): Category {
 }
 
 export function normalizeFocusFrogCategories(classes: Category[] = []): Category[] {
-  return classes.map(category => {
+  const normalizedClasses = classes.map(category => {
     const normalized = _.cloneDeep(category);
     if (_.isEqual(normalized.name, ['Work', 'Programming']) && normalized.rule?.type === 'regex') {
       const regex = normalized.rule.regex || '';
+      const hasGitHub = /github/i.test(regex);
       const hasTerminal = /Terminal/i.test(regex);
       const hasITerm = /iTerm/i.test(regex);
-      if (!hasTerminal || !hasITerm) {
-        normalized.rule.regex = [regex, PROGRAMMING_TERMINAL_PATTERN].filter(Boolean).join('|');
+      const hasNotebook = /ipynb|JupyterLab|Jupyter Notebook/i.test(regex);
+      const missingPatterns = [
+        !hasGitHub ? PROGRAMMING_GITHUB_PATTERN : '',
+        !hasTerminal || !hasITerm ? PROGRAMMING_TERMINAL_PATTERN : '',
+        !hasNotebook ? PROGRAMMING_NOTEBOOK_PATTERN : '',
+      ].filter(Boolean);
+      if (missingPatterns.length > 0) {
+        normalized.rule.regex = [regex, ...missingPatterns].filter(Boolean).join('|');
+      }
+    }
+    if (_.isEqual(normalized.name, ['Work', 'Writing']) && normalized.rule?.type === 'regex') {
+      const regex = normalized.rule.regex || '';
+      if (!/remarkable/i.test(regex)) {
+        normalized.rule.regex = [regex, WRITING_REMARKABLE_PATTERN].filter(Boolean).join('|');
+      }
+    }
+    if (_.isEqual(normalized.name, ['Work', 'Email']) && normalized.rule?.type === 'regex') {
+      const regex = normalized.rule.regex || '';
+      if (!/ifiChat/i.test(regex)) {
+        normalized.rule.regex = [regex, EMAIL_IFICHAT_PATTERN].filter(Boolean).join('|');
+      }
+    }
+    if (_.isEqual(normalized.name, ['Social Media']) && normalized.rule?.type === 'regex') {
+      const regex = normalized.rule.regex || '';
+      if (!/Netflix|Prime Video|Eurosport|tagesschau/i.test(regex)) {
+        normalized.rule.regex = [regex, SOCIAL_STREAMING_NEWS_PATTERN].filter(Boolean).join('|');
       }
     }
     return normalized;
   });
+
+  if (!normalizedClasses.some(category => _.isEqual(category.name, AI_CHATS_CATEGORY.name))) {
+    normalizedClasses.push(_.cloneDeep(AI_CHATS_CATEGORY));
+  }
+
+  return normalizedClasses;
 }
 
 export function loadClasses(): Category[] {

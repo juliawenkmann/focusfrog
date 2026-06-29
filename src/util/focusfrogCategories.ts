@@ -5,19 +5,21 @@ export const WORK_COLOR = '#059669';
 export const NOT_WORK_COLOR = '#db2777';
 
 const PROGRAMMING_PATTERN =
-  'ActivityWatch|aw-|Codex|GitHub|github\\.com|GitLab|gitlab\\.com|Bitbucket|Stack Overflow|stackoverflow|VS Code|VSCode|Visual Studio Code|Visual Studio|VSCodium|Cursor|PyCharm|Jupyter|RStudio|Xcode|Terminal|Apple Terminal|iTerm|iTerm2|iTerm\\.app|iTerm2\\.app|com\\.apple\\.Terminal|com\\.googlecode\\.iterm2|vim|neovim|Spyder|Docker|npm|pnpm|yarn|conda|Python|TypeScript|JavaScript';
+  'ActivityWatch|aw-|Codex|GitHub|github|github\\.com|github\\.dev|githubusercontent\\.com|GitLab|gitlab\\.com|Bitbucket|Stack Overflow|stackoverflow|VS Code|VSCode|Visual Studio Code|Visual Studio|VSCodium|Cursor|PyCharm|Jupyter|JupyterLab|Jupyter Notebook|\\.ipynb\\b|ipynb|RStudio|Xcode|Terminal|Apple Terminal|iTerm|iTerm2|iTerm\\.app|iTerm2\\.app|com\\.apple\\.Terminal|com\\.googlecode\\.iterm2|vim|neovim|Spyder|Docker|npm|pnpm|yarn|conda|Python|TypeScript|JavaScript';
 
 const WRITING_PATTERN =
-  'Overleaf|overleaf\\.com|arXiv|arxiv\\.org|LaTeX|TeXstudio|Texmaker|BibTeX|Zotero|Google Docs|docs\\.google\\.com|Microsoft Word|Pages|Manuscript|paper draft';
+  'Overleaf|overleaf\\.com|arXiv|arxiv\\.org|LaTeX|TeXstudio|Texmaker|BibTeX|Zotero|reMarkable|remarkable|Google Docs|docs\\.google\\.com|Microsoft Word|Pages|Manuscript|paper draft';
 
 const EMAIL_PATTERN =
-  'Mail|Gmail|mail\\.google\\.com|Outlook|Thunderbird|Spark|Superhuman|mutt|alpine|Proton Mail|proton\\.me/mail|Fastmail';
+  'Mail|Gmail|mail\\.google\\.com|Outlook|ifiChat|Thunderbird|Spark|Superhuman|mutt|alpine|Proton Mail|proton\\.me/mail|Fastmail';
+
+const AI_CHATS_PATTERN = 'ChatGPT|chatgpt\\.com|chat\\.openai\\.com|Claude|claude\\.ai|Anthropic';
 
 const COMMUNICATION_PATTERN =
   'WhatsApp|Telegram|LinkedIn|linkedin\\.com|Messages|iMessage|Telephone|Phone|FaceTime|Signal|Slack|Microsoft Teams|Teams|Zoom|Google Meet|meet\\.google\\.com|Skype|Mattermost|Element|Discord';
 
 const SOCIAL_MEDIA_PATTERN =
-  'YouTube|youtu\\.be|youtube\\.com|Pinterest|pinterest|TikTok|Instagram|Facebook|Threads|Twitter|X\\.com|Reddit|Snapchat|Tumblr|Mastodon|Bluesky|bsky\\.app|Twitch|WeChat|VK|VKontakte|Line|BeReal|Nextdoor|devRant';
+  'YouTube|youtu\\.be|youtube\\.com|Pinterest|pinterest|Netflix|Prime Video|Amazon Prime Video|Amazon Video|Amazon\\..*Prime Video|primevideo\\.com|Eurosport|tagesschau|tagesschau\\.de|TikTok|Instagram|Facebook|Threads|Twitter|X\\.com|Reddit|Snapchat|Tumblr|Mastodon|Bluesky|bsky\\.app|Twitch|WeChat|VK|VKontakte|Line|BeReal|Nextdoor|devRant';
 
 const FOOD_PATTERN =
   'food|recipe|restaurant|cooking|meal|lunch|dinner|breakfast|brunch|snack|bakery|cafe|pizza|burger|sushi|pasta|kitchen|chef|menu|delivery|takeaway|takeout|Uber Eats|UberEats|DoorDash|Grubhub|Deliveroo|Just Eat|Lieferando|Wolt|OpenTable|Yelp';
@@ -29,6 +31,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   [JSON.stringify(['Work', 'Programming'])]: '#2563eb',
   [JSON.stringify(['Work', 'Writing'])]: '#14b8a6',
   [JSON.stringify(['Work', 'Email'])]: '#f59e0b',
+  [JSON.stringify(['Work', 'AI Chats'])]: '#38bdf8',
   [JSON.stringify(['Work', MESSAGE_CALLS_CATEGORY])]: '#8b5cf6',
   [JSON.stringify(['Work', 'Image'])]: '#ec4899',
   [JSON.stringify(['Work', 'Video'])]: '#f97316',
@@ -121,6 +124,7 @@ export function categorizeFocusFrogEvent(
   if (matchesPattern(FOOD_PATTERN, text)) return ['Food'];
   if (matchesPattern(WRITING_PATTERN, text)) return ['Work', 'Writing'];
   if (matchesPattern(EMAIL_PATTERN, text)) return ['Work', 'Email'];
+  if (matchesPattern(AI_CHATS_PATTERN, text)) return ['Work', 'AI Chats'];
   if (matchesPattern(PROGRAMMING_PATTERN, text)) return ['Work', 'Programming'];
   if (matchesPattern(COMMUNICATION_PATTERN, text)) return ['Work', MESSAGE_CALLS_CATEGORY];
   if (matchesPattern(SOCIAL_MEDIA_PATTERN, text)) return ['Social Media'];

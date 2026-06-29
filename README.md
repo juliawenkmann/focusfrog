@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="static/logo.png" width="112" alt="FocusFrog logo" />
+  <img src="static/focusfrog-frog-eaten.png" width="180" alt="FocusFrog dead frog mascot" />
 </p>
 
 <h1 align="center">FocusFrog</h1>
@@ -38,7 +38,7 @@ FocusFrog is a fork/customization of the ActivityWatch web interface. It is buil
 
 ### Hours Dashboard
 
-Work, not-work, active total, pie charts, and a cumulative Today timeline.
+Work, life, active total, work-life balance, pie charts, and Today timelines.
 
 ![FocusFrog hours dashboard](docs/screenshots/hours-dashboard.jpg)
 
@@ -82,9 +82,11 @@ The Hours page turns ActivityWatch events into a practical work dashboard:
 - Today, Week, and Since recording ranges
 - Monday-to-Sunday week view
 - work, not-work, and active-total summaries
+- a weighted work-life balance scale where life is every elapsed hour not counted as work
 - work vs. not-work pie chart
 - work sub-category pie chart
 - cumulative Today chart showing how work builds over the day
+- hourly Today chart showing how much work happened in each hour
 - detailed report and raw data links when you need to inspect the source
 
 ### A Timeline You Can Read
@@ -142,6 +144,10 @@ FocusFrog reads local ActivityWatch buckets, especially:
 
 Those events are categorized into useful groups such as programming, writing, email, messages and calls, social media, food, and uncategorized work. The UI then uses those categories across charts, timelines, Pomodoro distraction checks, and reports.
 
+For reading-heavy work, FocusFrog adds a small AFK grace window after active input so the dashboard is less strict than raw keyboard/mouse activity alone.
+
+The work-life balance scale treats work as tracked work time. Everything else in the selected elapsed period is life. Life is weighted by `40 / (168 - 40) = 0.31`, so a full week balances at 40 hours of work and 128 hours of life.
+
 ## Quick Start
 
 Start ActivityWatch first:
@@ -171,6 +177,65 @@ npm run build
 
 The built files are written to `dist/`.
 
+## Clickable macOS App
+
+You can package FocusFrog as a small macOS app bundle:
+
+```bash
+npm run package:mac
+```
+
+This creates:
+
+```text
+dist/FocusFrog.app
+```
+
+Double-clicking `FocusFrog.app` opens the FocusFrog dashboard. The app bundle includes the production web UI and starts a small background LaunchAgent server on `http://127.0.0.1:27180`. That server proxies `/api` requests to ActivityWatch, so the Dock icon does not need to stay open.
+
+The launcher tries to start or reuse ActivityWatch from common locations, including `/Applications/ActivityWatch.app`. ActivityWatch still owns the actual tracking and local database; FocusFrog is the dashboard and planning interface on top.
+
+The app icon is generated from `static/logo.png`.
+
+## Native macOS Widget
+
+FocusFrog also has a real WidgetKit widget scaffold in `native/macos-widget/`. It shows today's work, not-work, active total, and a small pie chart directly in macOS widgets.
+
+Build the normal app first so the local server includes the widget data endpoint:
+
+```bash
+npm run package:mac
+```
+
+Then build the native widget host app:
+
+```bash
+npm run package:mac-widget
+```
+
+Full Xcode is required for this step; Apple's Command Line Tools alone cannot package WidgetKit extensions. After building, run `dist/FocusFrogNative.app` once, then open Notification Center or Control-click the Desktop, choose `Edit Widgets`, search for `FocusFrog`, and add the small or medium widget.
+
+The native widget reads only from the local FocusFrog server at `http://127.0.0.1:27180/focusfrog-widget-summary`, so the regular FocusFrog app/server must be running for live values.
+
+## Portable Windows Package
+
+You can also build a portable Windows package:
+
+```bash
+npm run package:windows
+```
+
+This creates:
+
+```text
+dist/FocusFrog-win32/
+dist/FocusFrog-win32.zip
+```
+
+On Windows, unzip the package and run `FocusFrog.cmd`. The launcher starts the local FocusFrog server, opens `http://127.0.0.1:27180/#/home`, and proxies ActivityWatch API requests to the local ActivityWatch server.
+
+The Windows package requires Node.js on `PATH` and an installed or running ActivityWatch. FocusFrog todos and planning state are stored in `%APPDATA%\FocusFrog\storage.json`.
+
 ## Using It With ActivityWatch
 
 If you want to use a built version with your normal ActivityWatch install, copy the `dist/` assets into the static web directory used by your ActivityWatch server, or point `aw-server-rust` at the build output:
@@ -193,6 +258,8 @@ Common commands:
 npm run serve
 npm run build
 npm test
+npm run package:mac
+npm run package:windows
 ```
 
 The app is built with Vue 2, BootstrapVue, Pinia, and the ActivityWatch client APIs.

@@ -36,15 +36,33 @@ div.time-dashboard(:class="dashboardThemeClass")
       div.metric-note {{ hostSummary }}
 
   div.balance-section.mt-4
-    div.balance-labels
-      span Work
-      span Not work
-    div.balance-bar
-      div.balance-work(:style="{ width: workBarWidth }")
-      div.balance-not-work(:style="{ width: notWorkBarWidth }")
-    div.balance-hours
-      span {{ formatDecimalHours(workSeconds) }} h
-      span {{ formatDecimalHours(notWorkSeconds) }} h
+    div.balance-header
+      div
+        div.section-label Work-life balance
+        h5.mb-0 Weighted scale
+        div.balance-note
+          | Life is every elapsed hour not counted as work. Life counts x{{ lifeBalanceFactorLabel }}, so 40h work balances a full week.
+      div.balance-status(:class="balanceStatusClass") {{ balanceStatusText }}
+    div.balance-scale
+      div.balance-pan.balance-pan-work
+        span Work
+        strong {{ formatDecimalHours(workSeconds) }} h
+      div.balance-stand
+        div.balance-beam(:style="{ transform: balanceBeamTransform }")
+          span.balance-beam-end.balance-beam-work
+          span.balance-beam-mid
+          span.balance-beam-end.balance-beam-life
+        div.balance-fulcrum
+      div.balance-pan.balance-pan-life
+        span Life x{{ lifeBalanceFactorLabel }}
+        strong {{ formatDecimalHours(weightedLifeSeconds) }} h
+        small {{ formatDecimalHours(lifeSeconds) }} h raw
+    div.balance-weight-bar
+      div.balance-weight-work(:style="{ width: balanceWorkWeightWidth }")
+      div.balance-weight-life(:style="{ width: balanceLifeWeightWidth }")
+    div.balance-details
+      span Target: 40h work per 168h week
+      span Work share now: {{ balanceWorkSharePercent }}%
 
   div.chart-section.mt-4(v-if="summary && activeSeconds > 0")
     div.chart-header
@@ -92,7 +110,15 @@ div.time-dashboard(:class="dashboardThemeClass")
         div.section-label Timeline
         h5.mb-0 Work vs not work
         div.timeline-range-note {{ timelineRangeSubtitle }}
-      div.chart-total {{ formatHours(timelineTotalSeconds) }}
+      div.timeline-header-actions
+        b-button-group.timeline-mode-controls(v-if="range === 'today'" size="sm")
+          b-button(
+            v-for="option in todayTimelineModeOptions"
+            :key="option.value"
+            :variant="todayTimelineMode === option.value ? 'primary' : 'outline-secondary'"
+            @click="setTodayTimelineMode(option.value)"
+          ) {{ option.text }}
+        div.chart-total {{ formatHours(timelineTotalSeconds) }}
     div.timeline-legend
       span.timeline-legend-item
         span.timeline-legend-dot.timeline-legend-work
@@ -174,7 +200,7 @@ div.time-dashboard(:class="dashboardThemeClass")
             :y="timelineChart.bottom + 24"
             text-anchor="middle"
           ) {{ row.label }}
-        text.timeline-axis-title(:x="timelineChart.left" :y="timelineChart.top - 12") hours
+        text.timeline-axis-title(:x="timelineChart.left" :y="timelineChart.top - 12") {{ timelineChart.axisTitle }}
         g(v-for="row in timelineChart.rows" :key="'hit-' + row.label")
           rect.timeline-hit-zone(
             :x="row.hitX"
@@ -206,6 +232,9 @@ div.time-dashboard(:class="dashboardThemeClass")
     b-button(to="/work-report" variant="outline-primary" size="sm")
       icon(name="briefcase")
       span Detailed report
+    b-button(to="/widget" variant="outline-secondary" size="sm")
+      icon(name="chart-pie")
+      span Widget
     b-button(to="/buckets" variant="outline-secondary" size="sm")
       icon(name="database")
       span Raw data
@@ -231,9 +260,11 @@ import {
 } from '~/util/time';
 import type { CategoryDuration, WorkCategorySummary } from '~/util/workReport';
 import {
+  addAfkGraceToActiveEvents,
   buildWorkSummaryQuery,
   getSupportedWorkReportHosts,
   getWorkReportHostOptions,
+  sumEventDurations,
 } from '~/util/workReport';
 import {
   WORK_COLOR,
@@ -246,6 +277,7 @@ import {
 } from '~/util/focusfrogCategories';
 
 import 'vue-awesome/icons/briefcase';
+import 'vue-awesome/icons/chart-pie';
 import 'vue-awesome/icons/cog';
 import 'vue-awesome/icons/database';
 import 'vue-awesome/icons/sync';
@@ -308,9 +340,17 @@ interface TimelineChartData {
   selectedX: number | null;
   pointRadius: number;
   selectedPointRadius: number;
+  axisTitle: string;
 }
 
 type DashboardRange = 'today' | 'week' | 'sinceRecording';
+type TodayTimelineMode = 'cumulative' | 'hourly';
+
+const WEEKLY_WORK_TARGET_SECONDS = 40 * 3600;
+const WEEK_SECONDS = 7 * 24 * 3600;
+const LIFE_BALANCE_FACTOR =
+  WEEKLY_WORK_TARGET_SECONDS / (WEEK_SECONDS - WEEKLY_WORK_TARGET_SECONDS);
+const BALANCE_TOLERANCE = 0.08;
 
 const WORK_SPLIT_COLORS = {
   work: WORK_COLOR,
@@ -334,11 +374,27 @@ function formatTimelineTickLabel(hours: number): string {
   return Number.isInteger(hours) ? `${hours}h` : `${hours.toFixed(1)}h`;
 }
 
+function formatTimelineMinuteTickLabel(minutes: number): string {
+  return `${Math.round(minutes)}m`;
+}
+
 function getTimelineMaxHours(hours: number): number {
   if (hours <= 0.5) return 0.5;
   if (hours <= 2) return Math.ceil(hours * 2) / 2;
   if (hours <= 8) return Math.ceil(hours);
   return Math.ceil(hours / 2) * 2;
+}
+
+function getTimelineMaxMinutes(minutes: number): number {
+  if (minutes <= 60) return 60;
+  if (minutes <= 120) return 120;
+  return Math.ceil(minutes / 60) * 60;
+}
+
+function getTimelineMinuteTickStep(maxMinutes: number): number {
+  if (maxMinutes <= 60) return 15;
+  if (maxMinutes <= 120) return 30;
+  return 60;
 }
 
 export default {
@@ -356,6 +412,7 @@ export default {
       summary: null as WorkCategorySummary | null,
       timelineDailyRows: [] as DayRow[],
       timelineSelectedIndex: 0,
+      todayTimelineMode: 'cumulative' as TodayTimelineMode,
     };
   },
   computed: {
@@ -364,6 +421,12 @@ export default {
         { value: 'today', text: 'Today' },
         { value: 'week', text: 'Week' },
         { value: 'sinceRecording', text: 'Since recording', title: 'Everything since recording' },
+      ];
+    },
+    todayTimelineModeOptions() {
+      return [
+        { value: 'cumulative', text: 'Cumulative' },
+        { value: 'hourly', text: 'Hourly' },
       ];
     },
     dashboardThemeClass(): string {
@@ -388,11 +451,58 @@ export default {
     notWorkPercent(): number {
       return this.activeSeconds > 0 ? 100 - this.workPercent : 0;
     },
-    workBarWidth(): string {
-      return `${this.workPercent}%`;
+    balancePeriodSeconds(): number {
+      const now = moment();
+      return this.getTimeperiods().reduce((total, timeperiod) => {
+        const [startIso, endIso] = timeperiod.split('/');
+        const start = moment(startIso);
+        const end = moment(endIso);
+        if (!start.isValid() || !end.isValid()) return total;
+        const clippedEnd = moment.min(end, now);
+        if (!clippedEnd.isAfter(start)) return total;
+        return total + clippedEnd.diff(start, 'seconds', true);
+      }, 0);
     },
-    notWorkBarWidth(): string {
-      return `${this.notWorkPercent}%`;
+    lifeSeconds(): number {
+      return Math.max(0, this.balancePeriodSeconds - this.workSeconds);
+    },
+    weightedLifeSeconds(): number {
+      return this.lifeSeconds * LIFE_BALANCE_FACTOR;
+    },
+    lifeBalanceFactorLabel(): string {
+      return LIFE_BALANCE_FACTOR.toFixed(2);
+    },
+    balanceWorkSharePercent(): number {
+      return this.balancePeriodSeconds > 0
+        ? Math.round((this.workSeconds / this.balancePeriodSeconds) * 100)
+        : 0;
+    },
+    balanceWeightTotalSeconds(): number {
+      return this.workSeconds + this.weightedLifeSeconds;
+    },
+    balanceWorkWeightWidth(): string {
+      if (this.balanceWeightTotalSeconds <= 0) return '50%';
+      return `${(this.workSeconds / this.balanceWeightTotalSeconds) * 100}%`;
+    },
+    balanceLifeWeightWidth(): string {
+      if (this.balanceWeightTotalSeconds <= 0) return '50%';
+      return `${(this.weightedLifeSeconds / this.balanceWeightTotalSeconds) * 100}%`;
+    },
+    balanceTiltRatio(): number {
+      const reference = Math.max(this.workSeconds, this.weightedLifeSeconds, 1);
+      return (this.weightedLifeSeconds - this.workSeconds) / reference;
+    },
+    balanceBeamTransform(): string {
+      const degrees = Math.max(-9, Math.min(9, this.balanceTiltRatio * 9));
+      return `rotate(${degrees.toFixed(1)}deg)`;
+    },
+    balanceStatusText(): string {
+      if (Math.abs(this.balanceTiltRatio) <= BALANCE_TOLERANCE) return 'Balanced';
+      return this.balanceTiltRatio < 0 ? 'Work-heavy' : 'Life-heavy';
+    },
+    balanceStatusClass(): string {
+      if (Math.abs(this.balanceTiltRatio) <= BALANCE_TOLERANCE) return 'balance-even';
+      return this.balanceTiltRatio < 0 ? 'balance-work-heavy' : 'balance-life-heavy';
     },
     hostSummary(): string {
       if (this.supportedHosts.length === 0) return 'No active host';
@@ -413,7 +523,9 @@ export default {
     timelineRangeSubtitle(): string {
       if (this.range === 'sinceRecording') return 'Everything since recording';
       if (this.range === 'week') return 'Monday to Sunday';
-      return 'Cumulative today by hour';
+      return this.todayTimelineMode === 'hourly'
+        ? 'Work in each hour today'
+        : 'Cumulative today by hour';
     },
     workSplitRows(): PieRow[] {
       const total = this.activeSeconds;
@@ -451,7 +563,7 @@ export default {
       return buildPieBackground(this.workSubcategoryRows, this.workSeconds);
     },
     timelineTotalSeconds(): number {
-      if (this.range === 'today') {
+      if (this.range === 'today' && this.todayTimelineMode === 'cumulative') {
         return this.timelineDailyRows[this.timelineDailyRows.length - 1]?.activeDuration || 0;
       }
       return this.timelineDailyRows.reduce((total, row) => total + row.activeDuration, 0);
@@ -474,6 +586,7 @@ export default {
     timelineChart(): TimelineChartData {
       const dayCount = this.timelineDailyRows.length;
       const isTodayCumulative = this.range === 'today';
+      const usesMinuteAxis = this.range === 'today' && this.todayTimelineMode === 'hourly';
       const width =
         this.range === 'sinceRecording'
           ? 700
@@ -509,7 +622,13 @@ export default {
         0,
         ...this.timelineDailyRows.map(row => row.activeDuration / 3600)
       );
-      const maxHours = getTimelineMaxHours(maxObservedHours);
+      const maxObservedMinutes = Math.max(
+        0,
+        ...this.timelineDailyRows.map(row => row.activeDuration / 60)
+      );
+      const maxAxisValue = usesMinuteAxis
+        ? getTimelineMaxMinutes(maxObservedMinutes)
+        : getTimelineMaxHours(maxObservedHours);
       const xForIndex = (index: number) =>
         this.timelineDailyRows.length <= 1
           ? left + plotWidth / 2
@@ -518,7 +637,7 @@ export default {
         this.timelineDailyRows.length <= 1
           ? plotWidth
           : plotWidth / (this.timelineDailyRows.length - 1);
-      const yForHours = (hours: number) => bottom - (hours / maxHours) * plotHeight;
+      const yForValue = (value: number) => bottom - (value / maxAxisValue) * plotHeight;
       const pointFor = (
         row: DayRow,
         index: number,
@@ -526,12 +645,13 @@ export default {
         duration: number
       ): TimelineChartPoint => {
         const hours = duration / 3600;
+        const axisValue = usesMinuteAxis ? duration / 60 : hours;
         return {
           label: row.label,
           title: `${row.label}: ${kind} ${this.formatDecimalHours(duration)} h`,
           hours,
           x: xForIndex(index),
-          y: yForHours(hours),
+          y: yForValue(axisValue),
           selected: index === this.timelineSelectedIndex,
         };
       };
@@ -569,12 +689,20 @@ export default {
       );
       const toPolyline = (points: TimelineChartPoint[]) =>
         points.map(point => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
-      const yTicks = Array.from({ length: 5 }, (_value, index) => {
-        const value = (maxHours / 4) * index;
+      const minuteTickStep = getTimelineMinuteTickStep(maxAxisValue);
+      const yTickValues = usesMinuteAxis
+        ? Array.from(
+            { length: Math.floor(maxAxisValue / minuteTickStep) + 1 },
+            (_value, index) => index * minuteTickStep
+          )
+        : Array.from({ length: 5 }, (_value, index) => (maxAxisValue / 4) * index);
+      const yTicks = yTickValues.map(value => {
         return {
-          label: formatTimelineTickLabel(value),
+          label: usesMinuteAxis
+            ? formatTimelineMinuteTickLabel(value)
+            : formatTimelineTickLabel(value),
           value,
-          y: yForHours(value),
+          y: yForValue(value),
         };
       });
 
@@ -601,6 +729,7 @@ export default {
               ),
         pointRadius,
         selectedPointRadius,
+        axisTitle: usesMinuteAxis ? 'minutes' : 'hours',
       };
     },
   },
@@ -622,6 +751,14 @@ export default {
       await this.loadSummary();
     },
 
+    async setTodayTimelineMode(mode: TodayTimelineMode) {
+      if (this.todayTimelineMode === mode) return;
+      this.todayTimelineMode = mode;
+      if (this.range === 'today') {
+        await this.loadSummary();
+      }
+    },
+
     async loadSummary() {
       this.error = '';
       this.summary = null;
@@ -638,9 +775,10 @@ export default {
 
         const totals = results.reduce(
           (acc, result) => {
+            const activeEvents = this.getGraceAdjustedEvents(result);
             const summary = this.summarizeActiveEvents(
-              result.activeEvents || [],
-              result.activeDuration || 0
+              activeEvents,
+              sumEventDurations(activeEvents)
             );
             acc.activeDuration += summary.activeDuration;
             acc.workDuration += summary.workDuration;
@@ -678,14 +816,15 @@ export default {
             : await client.query(timelineTimeperiods, [query]);
         this.timelineDailyRows =
           this.range === 'today'
-            ? this.buildTodayCumulativeRows(
-                timelineResults[0]?.activeEvents || [],
+            ? this.buildTodayRows(
+                this.getGraceAdjustedEvents(timelineResults[0] || {}),
                 timelineTimeperiods[0]
               )
             : timelineResults.map((result, index) => {
+                const activeEvents = this.getGraceAdjustedEvents(result);
                 const summary = this.summarizeActiveEvents(
-                  result.activeEvents || [],
-                  result.activeDuration || 0
+                  activeEvents,
+                  sumEventDurations(activeEvents)
                 );
                 const date = timelineTimeperiods[index].split('/')[0];
                 return {
@@ -707,6 +846,10 @@ export default {
 
     categorizeEvent(event: any): string[] {
       return categorizeFocusFrogEvent(event, this.categoryStore.classes_for_query || []);
+    },
+
+    getGraceAdjustedEvents(result: any): any[] {
+      return addAfkGraceToActiveEvents(result.activeEvents || [], result.rawActiveEvents || []);
     },
 
     isNotWorkCategory(category: string[]): boolean {
@@ -789,6 +932,12 @@ export default {
       };
     },
 
+    buildTodayRows(events: any[], timeperiod: string): DayRow[] {
+      return this.todayTimelineMode === 'hourly'
+        ? this.buildTodayHourlyRows(events, timeperiod)
+        : this.buildTodayCumulativeRows(events, timeperiod);
+    },
+
     buildTodayCumulativeRows(events: any[], timeperiod: string): DayRow[] {
       const [startIso, endIso] = timeperiod.split('/');
       const dayStart = moment(startIso);
@@ -824,6 +973,38 @@ export default {
           categoryDurations: summary.categoryDurations,
         };
       });
+    },
+
+    buildTodayHourlyRows(events: any[], timeperiod: string): DayRow[] {
+      const [startIso, endIso] = timeperiod.split('/');
+      const dayStart = moment(startIso);
+      const dayEnd = moment(endIso);
+      if (!dayStart.isValid() || !dayEnd.isValid()) return [];
+
+      const now = moment();
+      let visibleEnd = now.clone();
+      if (visibleEnd.isBefore(dayStart)) visibleEnd = dayStart.clone();
+      if (visibleEnd.isAfter(dayEnd)) visibleEnd = dayEnd.clone();
+
+      const rows: DayRow[] = [];
+      for (
+        let cursor = dayStart.clone();
+        cursor.isBefore(visibleEnd);
+        cursor = cursor.add(1, 'hour')
+      ) {
+        const hourStart = cursor.clone();
+        const hourEnd = moment.min(cursor.clone().add(1, 'hour'), visibleEnd);
+        const summary = this.summarizeActiveEventsUntil(events, hourStart, hourEnd);
+        rows.push({
+          label: hourStart.format('HH:mm'),
+          activeDuration: summary.activeDuration,
+          workDuration: summary.workDuration,
+          notWorkDuration: summary.notWorkDuration,
+          categoryDurations: summary.categoryDurations,
+        });
+      }
+
+      return rows;
     },
 
     getTimeperiods(): string[] {
@@ -1054,9 +1235,7 @@ export default {
 }
 
 .dashboard-header,
-.dashboard-footer,
-.balance-labels,
-.balance-hours {
+.dashboard-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1274,33 +1453,182 @@ export default {
   color: #111827 !important;
 }
 
-.balance-labels,
-.balance-hours {
-  color: #111827 !important;
-  font-weight: 750;
-}
-
-.balance-labels span,
-.balance-hours span {
-  color: #111827 !important;
-}
-
-.balance-bar {
+.balance-header {
   display: flex;
-  height: 18px;
-  margin: 0.55rem 0;
-  overflow: hidden;
-  border-radius: 999px;
-  border: 1px solid #111827;
-  background: #d1d5db;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
-.balance-work {
+.balance-note {
+  max-width: 44rem;
+  margin-top: 0.15rem;
+  color: #475569 !important;
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.balance-status {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 999px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.balance-even {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8 !important;
+}
+
+.balance-work-heavy {
+  background: rgba(5, 150, 105, 0.13);
+  color: #047857 !important;
+}
+
+.balance-life-heavy {
+  background: rgba(219, 39, 119, 0.12);
+  color: #be185d !important;
+}
+
+.balance-scale {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) minmax(220px, 1.25fr) minmax(130px, 1fr);
+  align-items: end;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.balance-pan {
+  display: flex;
+  min-height: 5.6rem;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.9);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+}
+
+.balance-pan span {
+  color: #334155 !important;
+  font-size: 0.82rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.balance-pan strong {
+  color: #0f172a !important;
+  font-size: 1.65rem;
+  font-weight: 850;
+  line-height: 1.08;
+}
+
+.balance-pan small {
+  color: #64748b !important;
+  font-weight: 700;
+}
+
+.balance-pan-work {
+  border-top: 4px solid var(--work-color);
+}
+
+.balance-pan-life {
+  border-top: 4px solid var(--not-work-color);
+}
+
+.balance-stand {
+  position: relative;
+  min-height: 6.7rem;
+}
+
+.balance-beam {
+  position: absolute;
+  top: 2rem;
+  left: 6%;
+  right: 6%;
+  height: 0.62rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--work-color), #2563eb 50%, var(--not-work-color));
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
+  transform-origin: center;
+  transition: transform 180ms ease;
+}
+
+.balance-beam-end,
+.balance-beam-mid {
+  position: absolute;
+  top: 50%;
+  display: block;
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+
+.balance-beam-end {
+  width: 1.2rem;
+  height: 1.2rem;
+  border: 2px solid #ffffff;
+}
+
+.balance-beam-work {
+  left: -0.15rem;
   background: var(--work-color);
 }
 
-.balance-not-work {
+.balance-beam-life {
+  right: -0.15rem;
   background: var(--not-work-color);
+}
+
+.balance-beam-mid {
+  left: calc(50% - 0.45rem);
+  width: 0.9rem;
+  height: 0.9rem;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.35);
+}
+
+.balance-fulcrum {
+  position: absolute;
+  bottom: 0.15rem;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-right: 2.25rem solid transparent;
+  border-bottom: 4.35rem solid rgba(15, 23, 42, 0.72);
+  border-left: 2.25rem solid transparent;
+  transform: translateX(-50%);
+}
+
+.balance-weight-bar {
+  display: flex;
+  height: 0.78rem;
+  margin-top: 1rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e2e8f0;
+  box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.34);
+}
+
+.balance-weight-work {
+  background: var(--work-color);
+}
+
+.balance-weight-life {
+  background: var(--not-work-color);
+}
+
+.balance-details {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.65rem;
+  color: #475569 !important;
+  font-size: 0.9rem;
+  font-weight: 700;
+  flex-wrap: wrap;
 }
 
 .theme-bright .balance-section,
@@ -1311,28 +1639,6 @@ export default {
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.07);
 }
 
-.theme-bright .balance-labels,
-.theme-bright .balance-hours,
-.theme-bright .balance-labels span,
-.theme-bright .balance-hours span {
-  color: #334155 !important;
-}
-
-.theme-bright .balance-bar {
-  height: 20px;
-  border: 0;
-  background: #e2e8f0;
-  box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.34);
-}
-
-.theme-bright .balance-work {
-  background: var(--work-color);
-}
-
-.theme-bright .balance-not-work {
-  background: var(--not-work-color);
-}
-
 .theme-flower .balance-section,
 .theme-flower .chart-section,
 .theme-flower .timeline-section {
@@ -1341,26 +1647,25 @@ export default {
   box-shadow: 0 12px 30px rgba(15, 38, 71, 0.12);
 }
 
-.theme-flower .balance-labels,
-.theme-flower .balance-hours,
-.theme-flower .balance-labels span,
-.theme-flower .balance-hours span {
-  color: #047857 !important;
+.theme-flower .balance-pan {
+  border-color: rgba(30, 64, 110, 0.24);
+  background: rgba(255, 253, 245, 0.9);
+  box-shadow: 0 10px 22px rgba(15, 38, 71, 0.08);
 }
 
-.theme-flower .balance-bar {
-  height: 20px;
-  border: 0;
-  background: #fde68a;
-  box-shadow: inset 0 0 0 1px rgba(124, 45, 18, 0.22);
+.theme-flower .balance-note,
+.theme-flower .balance-details,
+.theme-flower .balance-pan span,
+.theme-flower .balance-pan small {
+  color: #38506f !important;
 }
 
-.theme-flower .balance-work {
-  background: var(--work-color);
+.theme-flower .balance-pan strong {
+  color: #10213a !important;
 }
 
-.theme-flower .balance-not-work {
-  background: var(--not-work-color);
+.theme-flower .balance-fulcrum {
+  border-bottom-color: rgba(30, 64, 110, 0.66);
 }
 
 .theme-contrast .balance-section,
@@ -1371,24 +1676,42 @@ export default {
   color: #ffffff !important;
 }
 
-.theme-contrast .balance-labels,
-.theme-contrast .balance-hours,
-.theme-contrast .balance-labels span,
-.theme-contrast .balance-hours span {
+.theme-contrast .balance-note,
+.theme-contrast .balance-details,
+.theme-contrast .balance-pan span,
+.theme-contrast .balance-pan small,
+.theme-contrast .balance-pan strong {
   color: #ffffff !important;
 }
 
-.theme-contrast .balance-bar {
+.theme-contrast .balance-pan {
+  border-color: rgba(255, 255, 255, 0.42);
+  background: #0f131a;
+  box-shadow: none;
+}
+
+.theme-contrast .balance-status {
   border-color: #ffffff;
+}
+
+.theme-contrast .balance-even,
+.theme-contrast .balance-work-heavy,
+.theme-contrast .balance-life-heavy {
+  color: #ffffff !important;
+}
+
+.theme-contrast .balance-fulcrum {
+  border-bottom-color: rgba(255, 255, 255, 0.76);
+}
+
+.theme-contrast .balance-beam-mid {
+  background: #0f131a;
+  box-shadow: 0 0 0 2px #ffffff;
+}
+
+.theme-contrast .balance-weight-bar {
   background: #343a40;
-}
-
-.theme-contrast .balance-work {
-  background: var(--work-color);
-}
-
-.theme-contrast .balance-not-work {
-  background: var(--not-work-color);
+  box-shadow: inset 0 0 0 1px #ffffff;
 }
 
 .chart-section {
@@ -1424,6 +1747,19 @@ export default {
   color: #111827 !important;
   font-size: 1.05rem;
   font-weight: 800;
+}
+
+.timeline-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.timeline-mode-controls .btn {
+  min-width: 5.6rem;
+  font-weight: 750;
 }
 
 .timeline-range-note {
@@ -2000,6 +2336,14 @@ export default {
 
   .metric-value {
     font-size: 1.6rem;
+  }
+
+  .balance-scale {
+    grid-template-columns: 1fr;
+  }
+
+  .balance-stand {
+    min-height: 5.6rem;
   }
 
   .pie-panel-body {

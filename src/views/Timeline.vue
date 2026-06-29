@@ -103,6 +103,7 @@ import { canonicalEvents } from '~/queries';
 import { useCategoryStore } from '~/stores/categories';
 import { seconds_to_duration } from '~/util/time';
 import {
+  addAfkGraceToActiveEvents,
   buildWorkSummaryQuery,
   getSupportedWorkReportHosts,
   getWorkReportHostOptions,
@@ -401,7 +402,10 @@ export default {
         const start = this.daterange[0].format();
         const end = this.daterange[1].format();
         const data = await getClient().query([`${start}/${end}`], [query]);
-        this.active_events = data[0]?.activeEvents || [];
+        this.active_events = addAfkGraceToActiveEvents(
+          data[0]?.activeEvents || [],
+          data[0]?.rawActiveEvents || []
+        );
       } catch (err) {
         console.error('Error loading active timeline events:', err);
         this.timeline_error = 'Could not load active timeline events.';
