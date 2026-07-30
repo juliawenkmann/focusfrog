@@ -12,6 +12,7 @@ const Bucket = () => import('./views/Bucket.vue');
 const QueryExplorer = () => import('./views/QueryExplorer.vue');
 const Timeline = () => import('./views/Timeline.vue');
 const Todos = () => import('./views/Todos.vue');
+const TimeBlocking = () => import('./views/TimeBlocking.vue');
 const Trends = () => import('./views/Trends.vue');
 const Widget = () => import('./views/Widget.vue');
 const Settings = () => import('./views/settings/Settings.vue');
@@ -64,6 +65,7 @@ const router = new VueRouter({
     { path: '/buckets/:id', component: Bucket, props: true },
     { path: '/timeline', component: Timeline, meta: { fullContainer: true } },
     { path: '/todos', component: Todos, meta: { fullContainer: true } },
+    { path: '/time-blocking', component: TimeBlocking, meta: { fullContainer: true } },
     { path: '/trends', component: Trends, meta: { fullContainer: true } },
     { path: '/trends/:host', component: Trends, meta: { fullContainer: true } },
     { path: '/widget', component: Widget, meta: { fullContainer: true, chromeless: true } },

@@ -12,6 +12,19 @@
   See how your laptop time is spent, plan what matters today, and stay on track without sending your data to a cloud service.
 </p>
 
+<p align="center">
+  <a href="https://github.com/juliawenkmann/focusfrog/releases/latest/download/FocusFrog-macOS.zip">
+    <img alt="Download FocusFrog for macOS" src="https://img.shields.io/badge/Download_for_macOS-059669?style=for-the-badge&logo=apple&logoColor=white" />
+  </a>
+  <a href="https://github.com/juliawenkmann/focusfrog/releases/latest/download/FocusFrog-win32.zip">
+    <img alt="Download FocusFrog for Windows" src="https://img.shields.io/badge/Download_for_Windows-2563eb?style=for-the-badge&logo=windows&logoColor=white" />
+  </a>
+</p>
+
+<p align="center">
+  <sub>Downloads are provided through GitHub Releases. FocusFrog runs on top of a local ActivityWatch installation.</sub>
+</p>
+
 ---
 
 ## What It Is
@@ -142,7 +155,7 @@ FocusFrog reads local ActivityWatch buckets, especially:
 - `aw-watcher-window` for active app/window events
 - `aw-watcher-afk` for filtering out away time
 
-Those events are categorized into useful groups such as programming, writing, email, messages and calls, social media, food, and uncategorized work. The UI then uses those categories across charts, timelines, Pomodoro distraction checks, and reports.
+Those events are categorized into useful groups such as programming, planning, writing, email, messages and calls, social media, food, and uncategorized work. The UI then uses those categories across charts, timelines, Pomodoro distraction checks, and reports.
 
 For reading-heavy work, FocusFrog adds a small AFK grace window after active input so the dashboard is less strict than raw keyboard/mouse activity alone.
 

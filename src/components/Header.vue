@@ -37,6 +37,10 @@ div(:class="{'fixed-top-padding': fixedTopMenu}")
           div.px-2.px-lg-1
             icon(name="tasks")
             | Todos
+        b-nav-item(to="/time-blocking")
+          div.px-2.px-lg-1
+            icon(name="calendar-week")
+            | Time Blocking
 
       b-navbar-nav.ml-auto
         b-nav-form.app-theme-toggle-form
@@ -76,6 +80,7 @@ div(:class="{'fixed-top-padding': fixedTopMenu}")
 import 'vue-awesome/icons/clock';
 import 'vue-awesome/icons/stream';
 import 'vue-awesome/icons/cog';
+import 'vue-awesome/icons/calendar-week';
 import 'vue-awesome/icons/tasks';
 import 'vue-awesome/icons/moon';
 import 'vue-awesome/icons/sun';
@@ -479,9 +484,9 @@ html[data-dashboard-theme='bright'] .aw-navbar .brand-tagline {
 }
 
 html[data-dashboard-theme='flower'] body {
-  background: linear-gradient(rgba(255, 253, 245, 0.56), rgba(255, 249, 244, 0.68)),
-    url('~@/assets/focusfrog-flower-chinoiserie-bg.webp') center top / 460px auto repeat fixed,
-    linear-gradient(135deg, #fff7ed 0%, #fdf2f8 48%, #eff6ff 100%) !important;
+  background: linear-gradient(rgba(255, 252, 247, 0.16), rgba(255, 247, 245, 0.26)),
+    url('~@/assets/focusfrog-flower-clean-bg-v2.webp') center center / cover no-repeat fixed,
+    #fff8f3 !important;
   color: #10213a !important;
 }
 
@@ -495,19 +500,24 @@ html[data-dashboard-theme='flower'] .aw-navbar {
 html[data-dashboard-theme='flower'] .aw-container {
   position: relative;
   overflow: hidden;
-  background: rgba(255, 253, 245, 0.96) !important;
+  background: rgba(255, 252, 248, 0.91) !important;
   border-color: rgba(30, 64, 110, 0.28) !important;
-  box-shadow: 0 22px 55px rgba(15, 38, 71, 0.14) !important;
+  box-shadow: 0 24px 58px rgba(97, 57, 76, 0.16) !important;
+  backdrop-filter: blur(12px) saturate(0.94);
+}
+
+html[data-dashboard-theme='flower'] .aw-container:has(.todos-page) {
+  background: rgba(255, 252, 248, 0.3) !important;
+  backdrop-filter: blur(9px) saturate(0.94);
 }
 
 html[data-dashboard-theme='flower'] .aw-container::before {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(rgba(255, 253, 245, 0.66), rgba(255, 253, 245, 0.84)),
-    url('~@/assets/focusfrog-flower-chinoiserie-bg.webp') center top / 390px auto repeat;
+  background: radial-gradient(circle at 0 0, rgba(255, 219, 230, 0.18), transparent 24rem),
+    radial-gradient(circle at 100% 100%, rgba(211, 235, 221, 0.2), transparent 26rem);
   content: '';
-  opacity: 0.82;
   pointer-events: none;
 }
 
@@ -646,6 +656,19 @@ html[data-dashboard-theme='flower'] .modal-content {
   border-color: rgba(30, 64, 110, 0.32) !important;
   background: rgba(255, 253, 245, 0.97) !important;
   color: #10213a !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-section,
+html[data-dashboard-theme='flower'] .todos-page .todo-plan-view,
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-view,
+html[data-dashboard-theme='flower'] .todos-page .todo-matrix-view {
+  background: rgba(255, 253, 245, 0.68) !important;
+  backdrop-filter: blur(6px) saturate(0.96);
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-plan-panel,
+html[data-dashboard-theme='flower'] .todos-page .todo-matrix-quadrant {
+  background: rgba(255, 253, 245, 0.9) !important;
 }
 
 html[data-dashboard-theme='flower'] .timeline-schedule-block--not-work,
@@ -792,5 +815,132 @@ html[data-dashboard-theme='contrast'] .aw-navbar .brand-tagline {
 html[data-dashboard-theme='contrast'] .aw-navbar .brand-logo {
   border-color: #ffffff;
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 58%, #eff6ff 100%);
+}
+
+html[data-dashboard-theme='contrast'] .badge-info {
+  border: 1px solid #93c5fd !important;
+  background-color: #1d4ed8 !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .settings-content .text-muted,
+html[data-dashboard-theme='contrast'] .settings-content small,
+html[data-dashboard-theme='contrast'] .settings-section .form-text,
+html[data-dashboard-theme='contrast'] .settings-section .text-muted,
+html[data-dashboard-theme='contrast'] .settings-section .col-form-label,
+html[data-dashboard-theme='contrast'] .settings-section legend {
+  color: #dbeafe !important;
+  opacity: 1 !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-view {
+  background: rgba(255, 253, 245, 0.68) !important;
+  border-color: rgba(167, 103, 127, 0.28) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-grid {
+  background: rgba(255, 247, 243, 0.48) !important;
+  border-color: rgba(167, 103, 127, 0.34) !important;
+  box-shadow: 0 14px 34px rgba(112, 64, 82, 0.11) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-day {
+  background: rgba(255, 251, 246, 0.58) !important;
+  border-color: rgba(167, 103, 127, 0.24) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-day:nth-child(even) {
+  background: rgba(252, 244, 249, 0.56) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-day-header {
+  background: linear-gradient(
+    145deg,
+    rgba(255, 247, 242, 0.94),
+    rgba(249, 235, 243, 0.86)
+  ) !important;
+  border-color: rgba(167, 103, 127, 0.26) !important;
+  color: #17324d !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-day-header span {
+  color: #8f5268 !important;
+  font-weight: 800;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-day-header strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.8rem;
+  min-height: 1.8rem;
+  border: 1px solid rgba(16, 185, 129, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  color: #176b54 !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-day-header--today {
+  background: linear-gradient(
+    145deg,
+    rgba(225, 248, 236, 0.95),
+    rgba(255, 232, 241, 0.9)
+  ) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-lane {
+  background: rgba(255, 253, 249, 0.26) !important;
+  border-color: rgba(167, 103, 127, 0.2) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-lane:hover {
+  background: rgba(229, 248, 238, 0.58) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-lane--over {
+  background: rgba(219, 245, 232, 0.72) !important;
+  box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.62) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-lane-label {
+  color: #8f5268 !important;
+  letter-spacing: 0.035em;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-view .todo-mini-card {
+  background: rgba(255, 253, 249, 0.88) !important;
+  border-color: rgba(167, 103, 127, 0.28) !important;
+  box-shadow: 0 6px 16px rgba(103, 61, 78, 0.1) !important;
+  color: #17324d !important;
+  backdrop-filter: blur(5px);
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-view .todo-mini-card:hover {
+  border-color: rgba(16, 185, 129, 0.52) !important;
+  box-shadow: 0 9px 20px rgba(103, 61, 78, 0.15) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-view .todo-mini-meta,
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-view .todo-drag-handle {
+  color: #536882 !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-scroll {
+  scrollbar-color: rgba(190, 112, 143, 0.58) rgba(255, 247, 243, 0.45);
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-scroll::-webkit-scrollbar {
+  height: 0.7rem;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-scroll::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(255, 247, 243, 0.45);
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(255, 247, 243, 0.62);
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.62), rgba(236, 72, 153, 0.55));
 }
 </style>

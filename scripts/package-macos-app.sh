@@ -52,8 +52,11 @@ sips -z 256 256 "$ICON_SRC" --out "$ICONSET_DIR/icon_128x128@2x.png" >/dev/null
 sips -z 256 256 "$ICON_SRC" --out "$ICONSET_DIR/icon_256x256.png" >/dev/null
 sips -z 512 512 "$ICON_SRC" --out "$ICONSET_DIR/icon_256x256@2x.png" >/dev/null
 sips -z 512 512 "$ICON_SRC" --out "$ICONSET_DIR/icon_512x512.png" >/dev/null
-cp "$ICON_SRC" "$ICONSET_DIR/icon_512x512@2x.png"
-iconutil -c icns "$ICONSET_DIR" -o "$RESOURCES_DIR/FocusFrog.icns"
+sips -z 1024 1024 "$ICON_SRC" --out "$ICONSET_DIR/icon_512x512@2x.png" >/dev/null
+if ! iconutil -c icns "$ICONSET_DIR" -o "$RESOURCES_DIR/FocusFrog.icns"; then
+  echo "iconutil could not compile the iconset; falling back to direct ICNS conversion."
+  sips -s format icns "$ICON_SRC" --out "$RESOURCES_DIR/FocusFrog.icns" >/dev/null
+fi
 rm -rf "$ICONSET_DIR"
 
 cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'

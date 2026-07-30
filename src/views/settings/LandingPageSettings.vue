@@ -9,6 +9,7 @@ div
         option(:value="'/activity/' + hostname + '/view/'" v-for="hostname in hostnames") Activity ({{hostname}})
         option(value="/timeline") Timeline
         option(value="/todos") Todos
+        option(value="/time-blocking") Time Blocking
       span(v-else)
         .aw-loading Loading...
   small.text-muted

@@ -32,6 +32,21 @@ test('categorizes notebooks as programming', () => {
   ).toEqual(['Work', 'Programming']);
 });
 
+test('categorizes FocusFrog and FrogFocus as planning', () => {
+  const cases = ['FocusFrog - Todos', 'FrogFocus - Plan day'];
+
+  for (const title of cases) {
+    expect(
+      categorizeFocusFrogEvent({
+        data: {
+          app: 'Google Chrome',
+          title,
+        },
+      })
+    ).toEqual(['Work', 'Planning']);
+  }
+});
+
 test('categorizes reMarkable as writing', () => {
   expect(
     categorizeFocusFrogEvent({

@@ -184,9 +184,8 @@ html[data-dashboard-theme='contrast'] .aw-navbar .app-theme-toggle .btn-primary 
 }
 
 html[data-dashboard-theme='flower'] body {
-  background: linear-gradient(rgba(255, 253, 245, 0.56), rgba(255, 249, 244, 0.68)),
-    url('/focusfrog-flower-chinoiserie-bg.webp') center top / 460px auto repeat fixed,
-    linear-gradient(135deg, #fff7ed 0%, #fdf2f8 48%, #eff6ff 100%) !important;
+  background: linear-gradient(rgba(255, 252, 247, 0.16), rgba(255, 247, 245, 0.26)),
+    url('/focusfrog-flower-clean-bg-v2.webp') center center / cover no-repeat fixed, #fff8f3 !important;
 }
 
 html[data-dashboard-theme='flower'],
@@ -227,19 +226,24 @@ html[data-dashboard-theme='flower'] .aw-navbar {
 html[data-dashboard-theme='flower'] .aw-container {
   position: relative;
   overflow: hidden;
-  background: rgba(255, 253, 245, 0.96) !important;
+  background: rgba(255, 252, 248, 0.91) !important;
   border-color: rgba(30, 64, 110, 0.28) !important;
-  box-shadow: 0 22px 55px rgba(15, 38, 71, 0.14) !important;
+  box-shadow: 0 24px 58px rgba(97, 57, 76, 0.16) !important;
+  backdrop-filter: blur(12px) saturate(0.94);
+}
+
+html[data-dashboard-theme='flower'] .aw-container:has(.todos-page) {
+  background: rgba(255, 252, 248, 0.3) !important;
+  backdrop-filter: blur(9px) saturate(0.94);
 }
 
 html[data-dashboard-theme='flower'] .aw-container::before {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(rgba(255, 253, 245, 0.66), rgba(255, 253, 245, 0.84)),
-    url('/focusfrog-flower-chinoiserie-bg.webp') center top / 390px auto repeat;
+  background: radial-gradient(circle at 0 0, rgba(255, 219, 230, 0.18), transparent 24rem),
+    radial-gradient(circle at 100% 100%, rgba(211, 235, 221, 0.2), transparent 26rem);
   content: '';
-  opacity: 0.82;
   pointer-events: none;
 }
 
@@ -366,6 +370,7 @@ html[data-dashboard-theme='flower'] .text-muted,
 html[data-dashboard-theme='flower'] .todo-card-meta,
 html[data-dashboard-theme='flower'] .todo-card-notes,
 html[data-dashboard-theme='flower'] .todo-frog-copy,
+html[data-dashboard-theme='flower'] .todo-frog-wake-hint,
 html[data-dashboard-theme='flower'] .todo-frog-meta,
 html[data-dashboard-theme='flower'] .todo-frog-pill,
 html[data-dashboard-theme='flower'] .todo-mini-meta,
@@ -425,6 +430,19 @@ html[data-dashboard-theme='flower'] .modal-content {
   border-color: rgba(30, 64, 110, 0.32) !important;
   background: rgba(255, 253, 245, 0.97) !important;
   color: #0b1f35 !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-section,
+html[data-dashboard-theme='flower'] .todos-page .todo-plan-view,
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-view,
+html[data-dashboard-theme='flower'] .todos-page .todo-matrix-view {
+  background: rgba(255, 253, 245, 0.68) !important;
+  backdrop-filter: blur(6px) saturate(0.96);
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-plan-panel,
+html[data-dashboard-theme='flower'] .todos-page .todo-matrix-quadrant {
+  background: rgba(255, 253, 245, 0.9) !important;
 }
 
 html[data-dashboard-theme='flower'] .timeline-schedule-block--not-work,
@@ -589,9 +607,12 @@ html[data-dashboard-theme='flower'] .settings-nav .nav-link.active:hover {
 }
 
 html[data-dashboard-theme='flower'] .pomodoro-page {
-  background: linear-gradient(rgba(255, 253, 245, 0.8), rgba(248, 252, 255, 0.88)),
-    url('/focusfrog-flower-chinoiserie-bg.webp') center top / 430px auto repeat,
-    linear-gradient(135deg, rgba(255, 253, 245, 0.96), rgba(239, 246, 255, 0.88) 52%) !important;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 252, 248, 0.84),
+    rgba(253, 242, 248, 0.78) 52%,
+    rgba(240, 253, 244, 0.78)
+  ) !important;
 }
 
 html[data-dashboard-theme='flower'] .pomodoro-bloom {
@@ -1434,6 +1455,7 @@ div[style='color: rgb(85, 85, 85); font-size: 0.9em;'] {
 .todo-card-meta,
 .todo-card-notes,
 .todo-frog-copy,
+.todo-frog-wake-hint,
 .todo-frog-meta,
 .todo-frog-pill,
 .todo-mini-meta,
@@ -1667,6 +1689,7 @@ html[data-dashboard-theme='bright'] .todos-page .section-label,
 html[data-dashboard-theme='bright'] .todo-card-meta,
 html[data-dashboard-theme='bright'] .todo-card-notes,
 html[data-dashboard-theme='bright'] .todo-frog-copy,
+html[data-dashboard-theme='bright'] .todo-frog-wake-hint,
 html[data-dashboard-theme='bright'] .todo-frog-meta,
 html[data-dashboard-theme='bright'] .todo-frog-pill,
 html[data-dashboard-theme='bright'] .todo-mini-meta,
@@ -2277,4 +2300,816 @@ html[data-dashboard-theme='bright'] .todo-matrix-body:hover {
 html[data-dashboard-theme='contrast'] .todo-calendar-lane:hover,
 html[data-dashboard-theme='contrast'] .todo-matrix-body:hover {
   background: rgba(16, 185, 129, 0.16) !important;
+}
+
+/* FocusFrog Contrast mode: final dark-mode contract.
+   This block intentionally lives last so component-scoped light surfaces cannot
+   leave dark text or pale cards behind in the moon theme. */
+html[data-dashboard-theme='contrast'] {
+  --ff-dark-bg: #040609;
+  --ff-dark-page: #080c12;
+  --ff-dark-surface: #0e151f;
+  --ff-dark-surface-2: #141e2b;
+  --ff-dark-surface-3: #1b2838;
+  --ff-dark-border: #3a4a62;
+  --ff-dark-border-soft: rgba(148, 163, 184, 0.2);
+  --ff-dark-text: #f4f7fb;
+  --ff-dark-muted: #a9b4c5;
+  --ff-dark-subtle: #7f8ca3;
+  --ff-dark-link: #8cbcff;
+  --ff-dark-green: #34d399;
+  --ff-dark-pink: #f472b6;
+  --ff-dark-blue: #60a5fa;
+  color-scheme: dark;
+}
+
+html[data-dashboard-theme='contrast'],
+html[data-dashboard-theme='contrast'] body {
+  background: var(--ff-dark-bg) !important;
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] body {
+  background: radial-gradient(circle at 8% 0%, rgba(52, 211, 153, 0.065), transparent 22rem),
+    radial-gradient(circle at 92% 0%, rgba(244, 114, 182, 0.055), transparent 22rem),
+    var(--ff-dark-bg) !important;
+}
+
+html[data-dashboard-theme='contrast'] body,
+html[data-dashboard-theme='contrast'] body h1,
+html[data-dashboard-theme='contrast'] body h2,
+html[data-dashboard-theme='contrast'] body h3,
+html[data-dashboard-theme='contrast'] body h4,
+html[data-dashboard-theme='contrast'] body h5,
+html[data-dashboard-theme='contrast'] body h6,
+html[data-dashboard-theme='contrast'] body label,
+html[data-dashboard-theme='contrast'] body legend,
+html[data-dashboard-theme='contrast'] body li,
+html[data-dashboard-theme='contrast'] body td,
+html[data-dashboard-theme='contrast'] body th,
+html[data-dashboard-theme='contrast'] body dt,
+html[data-dashboard-theme='contrast'] body dd,
+html[data-dashboard-theme='contrast'] body pre,
+html[data-dashboard-theme='contrast'] body code,
+html[data-dashboard-theme='contrast'] body strong {
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] body p {
+  color: var(--ff-dark-muted) !important;
+}
+
+html[data-dashboard-theme='contrast'] body a,
+html[data-dashboard-theme='contrast'] .btn-link {
+  color: var(--ff-dark-link) !important;
+}
+
+html[data-dashboard-theme='contrast'] .text-muted,
+html[data-dashboard-theme='contrast'] .form-text,
+html[data-dashboard-theme='contrast'] small,
+html[data-dashboard-theme='contrast'] .small,
+html[data-dashboard-theme='contrast'] .help-block,
+html[data-dashboard-theme='contrast'] .metric-note,
+html[data-dashboard-theme='contrast'] .timeline-range-note,
+html[data-dashboard-theme='contrast'] .todo-card-meta,
+html[data-dashboard-theme='contrast'] .todo-card-notes,
+html[data-dashboard-theme='contrast'] .todo-frog-copy,
+html[data-dashboard-theme='contrast'] .todo-frog-wake-hint,
+html[data-dashboard-theme='contrast'] .todo-frog-meta,
+html[data-dashboard-theme='contrast'] .todo-mini-meta,
+html[data-dashboard-theme='contrast'] .todo-plan-subtle,
+html[data-dashboard-theme='contrast'] .todo-empty,
+html[data-dashboard-theme='contrast'] .timeline-schedule-block-meta,
+html[data-dashboard-theme='contrast'] .timeline-schedule-block-title,
+html[data-dashboard-theme='contrast'] .pomodoro-subtitle,
+html[data-dashboard-theme='contrast'] .pomodoro-running-note,
+html[data-dashboard-theme='contrast'] .pomodoro-session-meta,
+html[data-dashboard-theme='contrast'] .pomodoro-empty,
+html[data-dashboard-theme='contrast'] .pomodoro-caption,
+html[data-dashboard-theme='contrast'] .pomodoro-date {
+  color: var(--ff-dark-muted) !important;
+  opacity: 1 !important;
+}
+
+html[data-dashboard-theme='contrast'] .todo-frog-copy,
+html[data-dashboard-theme='contrast'] .timeline-schedule-block-title {
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .todo-frog-wake-hint {
+  color: var(--ff-dark-pink) !important;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar {
+  background: rgba(4, 6, 9, 0.98) !important;
+  border-color: var(--ff-dark-border-soft) !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5) !important;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar .nav-link,
+html[data-dashboard-theme='contrast'] .aw-navbar .nav-link span,
+html[data-dashboard-theme='contrast'] .aw-navbar .nav-link div,
+html[data-dashboard-theme='contrast'] .aw-navbar .dropdown-toggle,
+html[data-dashboard-theme='contrast'] .aw-navbar .fa-icon,
+html[data-dashboard-theme='contrast'] .navbar-brand span,
+html[data-dashboard-theme='contrast'] .brand-name,
+html[data-dashboard-theme='contrast'] .brand-tagline {
+  color: var(--ff-dark-text) !important;
+  fill: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar .nav-item:hover,
+html[data-dashboard-theme='contrast'] .aw-navbar .router-link-active,
+html[data-dashboard-theme='contrast'] .aw-navbar .router-link-exact-active {
+  background: var(--ff-dark-surface-3) !important;
+}
+
+html[data-dashboard-theme='contrast'] .aw-navbar .app-theme-toggle .btn,
+html[data-dashboard-theme='contrast'] .aw-navbar .app-theme-toggle .btn-primary,
+html[data-dashboard-theme='contrast'] .aw-navbar .app-theme-toggle .btn-outline-secondary {
+  border-color: var(--ff-dark-border-soft) !important;
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .aw-container,
+html[data-dashboard-theme='contrast'] .time-dashboard.theme-contrast,
+html[data-dashboard-theme='contrast'] .todos-page,
+html[data-dashboard-theme='contrast'] .timeline-page,
+html[data-dashboard-theme='contrast'] .pomodoro-page,
+html[data-dashboard-theme='contrast'] .settings-layout,
+html[data-dashboard-theme='contrast'] .widget-page {
+  background: var(--ff-dark-page) !important;
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .aw-container {
+  border-color: var(--ff-dark-border-soft) !important;
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.46) !important;
+}
+
+html[data-dashboard-theme='contrast'] .card,
+html[data-dashboard-theme='contrast'] .jumbotron,
+html[data-dashboard-theme='contrast'] .list-group-item,
+html[data-dashboard-theme='contrast'] .dropdown-menu,
+html[data-dashboard-theme='contrast'] .popover,
+html[data-dashboard-theme='contrast'] .toast,
+html[data-dashboard-theme='contrast'] .modal-content,
+html[data-dashboard-theme='contrast'] .settings-content,
+html[data-dashboard-theme='contrast'] .settings-section,
+html[data-dashboard-theme='contrast'] .settings-nav,
+html[data-dashboard-theme='contrast'] .timeline-day-panel,
+html[data-dashboard-theme='contrast'] .timeline-table-card,
+html[data-dashboard-theme='contrast'] .timeline-schedule-block,
+html[data-dashboard-theme='contrast'] .timeline-category-pill,
+html[data-dashboard-theme='contrast'] .timeline-chip,
+html[data-dashboard-theme='contrast'] .timeline-filters-panel,
+html[data-dashboard-theme='contrast'] .todo-section,
+html[data-dashboard-theme='contrast'] .todo-plan-view,
+html[data-dashboard-theme='contrast'] .todo-plan-panel,
+html[data-dashboard-theme='contrast'] .todo-plan-card,
+html[data-dashboard-theme='contrast'] .todo-plan-choice,
+html[data-dashboard-theme='contrast'] .todo-frog-card,
+html[data-dashboard-theme='contrast'] .todo-frog-pill,
+html[data-dashboard-theme='contrast'] .todo-calendar-view,
+html[data-dashboard-theme='contrast'] .todo-calendar-grid,
+html[data-dashboard-theme='contrast'] .todo-calendar-day,
+html[data-dashboard-theme='contrast'] .todo-calendar-lane,
+html[data-dashboard-theme='contrast'] .todo-calendar-day-header,
+html[data-dashboard-theme='contrast'] .todo-matrix-view,
+html[data-dashboard-theme='contrast'] .todo-matrix-quadrant,
+html[data-dashboard-theme='contrast'] .todo-matrix-card,
+html[data-dashboard-theme='contrast'] .todo-priority-flag,
+html[data-dashboard-theme='contrast'] .todo-card,
+html[data-dashboard-theme='contrast'] .todo-mini-card,
+html[data-dashboard-theme='contrast'] .todo-check-button,
+html[data-dashboard-theme='contrast'] .pomodoro-card,
+html[data-dashboard-theme='contrast'] .pomodoro-mode-button,
+html[data-dashboard-theme='contrast'] .pomodoro-legend-pill,
+html[data-dashboard-theme='contrast'] .pomodoro-face,
+html[data-dashboard-theme='contrast'] .pomodoro-active-label,
+html[data-dashboard-theme='contrast'] .pomodoro-next-card,
+html[data-dashboard-theme='contrast'] .pomodoro-distraction-popup,
+html[data-dashboard-theme='contrast'] .metric-tile,
+html[data-dashboard-theme='contrast'] .balance-section,
+html[data-dashboard-theme='contrast'] .balance-pan,
+html[data-dashboard-theme='contrast'] .chart-section,
+html[data-dashboard-theme='contrast'] .timeline-section,
+html[data-dashboard-theme='contrast'] .timeline-day-label,
+html[data-dashboard-theme='contrast'] .timeline-day-metric,
+html[data-dashboard-theme='contrast'] .manual-work-entry,
+html[data-dashboard-theme='contrast'] .work-report-page,
+html[data-dashboard-theme='contrast'] .report-page,
+html[data-dashboard-theme='contrast'] .raw-data-page,
+html[data-dashboard-theme='contrast'] .bucket-card--unknown,
+html[data-dashboard-theme='contrast'] .bg-light,
+html[data-dashboard-theme='contrast'] .field {
+  background: var(--ff-dark-surface) !important;
+  border-color: var(--ff-dark-border-soft) !important;
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .todo-frog-card {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.09), rgba(244, 114, 182, 0.07)),
+    var(--ff-dark-surface) !important;
+  border-color: rgba(52, 211, 153, 0.45) !important;
+}
+
+html[data-dashboard-theme='contrast'] .todo-frog-illustration {
+  background: var(--ff-dark-surface-2) !important;
+  border-color: rgba(52, 211, 153, 0.38) !important;
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.5) !important;
+}
+
+html[data-dashboard-theme='contrast'] .todo-frog-illustration::after {
+  background: rgba(0, 0, 0, 0.55) !important;
+}
+
+html[data-dashboard-theme='contrast'] .todo-frog-card--drop-over,
+html[data-dashboard-theme='contrast'] .todo-frog-card--drop-active {
+  border-color: #ec4899 !important;
+  box-shadow: inset 0 0 0 2px rgba(236, 72, 153, 0.42), 0 14px 30px rgba(236, 72, 153, 0.16) !important;
+}
+
+html[data-dashboard-theme='contrast'] .todo-card--due,
+html[data-dashboard-theme='contrast'] .todo-plan-panel--selected,
+html[data-dashboard-theme='contrast'] .todo-plan-card--frog {
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.095), var(--ff-dark-surface)) !important;
+}
+
+html[data-dashboard-theme='contrast'] .todo-plan-panel--available,
+html[data-dashboard-theme='contrast'] .todo-calendar-day-header--today {
+  background: linear-gradient(180deg, rgba(96, 165, 250, 0.05), var(--ff-dark-surface)) !important;
+}
+
+html[data-dashboard-theme='contrast'] .timeline-schedule-block--not-work {
+  background: linear-gradient(180deg, rgba(219, 39, 119, 0.2), var(--ff-dark-surface)) !important;
+}
+
+html[data-dashboard-theme='contrast'] .metric-work,
+html[data-dashboard-theme='contrast'] .timeline-day-work,
+html[data-dashboard-theme='contrast'] .balance-pan-work {
+  border-left-color: var(--work-color, var(--ff-dark-green)) !important;
+}
+
+html[data-dashboard-theme='contrast'] .metric-not-work,
+html[data-dashboard-theme='contrast'] .timeline-day-not-work,
+html[data-dashboard-theme='contrast'] .balance-pan-life {
+  border-left-color: var(--not-work-color, var(--ff-dark-pink)) !important;
+}
+
+html[data-dashboard-theme='contrast'] .metric-total,
+html[data-dashboard-theme='contrast'] .timeline-day-total {
+  border-left-color: var(--ff-dark-blue) !important;
+}
+
+html[data-dashboard-theme='contrast'] .metric-work {
+  background: linear-gradient(
+    180deg,
+    rgba(52, 211, 153, 0.14),
+    var(--ff-dark-surface) 72%
+  ) !important;
+}
+
+html[data-dashboard-theme='contrast'] .metric-not-work {
+  background: linear-gradient(
+    180deg,
+    rgba(244, 114, 182, 0.13),
+    var(--ff-dark-surface) 72%
+  ) !important;
+}
+
+html[data-dashboard-theme='contrast'] .metric-total {
+  background: linear-gradient(
+    180deg,
+    rgba(96, 165, 250, 0.14),
+    var(--ff-dark-surface) 72%
+  ) !important;
+}
+
+html[data-dashboard-theme='contrast'] .balance-pan {
+  background: var(--ff-dark-surface-2) !important;
+  border-color: var(--ff-dark-border-soft) !important;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.24) !important;
+}
+
+html[data-dashboard-theme='contrast'] .balance-note,
+html[data-dashboard-theme='contrast'] .balance-details,
+html[data-dashboard-theme='contrast'] .balance-pan span,
+html[data-dashboard-theme='contrast'] .balance-pan small {
+  color: var(--ff-dark-muted) !important;
+}
+
+html[data-dashboard-theme='contrast'] .balance-pan strong {
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .pie-hole,
+html[data-dashboard-theme='contrast'] .widget-donut-hole,
+html[data-dashboard-theme='contrast'] .loading-cover {
+  background: var(--ff-dark-surface-2) !important;
+}
+
+html[data-dashboard-theme='contrast'] .pie-chart,
+html[data-dashboard-theme='contrast'] .pie-hole,
+html[data-dashboard-theme='contrast'] .legend-color,
+html[data-dashboard-theme='contrast'] .timeline-legend-dot,
+html[data-dashboard-theme='contrast'] .widget-donut,
+html[data-dashboard-theme='contrast'] .widget-donut-hole,
+html[data-dashboard-theme='contrast'] .widget-legend-color {
+  border-color: var(--ff-dark-border-soft) !important;
+}
+
+html[data-dashboard-theme='contrast'] .form-control,
+html[data-dashboard-theme='contrast'] .custom-select,
+html[data-dashboard-theme='contrast'] select,
+html[data-dashboard-theme='contrast'] textarea,
+html[data-dashboard-theme='contrast'] input,
+html[data-dashboard-theme='contrast'] .input-group-text,
+html[data-dashboard-theme='contrast'] .custom-file-label,
+html[data-dashboard-theme='contrast'] .timeline-date-input {
+  background-color: var(--ff-dark-surface-2) !important;
+  border-color: var(--ff-dark-border-soft) !important;
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .form-control:focus,
+html[data-dashboard-theme='contrast'] .custom-select:focus,
+html[data-dashboard-theme='contrast'] select:focus,
+html[data-dashboard-theme='contrast'] textarea:focus,
+html[data-dashboard-theme='contrast'] input:focus {
+  background-color: var(--ff-dark-surface-2) !important;
+  border-color: #93c5fd !important;
+  color: var(--ff-dark-text) !important;
+  box-shadow: 0 0 0 0.2rem rgba(147, 197, 253, 0.25) !important;
+}
+
+html[data-dashboard-theme='contrast'] ::placeholder {
+  color: var(--ff-dark-subtle) !important;
+  opacity: 1 !important;
+}
+
+html[data-dashboard-theme='contrast'] input[type='date']::-webkit-calendar-picker-indicator,
+html[data-dashboard-theme='contrast'] input[type='time']::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+html[data-dashboard-theme='contrast'] .custom-control-label::before {
+  background-color: var(--ff-dark-surface-2) !important;
+  border-color: var(--ff-dark-border) !important;
+}
+
+html[data-dashboard-theme='contrast'] .custom-switch .custom-control-label::after {
+  background-color: var(--ff-dark-muted) !important;
+}
+
+html[data-dashboard-theme='contrast']
+  .custom-control-input:checked
+  ~ .custom-control-label::before {
+  background-color: #10b981 !important;
+  border-color: #10b981 !important;
+}
+
+html[data-dashboard-theme='contrast'] .custom-control-input:checked ~ .custom-control-label::after {
+  background-color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .btn,
+html[data-dashboard-theme='contrast'] .btn-outline-secondary,
+html[data-dashboard-theme='contrast'] .btn-outline-primary,
+html[data-dashboard-theme='contrast'] .btn-outline-dark {
+  border-color: var(--ff-dark-border-soft) !important;
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .btn-outline-secondary,
+html[data-dashboard-theme='contrast'] .btn-outline-primary,
+html[data-dashboard-theme='contrast'] .btn-outline-dark {
+  background: var(--ff-dark-surface) !important;
+}
+
+html[data-dashboard-theme='contrast'] .btn:hover,
+html[data-dashboard-theme='contrast'] .btn:focus,
+html[data-dashboard-theme='contrast'] .btn-outline-secondary:hover,
+html[data-dashboard-theme='contrast'] .btn-outline-primary:hover,
+html[data-dashboard-theme='contrast'] .btn-outline-dark:hover {
+  background: var(--ff-dark-surface-3) !important;
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .btn-primary,
+html[data-dashboard-theme='contrast'] .btn-primary:hover,
+html[data-dashboard-theme='contrast'] .btn-primary:focus,
+html[data-dashboard-theme='contrast'] .show > .btn-primary.dropdown-toggle {
+  background: #315edb !important;
+  border-color: #668af0 !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .btn-success,
+html[data-dashboard-theme='contrast'] .btn-success:hover,
+html[data-dashboard-theme='contrast'] .todo-check-button--complete,
+html[data-dashboard-theme='contrast'] .todo-check-button--done {
+  background: #047857 !important;
+  border-color: #34d399 !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .btn-danger,
+html[data-dashboard-theme='contrast'] .btn-danger:hover {
+  background: #be123c !important;
+  border-color: #fb7185 !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .btn-warning,
+html[data-dashboard-theme='contrast'] .btn-warning:hover {
+  background: #facc15 !important;
+  border-color: #fde68a !important;
+  color: #111827 !important;
+}
+
+html[data-dashboard-theme='contrast'] .settings-nav .nav-link {
+  background: transparent !important;
+  color: var(--ff-dark-muted) !important;
+}
+
+html[data-dashboard-theme='contrast'] .settings-nav .nav-link:hover {
+  background: var(--ff-dark-surface-3) !important;
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .settings-nav .nav-link.active,
+html[data-dashboard-theme='contrast'] .settings-nav .nav-link.active:hover {
+  background: #315edb !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .table,
+html[data-dashboard-theme='contrast'] .table th,
+html[data-dashboard-theme='contrast'] .table td,
+html[data-dashboard-theme='contrast'] .timeline-table th,
+html[data-dashboard-theme='contrast'] .timeline-table td {
+  background-color: transparent !important;
+  border-color: var(--ff-dark-border-soft) !important;
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .table thead th,
+html[data-dashboard-theme='contrast'] .timeline-table th {
+  background: var(--ff-dark-surface-2) !important;
+}
+
+html[data-dashboard-theme='contrast'] .table-hover tbody tr:hover,
+html[data-dashboard-theme='contrast'] .timeline-table tbody tr:hover {
+  background: var(--ff-dark-surface-3) !important;
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .modal-content .modal-header,
+html[data-dashboard-theme='contrast'] .modal-content .modal-footer,
+html[data-dashboard-theme='contrast'] .card-header,
+html[data-dashboard-theme='contrast'] .card-footer,
+html[data-dashboard-theme='contrast'] .popover-header,
+html[data-dashboard-theme='contrast'] .timeline-table-header,
+html[data-dashboard-theme='contrast'] .timeline-schedule-day + .timeline-schedule-day,
+html[data-dashboard-theme='contrast'] .pomodoro-side-section + .pomodoro-side-section,
+html[data-dashboard-theme='contrast'] .pomodoro-session-row,
+html[data-dashboard-theme='contrast'] hr {
+  border-color: var(--ff-dark-border-soft) !important;
+}
+
+html[data-dashboard-theme='contrast'] .modal-backdrop.show {
+  opacity: 0.82 !important;
+}
+
+html[data-dashboard-theme='contrast'] .modal-content .close {
+  color: var(--ff-dark-text) !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
+html[data-dashboard-theme='contrast'] .dropdown-item,
+html[data-dashboard-theme='contrast'] .dropdown-menu .dropdown-item {
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .dropdown-item:hover,
+html[data-dashboard-theme='contrast'] .dropdown-item:focus {
+  background: var(--ff-dark-surface-3) !important;
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .badge,
+html[data-dashboard-theme='contrast'] .todo-count,
+html[data-dashboard-theme='contrast'] .todo-plan-index {
+  background: var(--ff-dark-surface-3) !important;
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .badge-info {
+  background: #2548a8 !important;
+  border: 1px solid #668af0 !important;
+  color: #ffffff !important;
+}
+
+html[data-dashboard-theme='contrast'] .alert {
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .alert-info {
+  background: rgba(37, 99, 235, 0.28) !important;
+  border-color: rgba(147, 197, 253, 0.56) !important;
+}
+
+html[data-dashboard-theme='contrast'] .alert-success {
+  background: rgba(5, 150, 105, 0.28) !important;
+  border-color: rgba(52, 211, 153, 0.56) !important;
+}
+
+html[data-dashboard-theme='contrast'] .alert-warning {
+  background: rgba(202, 138, 4, 0.28) !important;
+  border-color: rgba(253, 230, 138, 0.56) !important;
+}
+
+html[data-dashboard-theme='contrast'] .alert-danger {
+  background: rgba(190, 18, 60, 0.28) !important;
+  border-color: rgba(251, 113, 133, 0.56) !important;
+}
+
+html[data-dashboard-theme='contrast'] .timeline-axis,
+html[data-dashboard-theme='contrast'] .timeline-focus-line {
+  stroke: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .timeline-grid {
+  stroke: rgba(148, 163, 184, 0.22) !important;
+}
+
+html[data-dashboard-theme='contrast'] .timeline-y-label,
+html[data-dashboard-theme='contrast'] .timeline-x-label,
+html[data-dashboard-theme='contrast'] .timeline-axis-title,
+html[data-dashboard-theme='contrast'] svg text {
+  fill: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .timeline-line-work {
+  stroke: var(--work-color, #059669) !important;
+}
+
+html[data-dashboard-theme='contrast'] .timeline-line-not-work {
+  stroke: var(--not-work-color, #db2777) !important;
+}
+
+html[data-dashboard-theme='contrast'] .timeline-line-total {
+  stroke: var(--ff-dark-blue) !important;
+}
+
+html[data-dashboard-theme='contrast'] .timeline-point-work,
+html[data-dashboard-theme='contrast'] .work-dot,
+html[data-dashboard-theme='contrast'] .balance-work,
+html[data-dashboard-theme='contrast'] .timeline-legend-work {
+  background: var(--work-color, #059669) !important;
+  fill: var(--work-color, #059669) !important;
+}
+
+html[data-dashboard-theme='contrast'] .timeline-point-not-work,
+html[data-dashboard-theme='contrast'] .not-work-dot,
+html[data-dashboard-theme='contrast'] .balance-not-work,
+html[data-dashboard-theme='contrast'] .timeline-legend-not-work {
+  background: var(--not-work-color, #db2777) !important;
+  fill: var(--not-work-color, #db2777) !important;
+}
+
+html[data-dashboard-theme='contrast'] .timeline-point-total,
+html[data-dashboard-theme='contrast'] .timeline-legend-total {
+  background: var(--ff-dark-blue) !important;
+  fill: var(--ff-dark-blue) !important;
+}
+
+html[data-dashboard-theme='contrast'] .balance-weight-bar,
+html[data-dashboard-theme='contrast'] .balance-bar {
+  background: var(--ff-dark-surface-3) !important;
+  border-color: var(--ff-dark-border-soft) !important;
+  box-shadow: inset 0 0 0 1px var(--ff-dark-border-soft) !important;
+}
+
+html[data-dashboard-theme='contrast'] .loading-cover {
+  background: rgba(4, 6, 9, 0.88) !important;
+  color: var(--ff-dark-text) !important;
+}
+
+html[data-dashboard-theme='contrast'] .time-block-panel,
+html[data-dashboard-theme='contrast'] .time-block-schedule-wrap,
+html[data-dashboard-theme='contrast'] .time-block-template,
+html[data-dashboard-theme='contrast'] .time-block-stat {
+  background: var(--ff-dark-surface) !important;
+  border-color: var(--ff-dark-border-soft) !important;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24) !important;
+}
+
+html[data-dashboard-theme='contrast'] .time-block-stat--work {
+  background: linear-gradient(
+    180deg,
+    rgba(52, 211, 153, 0.09),
+    var(--ff-dark-surface-2)
+  ) !important;
+}
+
+html[data-dashboard-theme='contrast'] .time-block-stat--life {
+  background: linear-gradient(
+    180deg,
+    rgba(244, 114, 182, 0.09),
+    var(--ff-dark-surface-2)
+  ) !important;
+}
+
+html[data-dashboard-theme='contrast'] .time-block-stat--open {
+  background: linear-gradient(
+    180deg,
+    rgba(96, 165, 250, 0.09),
+    var(--ff-dark-surface-2)
+  ) !important;
+}
+
+html[data-dashboard-theme='contrast'] .time-block-empty {
+  background: rgba(52, 211, 153, 0.065) !important;
+  border-color: rgba(52, 211, 153, 0.34) !important;
+  color: var(--ff-dark-muted) !important;
+}
+
+html[data-dashboard-theme='contrast'] .time-block-schedule-wrap,
+html[data-dashboard-theme='contrast'] .time-block-grid {
+  background: var(--ff-dark-page) !important;
+}
+
+html[data-dashboard-theme='contrast'] .time-block-hour-rail {
+  background: var(--ff-dark-surface) !important;
+  border-right-color: var(--ff-dark-border-soft) !important;
+}
+
+html[data-dashboard-theme='contrast'] .time-block-hour-label {
+  color: var(--ff-dark-muted) !important;
+}
+
+html[data-dashboard-theme='contrast'] .time-block-hour-line,
+html[data-dashboard-theme='contrast'] .time-block-slot {
+  border-color: var(--ff-dark-border-soft) !important;
+}
+
+html[data-dashboard-theme='contrast'] .time-block-hour-line {
+  background: var(--ff-dark-border-soft) !important;
+}
+
+html[data-dashboard-theme='contrast'] .time-block-slot:hover {
+  background: linear-gradient(
+    90deg,
+    rgba(52, 211, 153, 0.08),
+    rgba(244, 114, 182, 0.055)
+  ) !important;
+}
+
+html[data-dashboard-theme='contrast'] .time-block-event {
+  background: linear-gradient(135deg, var(--ff-dark-surface-2), var(--ff-dark-surface)) !important;
+  border-color: var(--ff-dark-border-soft) !important;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.34) !important;
+}
+
+html[data-dashboard-theme='contrast'] .pomodoro-page {
+  --pomodoro-ink: var(--ff-dark-text);
+  --pomodoro-muted: var(--ff-dark-muted);
+  --pomodoro-line: var(--ff-dark-border-soft);
+  --pomodoro-ring-track: #253246;
+}
+
+html[data-dashboard-theme='contrast'] .pomodoro-ring {
+  box-shadow: inset 0 0 0 1px var(--ff-dark-border-soft), 0 22px 48px rgba(0, 0, 0, 0.38) !important;
+}
+
+html[data-dashboard-theme='contrast'] .pomodoro-face,
+html[data-dashboard-theme='contrast'] .pomodoro-active-label,
+html[data-dashboard-theme='contrast'] .pomodoro-next-card {
+  background: var(--ff-dark-surface-2) !important;
+}
+
+html[data-dashboard-theme='contrast'] .pomodoro-mode-button--focus.pomodoro-mode-button--active {
+  background: rgba(52, 211, 153, 0.13) !important;
+  border-color: rgba(52, 211, 153, 0.52) !important;
+}
+
+html[data-dashboard-theme='contrast'] .pomodoro-mode-button--break.pomodoro-mode-button--active {
+  background: rgba(244, 114, 182, 0.13) !important;
+  border-color: rgba(244, 114, 182, 0.52) !important;
+}
+
+/* Flower-mode Todo calendar: keep the schedule airy and botanical even though
+   the base dark stylesheet is loaded. */
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-view {
+  background: rgba(255, 253, 245, 0.68) !important;
+  border-color: rgba(167, 103, 127, 0.28) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-grid {
+  background: rgba(255, 247, 243, 0.48) !important;
+  border-color: rgba(167, 103, 127, 0.34) !important;
+  box-shadow: 0 14px 34px rgba(112, 64, 82, 0.11) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-day {
+  background: rgba(255, 251, 246, 0.58) !important;
+  border-color: rgba(167, 103, 127, 0.24) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-day:nth-child(even) {
+  background: rgba(252, 244, 249, 0.56) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-day-header {
+  background: linear-gradient(
+    145deg,
+    rgba(255, 247, 242, 0.94),
+    rgba(249, 235, 243, 0.86)
+  ) !important;
+  border-color: rgba(167, 103, 127, 0.26) !important;
+  color: #17324d !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-day-header span {
+  color: #8f5268 !important;
+  font-weight: 800;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-day-header strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.8rem;
+  min-height: 1.8rem;
+  border: 1px solid rgba(16, 185, 129, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  color: #176b54 !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-day-header--today {
+  background: linear-gradient(
+    145deg,
+    rgba(225, 248, 236, 0.95),
+    rgba(255, 232, 241, 0.9)
+  ) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-lane {
+  background: rgba(255, 253, 249, 0.26) !important;
+  border-color: rgba(167, 103, 127, 0.2) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-lane:hover {
+  background: rgba(229, 248, 238, 0.58) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-lane--over {
+  background: rgba(219, 245, 232, 0.72) !important;
+  box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.62) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-lane-label {
+  color: #8f5268 !important;
+  letter-spacing: 0.035em;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-view .todo-mini-card {
+  background: rgba(255, 253, 249, 0.88) !important;
+  border-color: rgba(167, 103, 127, 0.28) !important;
+  box-shadow: 0 6px 16px rgba(103, 61, 78, 0.1) !important;
+  color: #17324d !important;
+  backdrop-filter: blur(5px);
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-view .todo-mini-card:hover {
+  border-color: rgba(16, 185, 129, 0.52) !important;
+  box-shadow: 0 9px 20px rgba(103, 61, 78, 0.15) !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-view .todo-mini-meta,
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-view .todo-drag-handle {
+  color: #536882 !important;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-scroll {
+  scrollbar-color: rgba(190, 112, 143, 0.58) rgba(255, 247, 243, 0.45);
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-scroll::-webkit-scrollbar {
+  height: 0.7rem;
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-scroll::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(255, 247, 243, 0.45);
+}
+
+html[data-dashboard-theme='flower'] .todos-page .todo-calendar-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(255, 247, 243, 0.62);
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.62), rgba(236, 72, 153, 0.55));
 }

@@ -13,9 +13,87 @@ div.time-dashboard(:class="dashboardThemeClass")
           :title="option.title || option.text"
           @click="setRange(option.value)"
         ) {{ option.text }}
+      b-button(size="sm" variant="outline-primary" @click="openManualWorkModal()")
+        icon(name="plus")
+        span Add work time
       b-button(size="sm" variant="outline-secondary" @click="loadSummary" :disabled="loading")
         icon(name="sync")
         span Refresh
+
+  b-modal(
+    id="manual-work-modal"
+    title="Add manual work time"
+    centered
+    hide-footer
+    @hidden="resetManualWorkDraft"
+  )
+    section.manual-work-editor
+      b-form(@submit.prevent="saveManualWorkEntry")
+        div.manual-work-grid
+          b-form-group(label="Date" label-for="manual-work-date")
+            b-form-input#manual-work-date(
+              v-model="manualWorkDraft.date"
+              type="date"
+              required
+            )
+          b-form-group(label="Start time" label-for="manual-work-start")
+            b-form-input#manual-work-start(
+              v-model="manualWorkDraft.startTime"
+              type="time"
+              step="900"
+            )
+        div.manual-work-grid
+          b-form-group(label="Hours" label-for="manual-work-hours")
+            b-form-input#manual-work-hours(
+              v-model.number="manualWorkDraft.hours"
+              type="number"
+              min="0"
+              max="24"
+              step="1"
+            )
+          b-form-group(label="Minutes" label-for="manual-work-minutes")
+            b-form-input#manual-work-minutes(
+              v-model.number="manualWorkDraft.minutes"
+              type="number"
+              min="0"
+              max="59"
+              step="5"
+            )
+        div.manual-work-grid
+          b-form-group(label="Category" label-for="manual-work-category")
+            b-form-select#manual-work-category(
+              v-model="manualWorkDraft.categoryKey"
+              :options="manualWorkCategoryOptions"
+            )
+          b-form-group(label="Note" label-for="manual-work-note")
+            b-form-input#manual-work-note(
+              v-model.trim="manualWorkDraft.note"
+              placeholder="Meeting, reading, workshop..."
+              autocomplete="off"
+            )
+        div.manual-work-actions
+          b-button(type="submit" variant="primary" :disabled="manualWorkDraftTotalMinutes <= 0")
+            icon(name="plus")
+            span Add
+          b-button(variant="outline-secondary" type="button" @click="hideManualWorkModal")
+            | Cancel
+
+      div.manual-work-recent(v-if="manualWorkEntriesForRange.length > 0")
+        div.section-label Recent manual work
+        div.manual-work-entry(v-for="entry in manualWorkEntriesForRange.slice(0, 6)" :key="entry.id")
+          div.manual-work-entry-main
+            strong {{ formatManualWorkEntryDuration(entry) }}
+            span {{ formatManualWorkEntryLabel(entry) }}
+            span.manual-work-entry-category {{ formatManualWorkEntryCategory(entry) }}
+            small(v-if="entry.note") {{ entry.note }}
+          b-button(
+            size="sm"
+            variant="outline-danger"
+            type="button"
+            title="Remove manual work"
+            @click="deleteManualWorkEntry(entry.id)"
+          )
+            icon(name="trash")
 
   b-alert.mt-3.mb-0(v-if="error" show variant="danger") {{ error }}
   b-alert.mt-3.mb-0(v-else-if="!loading && noSupportedHosts" show variant="warning")
@@ -23,9 +101,19 @@ div.time-dashboard(:class="dashboardThemeClass")
 
   div.summary-strip.mt-4
     div.metric-tile.metric-work
-      div.metric-label Work
+      div.metric-tile-head
+        div.metric-label Work
+        b-button.metric-add-time-button(
+          size="sm"
+          variant="outline-primary"
+          type="button"
+          title="Add manual work time"
+          aria-label="Add manual work time"
+          @click="openManualWorkModal()"
+        )
+          icon(name="plus")
       div.metric-value {{ formatHours(workSeconds) }}
-      div.metric-note {{ workPercent }}% incl. uncategorized
+      div.metric-note {{ workMetricNote }}
     div.metric-tile.metric-not-work
       div.metric-label Not work
       div.metric-value {{ formatHours(notWorkSeconds) }}
@@ -217,7 +305,17 @@ div.time-dashboard(:class="dashboardThemeClass")
         div.timeline-day-metrics
           div.timeline-day-metric.timeline-day-work
             span Work
-            strong {{ formatDecimalHours(timelineSelectedRow.workDuration) }} h
+            div.timeline-day-value-group
+              strong {{ formatDecimalHours(timelineSelectedRow.workDuration) }} h
+              b-button.timeline-day-add-work(
+                size="sm"
+                variant="outline-primary"
+                type="button"
+                title="Add manual work time to this day"
+                aria-label="Add manual work time to this day"
+                @click="openManualWorkModal(timelineSelectedRow.date)"
+              )
+                icon(name="plus")
           div.timeline-day-metric.timeline-day-not-work
             span Not work
             strong {{ formatDecimalHours(timelineSelectedRow.notWorkDuration) }} h
@@ -269,6 +367,7 @@ import {
 import {
   WORK_COLOR,
   NOT_WORK_COLOR,
+  MESSAGE_CALLS_CATEGORY,
   categorizeFocusFrogEvent,
   categoryColor,
   categoryKey,
@@ -280,14 +379,37 @@ import 'vue-awesome/icons/briefcase';
 import 'vue-awesome/icons/chart-pie';
 import 'vue-awesome/icons/cog';
 import 'vue-awesome/icons/database';
+import 'vue-awesome/icons/plus';
 import 'vue-awesome/icons/sync';
+import 'vue-awesome/icons/trash';
 
 interface DayRow {
   label: string;
+  date: string;
   activeDuration: number;
   workDuration: number;
   notWorkDuration: number;
   categoryDurations: CategoryDuration[];
+}
+
+interface ManualWorkDraft {
+  date: string;
+  startTime: string;
+  hours: number;
+  minutes: number;
+  categoryKey: string;
+  note: string;
+}
+
+interface ManualWorkEntry {
+  id: string;
+  date: string;
+  startTime: string;
+  minutes: number;
+  category: string[];
+  note: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface PieRow {
@@ -351,6 +473,27 @@ const WEEK_SECONDS = 7 * 24 * 3600;
 const LIFE_BALANCE_FACTOR =
   WEEKLY_WORK_TARGET_SECONDS / (WEEK_SECONDS - WEEKLY_WORK_TARGET_SECONDS);
 const BALANCE_TOLERANCE = 0.08;
+const MANUAL_WORK_STORAGE_KEY = 'timetracker.manualWork.v1';
+const MANUAL_WORK_SERVER_KEY = 'manualWork';
+const MANUAL_WORK_MODAL_ID = 'manual-work-modal';
+const DAILY_MEETING_WORK_CATEGORY = ['Work', 'Meetings'];
+const MANUAL_WORK_DEFAULT_CATEGORY = DAILY_MEETING_WORK_CATEGORY;
+const MANUAL_WORK_CATEGORY_OPTIONS = [
+  { category: DAILY_MEETING_WORK_CATEGORY, text: 'Meetings' },
+  { category: ['Work', 'Planning'], text: 'Planning' },
+  { category: ['Work', 'Writing'], text: 'Writing' },
+  { category: ['Work', 'Programming'], text: 'Programming' },
+  { category: ['Work', 'Email'], text: 'Email' },
+  { category: ['Work', MESSAGE_CALLS_CATEGORY], text: MESSAGE_CALLS_CATEGORY },
+  { category: ['Work', 'AI Chats'], text: 'AI Chats' },
+  { category: ['Work', 'Manual time'], text: 'Manual time' },
+  { category: ['Work'], text: 'Uncategorized work' },
+].map(option => ({
+  ...option,
+  value: categoryKey(option.category),
+}));
+const DAILY_MEETING_WORK_MINUTES = 60;
+const DAILY_MEETING_WORK_START_TIME = '12:00';
 
 const WORK_SPLIT_COLORS = {
   work: WORK_COLOR,
@@ -397,6 +540,46 @@ function getTimelineMinuteTickStep(maxMinutes: number): number {
   return 60;
 }
 
+function manualWorkCategoryFromKey(value: string): string[] {
+  const matchingOption = MANUAL_WORK_CATEGORY_OPTIONS.find(option => option.value === value);
+  return [...(matchingOption?.category || MANUAL_WORK_DEFAULT_CATEGORY)];
+}
+
+function normalizeManualWorkCategory(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    const category = value.filter(item => typeof item === 'string') as string[];
+    if (category.length > 0 && category[0] === 'Work') return [...category];
+  }
+  if (typeof value === 'string' && value) {
+    const matchingOption = MANUAL_WORK_CATEGORY_OPTIONS.find(option => option.value === value);
+    if (matchingOption) return [...matchingOption.category];
+    try {
+      return normalizeManualWorkCategory(JSON.parse(value));
+    } catch {
+      return [...MANUAL_WORK_DEFAULT_CATEGORY];
+    }
+  }
+  return [...MANUAL_WORK_DEFAULT_CATEGORY];
+}
+
+function blankManualWorkDraft(): ManualWorkDraft {
+  const now = moment();
+  const rounded = now
+    .clone()
+    .subtract(1, 'hour')
+    .minute(Math.floor(now.minute() / 15) * 15)
+    .second(0)
+    .millisecond(0);
+  return {
+    date: now.format('YYYY-MM-DD'),
+    startTime: rounded.format('HH:mm'),
+    hours: 1,
+    minutes: 0,
+    categoryKey: categoryKey(MANUAL_WORK_DEFAULT_CATEGORY),
+    note: 'Meeting',
+  };
+}
+
 export default {
   name: 'Home',
   data() {
@@ -413,6 +596,8 @@ export default {
       timelineDailyRows: [] as DayRow[],
       timelineSelectedIndex: 0,
       todayTimelineMode: 'cumulative' as TodayTimelineMode,
+      manualWorkEntries: [] as ManualWorkEntry[],
+      manualWorkDraft: blankManualWorkDraft(),
     };
   },
   computed: {
@@ -428,6 +613,12 @@ export default {
         { value: 'cumulative', text: 'Cumulative' },
         { value: 'hourly', text: 'Hourly' },
       ];
+    },
+    manualWorkCategoryOptions() {
+      return MANUAL_WORK_CATEGORY_OPTIONS.map(option => ({
+        value: option.value,
+        text: option.text,
+      }));
     },
     dashboardThemeClass(): string {
       const theme = this.settingsStore.focusFrogTheme;
@@ -448,8 +639,34 @@ export default {
     workPercent(): number {
       return this.activeSeconds > 0 ? Math.round((this.workSeconds / this.activeSeconds) * 100) : 0;
     },
+    workMetricNote(): string {
+      const manualSeconds = this.manualWorkSecondsForTimeperiods(this.getTimeperiods());
+      const meetingSeconds = this.dailyMeetingWorkSecondsForTimeperiods(this.getTimeperiods());
+      const additions = [];
+      if (meetingSeconds > 0) additions.push(`meetings +${this.formatHours(meetingSeconds)}`);
+      if (manualSeconds > 0) additions.push(`manual +${this.formatHours(manualSeconds)}`);
+      return additions.length > 0
+        ? `${this.workPercent}% incl. ${additions.join(', ')}`
+        : `${this.workPercent}% incl. uncategorized`;
+    },
     notWorkPercent(): number {
       return this.activeSeconds > 0 ? 100 - this.workPercent : 0;
+    },
+    manualWorkDraftTotalMinutes(): number {
+      return (
+        Math.max(0, Number(this.manualWorkDraft.hours || 0) * 60) +
+        Math.max(0, Number(this.manualWorkDraft.minutes || 0))
+      );
+    },
+    manualWorkEntriesForRange(): ManualWorkEntry[] {
+      const timeperiods = this.getTimeperiods();
+      return this.manualWorkEntries
+        .filter(entry => this.manualWorkSecondsForEntryInTimeperiods(entry, timeperiods) > 0)
+        .sort(
+          (a, b) =>
+            this.manualWorkEntryStartMoment(b).valueOf() -
+            this.manualWorkEntryStartMoment(a).valueOf()
+        );
     },
     balancePeriodSeconds(): number {
       const now = moment();
@@ -735,6 +952,8 @@ export default {
   },
   async mounted() {
     this.categoryStore.load();
+    this.loadManualWorkEntries();
+    await this.loadServerManualWorkEntries();
     await this.bucketsStore.ensureLoaded();
     this.supportedHosts = getSupportedWorkReportHosts(
       getWorkReportHostOptions(this.bucketsStore.buckets || [])
@@ -757,6 +976,357 @@ export default {
       if (this.range === 'today') {
         await this.loadSummary();
       }
+    },
+
+    showManualWorkModal() {
+      this.$root.$emit('bv::show::modal', MANUAL_WORK_MODAL_ID);
+    },
+
+    hideManualWorkModal() {
+      this.$root.$emit('bv::hide::modal', MANUAL_WORK_MODAL_ID);
+    },
+
+    openManualWorkModal(date?: string) {
+      const draft = blankManualWorkDraft();
+      if (date && moment(date, 'YYYY-MM-DD', true).isValid()) {
+        draft.date = date;
+      }
+      this.manualWorkDraft = draft;
+      this.$nextTick(() => this.showManualWorkModal());
+    },
+
+    resetManualWorkDraft() {
+      this.manualWorkDraft = blankManualWorkDraft();
+    },
+
+    normalizeManualWorkEntry(entry: any): ManualWorkEntry | null {
+      if (!entry || typeof entry !== 'object') return null;
+      const date = typeof entry.date === 'string' ? entry.date : '';
+      if (!moment(date, 'YYYY-MM-DD', true).isValid()) return null;
+      const minutes = Math.max(0, Math.round(Number(entry.minutes || 0)));
+      if (minutes <= 0) return null;
+      const startTime =
+        typeof entry.startTime === 'string' && /^\d{2}:\d{2}$/.test(entry.startTime)
+          ? entry.startTime
+          : '';
+      const category = normalizeManualWorkCategory(entry.category || entry.categoryKey);
+      const now = moment().toISOString();
+      return {
+        id:
+          typeof entry.id === 'string' && entry.id
+            ? entry.id
+            : `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        date,
+        startTime,
+        minutes,
+        category,
+        note: typeof entry.note === 'string' ? entry.note : '',
+        createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : now,
+        updatedAt: typeof entry.updatedAt === 'string' ? entry.updatedAt : now,
+      };
+    },
+
+    loadManualWorkEntries() {
+      if (typeof localStorage === 'undefined') return;
+      try {
+        const raw = localStorage.getItem(MANUAL_WORK_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        this.manualWorkEntries = Array.isArray(parsed)
+          ? parsed
+              .map(entry => this.normalizeManualWorkEntry(entry))
+              .filter((entry): entry is ManualWorkEntry => Boolean(entry))
+          : [];
+      } catch (err) {
+        console.error('Could not load manual work entries:', err);
+        this.manualWorkEntries = [];
+      }
+    },
+
+    saveManualWorkEntries(syncServer = true) {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(MANUAL_WORK_STORAGE_KEY, JSON.stringify(this.manualWorkEntries));
+      }
+      if (!syncServer || typeof fetch === 'undefined') return;
+      fetch(`/focusfrog-storage/${MANUAL_WORK_SERVER_KEY}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ value: this.manualWorkEntries }),
+      }).catch(err => {
+        console.warn('Could not save FocusFrog manual work entries:', err);
+      });
+    },
+
+    async loadServerManualWorkEntries() {
+      if (typeof fetch === 'undefined') return;
+      try {
+        const response = await fetch(`/focusfrog-storage/${MANUAL_WORK_SERVER_KEY}`, {
+          cache: 'no-store',
+        });
+        if (!response.ok) {
+          if (this.manualWorkEntries.length > 0) this.saveManualWorkEntries();
+          return;
+        }
+        const payload = await response.json();
+        const serverEntries = Array.isArray(payload?.value)
+          ? payload.value
+              .map(entry => this.normalizeManualWorkEntry(entry))
+              .filter((entry): entry is ManualWorkEntry => Boolean(entry))
+          : [];
+        if (serverEntries.length === 0) {
+          if (this.manualWorkEntries.length > 0) this.saveManualWorkEntries();
+          return;
+        }
+
+        const byId = new Map<string, ManualWorkEntry>();
+        [...serverEntries, ...this.manualWorkEntries].forEach(entry => {
+          const existing = byId.get(entry.id);
+          if (
+            !existing ||
+            moment(entry.updatedAt).valueOf() >= moment(existing.updatedAt).valueOf()
+          ) {
+            byId.set(entry.id, entry);
+          }
+        });
+        this.manualWorkEntries = Array.from(byId.values()).sort(
+          (a, b) =>
+            this.manualWorkEntryStartMoment(b).valueOf() -
+            this.manualWorkEntryStartMoment(a).valueOf()
+        );
+        this.saveManualWorkEntries(false);
+      } catch (err) {
+        console.warn('Could not load FocusFrog manual work entries:', err);
+      }
+    },
+
+    async saveManualWorkEntry() {
+      const minutes = this.manualWorkDraftTotalMinutes;
+      if (minutes <= 0 || !this.manualWorkDraft.date) return;
+      const now = moment().toISOString();
+      const entry = this.normalizeManualWorkEntry({
+        id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        date: this.manualWorkDraft.date,
+        startTime: this.manualWorkDraft.startTime,
+        minutes,
+        category: manualWorkCategoryFromKey(this.manualWorkDraft.categoryKey),
+        note: this.manualWorkDraft.note,
+        createdAt: now,
+        updatedAt: now,
+      });
+      if (!entry) return;
+      this.manualWorkEntries = [entry, ...this.manualWorkEntries];
+      this.saveManualWorkEntries();
+      this.hideManualWorkModal();
+      await this.loadSummary();
+    },
+
+    async deleteManualWorkEntry(id: string) {
+      const nextEntries = this.manualWorkEntries.filter(entry => entry.id !== id);
+      if (nextEntries.length === this.manualWorkEntries.length) return;
+      this.manualWorkEntries = nextEntries;
+      this.saveManualWorkEntries();
+      await this.loadSummary();
+    },
+
+    manualWorkEntryStartMoment(entry: ManualWorkEntry): moment.Moment {
+      const startTime = entry.startTime || '12:00';
+      const start = moment(`${entry.date} ${startTime}`, 'YYYY-MM-DD HH:mm', true);
+      return start.isValid() ? start : moment(entry.date, 'YYYY-MM-DD').startOf('day');
+    },
+
+    manualWorkSecondsForEntryInRange(
+      entry: ManualWorkEntry,
+      rangeStart: moment.Moment,
+      rangeEnd: moment.Moment
+    ): number {
+      if (!rangeStart.isValid() || !rangeEnd.isValid() || !rangeEnd.isAfter(rangeStart)) return 0;
+      if (!entry.startTime) {
+        const entryDay = moment(entry.date, 'YYYY-MM-DD');
+        if (!entryDay.isValid()) return 0;
+        return entryDay.isSameOrAfter(rangeStart.clone().startOf('day')) &&
+          entryDay.isSameOrBefore(rangeEnd.clone().subtract(1, 'millisecond').startOf('day'))
+          ? entry.minutes * 60
+          : 0;
+      }
+      const entryStart = this.manualWorkEntryStartMoment(entry);
+      const entryEnd = entryStart.clone().add(entry.minutes, 'minutes');
+      const clippedStart = moment.max(entryStart, rangeStart);
+      const clippedEnd = moment.min(entryEnd, rangeEnd);
+      return Math.max(0, clippedEnd.diff(clippedStart, 'seconds', true));
+    },
+
+    manualWorkSecondsForEntryInTimeperiods(entry: ManualWorkEntry, timeperiods: string[]): number {
+      return timeperiods.reduce((total, timeperiod) => {
+        const [startIso, endIso] = timeperiod.split('/');
+        return (
+          total + this.manualWorkSecondsForEntryInRange(entry, moment(startIso), moment(endIso))
+        );
+      }, 0);
+    },
+
+    manualWorkSecondsForTimeperiods(timeperiods: string[]): number {
+      return this.manualWorkEntries.reduce(
+        (total, entry) => total + this.manualWorkSecondsForEntryInTimeperiods(entry, timeperiods),
+        0
+      );
+    },
+
+    dailyMeetingWorkEntryForDate(date: string): ManualWorkEntry {
+      return {
+        id: `daily-meeting-credit-${date}`,
+        date,
+        startTime: DAILY_MEETING_WORK_START_TIME,
+        minutes: DAILY_MEETING_WORK_MINUTES,
+        category: [...DAILY_MEETING_WORK_CATEGORY],
+        note: 'Meetings',
+        createdAt: date,
+        updatedAt: date,
+      };
+    },
+
+    dailyMeetingWorkEntriesForTimeperiods(timeperiods: string[]): ManualWorkEntry[] {
+      const todayKey = moment(get_today_with_offset(this.settingsStore.startOfDay)).format(
+        'YYYY-MM-DD'
+      );
+      const dates = new Set<string>();
+      timeperiods.forEach(timeperiod => {
+        const [startIso] = timeperiod.split('/');
+        const start = moment(startIso);
+        if (!start.isValid()) return;
+        const dateKey = start.format('YYYY-MM-DD');
+        if (dateKey <= todayKey) dates.add(dateKey);
+      });
+      return Array.from(dates)
+        .sort()
+        .map(date => this.dailyMeetingWorkEntryForDate(date));
+    },
+
+    dailyMeetingWorkSecondsForTimeperiods(timeperiods: string[]): number {
+      return this.dailyMeetingWorkEntriesForTimeperiods(timeperiods).reduce(
+        (total, entry) => total + this.manualWorkSecondsForEntryInTimeperiods(entry, timeperiods),
+        0
+      );
+    },
+
+    dailyMeetingWorkSecondsForRange(rangeStart: moment.Moment, rangeEnd: moment.Moment): number {
+      if (!rangeStart.isValid() || !rangeEnd.isValid() || !rangeEnd.isAfter(rangeStart)) return 0;
+      const todayKey = moment(get_today_with_offset(this.settingsStore.startOfDay)).format(
+        'YYYY-MM-DD'
+      );
+      const dates = new Set<string>();
+      const lastDay = rangeEnd.clone().subtract(1, 'millisecond').startOf('day');
+      for (
+        let cursor = rangeStart.clone().startOf('day');
+        cursor.isSameOrBefore(lastDay);
+        cursor = cursor.add(1, 'day')
+      ) {
+        const dateKey = cursor.format('YYYY-MM-DD');
+        if (dateKey <= todayKey) dates.add(dateKey);
+      }
+      return Array.from(dates).reduce((total, date) => {
+        const entry = this.dailyMeetingWorkEntryForDate(date);
+        return total + this.manualWorkSecondsForEntryInRange(entry, rangeStart, rangeEnd);
+      }, 0);
+    },
+
+    addWorkCategoryDuration(
+      categoryDurations: CategoryDuration[],
+      category: string[],
+      seconds: number
+    ): CategoryDuration[] {
+      if (seconds <= 0) return categoryDurations;
+      const key = categoryKey(category);
+      const categoryMap: Record<string, CategoryDuration> = {};
+      categoryDurations.forEach(row => {
+        categoryMap[categoryKey(row.category)] = { category: row.category, duration: row.duration };
+      });
+      categoryMap[key] = categoryMap[key] || {
+        category,
+        duration: 0,
+      };
+      categoryMap[key].duration += seconds;
+      return Object.values(categoryMap).sort((a, b) => b.duration - a.duration);
+    },
+
+    manualWorkCategoryForEntry(entry: ManualWorkEntry): string[] {
+      return normalizeManualWorkCategory(entry.category);
+    },
+
+    addManualWorkCategoryDurationsForTimeperiods(
+      categoryDurations: CategoryDuration[],
+      timeperiods: string[]
+    ): CategoryDuration[] {
+      return this.manualWorkEntries.reduce((nextDurations, entry) => {
+        const seconds = this.manualWorkSecondsForEntryInTimeperiods(entry, timeperiods);
+        return this.addWorkCategoryDuration(
+          nextDurations,
+          this.manualWorkCategoryForEntry(entry),
+          seconds
+        );
+      }, categoryDurations);
+    },
+
+    addManualWorkCategoryDurationsForRange(
+      categoryDurations: CategoryDuration[],
+      rangeStart: moment.Moment,
+      rangeEnd: moment.Moment
+    ): CategoryDuration[] {
+      return this.manualWorkEntries.reduce((nextDurations, entry) => {
+        const seconds = this.manualWorkSecondsForEntryInRange(entry, rangeStart, rangeEnd);
+        return this.addWorkCategoryDuration(
+          nextDurations,
+          this.manualWorkCategoryForEntry(entry),
+          seconds
+        );
+      }, categoryDurations);
+    },
+
+    addDailyMeetingWorkCategoryDuration(
+      categoryDurations: CategoryDuration[],
+      meetingSeconds: number
+    ): CategoryDuration[] {
+      return this.addWorkCategoryDuration(
+        categoryDurations,
+        DAILY_MEETING_WORK_CATEGORY,
+        meetingSeconds
+      );
+    },
+
+    applyManualWorkToSummary(
+      summary: WorkCategorySummary,
+      timeperiods: string[]
+    ): WorkCategorySummary {
+      const manualSeconds = this.manualWorkSecondsForTimeperiods(timeperiods);
+      const meetingSeconds = this.dailyMeetingWorkSecondsForTimeperiods(timeperiods);
+      const extraWorkSeconds = manualSeconds + meetingSeconds;
+      if (extraWorkSeconds <= 0) return summary;
+      let categoryDurations = summary.categoryDurations;
+      categoryDurations = this.addManualWorkCategoryDurationsForTimeperiods(
+        categoryDurations,
+        timeperiods
+      );
+      categoryDurations = this.addDailyMeetingWorkCategoryDuration(
+        categoryDurations,
+        meetingSeconds
+      );
+      return {
+        activeDuration: summary.activeDuration + extraWorkSeconds,
+        workDuration: summary.workDuration + extraWorkSeconds,
+        notWorkDuration: summary.notWorkDuration,
+        categoryDurations,
+      };
+    },
+
+    formatManualWorkEntryDuration(entry: ManualWorkEntry): string {
+      return this.formatHours(entry.minutes * 60);
+    },
+
+    formatManualWorkEntryLabel(entry: ManualWorkEntry): string {
+      const date = moment(entry.date, 'YYYY-MM-DD').format('MMM D');
+      return entry.startTime ? `${date}, ${entry.startTime}` : date;
+    },
+
+    formatManualWorkEntryCategory(entry: ManualWorkEntry): string {
+      return workSubcategoryLabel(this.manualWorkCategoryForEntry(entry));
     },
 
     async loadSummary() {
@@ -801,14 +1371,17 @@ export default {
           }
         );
 
-        this.summary = {
-          activeDuration: totals.activeDuration,
-          workDuration: totals.workDuration,
-          notWorkDuration: totals.notWorkDuration,
-          categoryDurations: (Object.values(totals.categoryMap) as CategoryDuration[]).sort(
-            (a, b) => b.duration - a.duration
-          ),
-        };
+        this.summary = this.applyManualWorkToSummary(
+          {
+            activeDuration: totals.activeDuration,
+            workDuration: totals.workDuration,
+            notWorkDuration: totals.notWorkDuration,
+            categoryDurations: (Object.values(totals.categoryMap) as CategoryDuration[]).sort(
+              (a, b) => b.duration - a.duration
+            ),
+          },
+          timeperiods
+        );
         const timelineTimeperiods = this.getTimelineTimeperiods();
         const timelineResults =
           JSON.stringify(timelineTimeperiods) === JSON.stringify(timeperiods)
@@ -826,13 +1399,18 @@ export default {
                   activeEvents,
                   sumEventDurations(activeEvents)
                 );
+                const adjustedSummary = this.applyManualWorkToSummary(summary, [
+                  timelineTimeperiods[index],
+                ]);
                 const date = timelineTimeperiods[index].split('/')[0];
+                const dateKey = moment(date).format('YYYY-MM-DD');
                 return {
                   label: this.getDayLabel(date, this.range === 'sinceRecording'),
-                  activeDuration: summary.activeDuration,
-                  workDuration: summary.workDuration,
-                  notWorkDuration: summary.notWorkDuration,
-                  categoryDurations: summary.categoryDurations,
+                  date: dateKey,
+                  activeDuration: adjustedSummary.activeDuration,
+                  workDuration: adjustedSummary.workDuration,
+                  notWorkDuration: adjustedSummary.notWorkDuration,
+                  categoryDurations: adjustedSummary.categoryDurations,
                 };
               });
         this.timelineSelectedIndex = Math.max(0, this.timelineDailyRows.length - 1);
@@ -924,11 +1502,28 @@ export default {
       }
 
       const boundedNotWork = Math.min(activeSeconds, notWorkDuration);
+      const manualSeconds = this.manualWorkEntries.reduce(
+        (total, entry) =>
+          total + this.manualWorkSecondsForEntryInRange(entry, rangeStart, rangeEnd),
+        0
+      );
+      const meetingSeconds = this.dailyMeetingWorkSecondsForRange(rangeStart, rangeEnd);
+      const extraWorkSeconds = manualSeconds + meetingSeconds;
+      let categoryDurations = Object.values(categoryMap);
+      categoryDurations = this.addManualWorkCategoryDurationsForRange(
+        categoryDurations,
+        rangeStart,
+        rangeEnd
+      );
+      categoryDurations = this.addDailyMeetingWorkCategoryDuration(
+        categoryDurations,
+        meetingSeconds
+      );
       return {
-        activeDuration: activeSeconds,
-        workDuration: Math.max(0, activeSeconds - boundedNotWork),
+        activeDuration: activeSeconds + extraWorkSeconds,
+        workDuration: Math.max(0, activeSeconds - boundedNotWork) + extraWorkSeconds,
         notWorkDuration: boundedNotWork,
-        categoryDurations: Object.values(categoryMap).sort((a, b) => b.duration - a.duration),
+        categoryDurations,
       };
     },
 
@@ -967,6 +1562,7 @@ export default {
         return {
           label:
             isCurrentPoint && !anchor.isSame(dayStart, 'hour') ? 'Now' : anchor.format('HH:mm'),
+          date: dayStart.format('YYYY-MM-DD'),
           activeDuration: summary.activeDuration,
           workDuration: summary.workDuration,
           notWorkDuration: summary.notWorkDuration,
@@ -997,6 +1593,7 @@ export default {
         const summary = this.summarizeActiveEventsUntil(events, hourStart, hourEnd);
         rows.push({
           label: hourStart.format('HH:mm'),
+          date: dayStart.format('YYYY-MM-DD'),
           activeDuration: summary.activeDuration,
           workDuration: summary.workDuration,
           notWorkDuration: summary.notWorkDuration,
@@ -1119,10 +1716,14 @@ export default {
   margin: -1rem;
   padding: 1rem;
   border-radius: 8px;
-  background: linear-gradient(rgba(255, 253, 245, 0.66), rgba(255, 249, 244, 0.84)),
-    url('~@/assets/focusfrog-flower-chinoiserie-bg.webp') center top / 430px auto repeat,
-    linear-gradient(135deg, rgba(255, 247, 237, 0.98), rgba(253, 242, 248, 0.9) 58%);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 252, 248, 0.76),
+    rgba(253, 242, 248, 0.7) 58%,
+    rgba(240, 253, 244, 0.7)
+  );
   color: #10213a !important;
+  backdrop-filter: blur(8px);
 }
 
 .time-dashboard.theme-flower::before {
@@ -1254,6 +1855,71 @@ export default {
   white-space: nowrap;
 }
 
+.manual-work-editor {
+  color: #0f172a;
+}
+
+.manual-work-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.manual-work-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.manual-work-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.manual-work-recent {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.5);
+}
+
+.manual-work-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.48);
+  border-left: 5px solid #059669;
+  border-radius: 6px;
+  background: rgba(248, 250, 252, 0.86);
+}
+
+.manual-work-entry-main {
+  display: grid;
+  min-width: 0;
+  gap: 0.05rem;
+}
+
+.manual-work-entry-main strong,
+.manual-work-entry-main span {
+  color: #0f172a !important;
+}
+
+.manual-work-entry-main small {
+  color: #475569 !important;
+  overflow-wrap: anywhere;
+}
+
+.manual-work-entry-main .manual-work-entry-category {
+  color: #047857 !important;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
 .summary-strip {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -1261,6 +1927,7 @@ export default {
 }
 
 .metric-tile {
+  position: relative;
   min-height: 118px;
   padding: 1rem;
   border-radius: 6px;
@@ -1280,6 +1947,48 @@ export default {
 
 .metric-total {
   border-left-color: #1d4ed8;
+}
+
+.metric-tile-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.metric-add-time-button,
+.timeline-day-add-work {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 999px;
+  line-height: 1;
+}
+
+.metric-add-time-button .fa-icon,
+.timeline-day-add-work .fa-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.metric-work .metric-add-time-button,
+.timeline-day-work .timeline-day-add-work {
+  border-color: rgba(5, 150, 105, 0.72);
+  background: rgba(236, 253, 245, 0.88);
+  color: var(--work-color) !important;
+}
+
+.metric-work .metric-add-time-button:hover,
+.metric-work .metric-add-time-button:focus,
+.timeline-day-work .timeline-day-add-work:hover,
+.timeline-day-work .timeline-day-add-work:focus {
+  border-color: var(--work-color);
+  background: var(--work-color);
+  color: #ffffff !important;
 }
 
 .theme-bright .metric-tile {
@@ -2108,6 +2817,13 @@ export default {
   font-weight: 900;
 }
 
+.timeline-day-value-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
 .timeline-day-work {
   border-left: 5px solid var(--work-color);
 }
@@ -2336,6 +3052,16 @@ export default {
 
   .metric-value {
     font-size: 1.6rem;
+  }
+
+  .metric-add-time-button,
+  .timeline-day-add-work {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .manual-work-grid {
+    grid-template-columns: 1fr;
   }
 
   .balance-scale {

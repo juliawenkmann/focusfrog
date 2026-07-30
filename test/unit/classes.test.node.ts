@@ -48,6 +48,17 @@ test('matches GitHub to programming in default categories', () => {
   ).toEqual(['Work', 'Programming']);
 });
 
+test('matches FocusFrog and FrogFocus to planning in default categories', () => {
+  expect(classes.matchString('FocusFrog - Todos', classes.defaultCategories)?.name).toEqual([
+    'Work',
+    'Planning',
+  ]);
+  expect(classes.matchString('FrogFocus - Plan day', classes.defaultCategories)?.name).toEqual([
+    'Work',
+    'Planning',
+  ]);
+});
+
 test('normalizes legacy programming rules to include GitHub', () => {
   const normalized = classes.normalizeFocusFrogCategories([
     { name: ['Work', 'Programming'], rule: { type: 'regex', regex: 'Codex' } },
@@ -95,6 +106,25 @@ test('adds AI chats when normalizing legacy categories', () => {
     'AI Chats',
   ]);
   expect(classes.matchString('chat.openai.com', normalized)?.name).toEqual(['Work', 'AI Chats']);
+});
+
+test('adds planning when normalizing legacy categories', () => {
+  const normalized = classes.normalizeFocusFrogCategories([
+    { name: ['Work', 'Programming'], rule: { type: 'regex', regex: 'Codex' } },
+  ]);
+
+  expect(classes.matchString('FocusFrog - Home', normalized)?.name).toEqual([
+    'Work',
+    'Planning',
+  ]);
+  expect(classes.matchString('FrogFocus - Plan day', normalized)?.name).toEqual([
+    'Work',
+    'Planning',
+  ]);
+  expect(classes.matchString('github.com/juliawenkmann/focusfrog', normalized)?.name).toEqual([
+    'Work',
+    'Programming',
+  ]);
 });
 
 test('normalizes legacy social media rules to include streaming and news', () => {

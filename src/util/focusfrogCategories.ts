@@ -7,6 +7,8 @@ export const NOT_WORK_COLOR = '#db2777';
 const PROGRAMMING_PATTERN =
   'ActivityWatch|aw-|Codex|GitHub|github|github\\.com|github\\.dev|githubusercontent\\.com|GitLab|gitlab\\.com|Bitbucket|Stack Overflow|stackoverflow|VS Code|VSCode|Visual Studio Code|Visual Studio|VSCodium|Cursor|PyCharm|Jupyter|JupyterLab|Jupyter Notebook|\\.ipynb\\b|ipynb|RStudio|Xcode|Terminal|Apple Terminal|iTerm|iTerm2|iTerm\\.app|iTerm2\\.app|com\\.apple\\.Terminal|com\\.googlecode\\.iterm2|vim|neovim|Spyder|Docker|npm|pnpm|yarn|conda|Python|TypeScript|JavaScript';
 
+const PLANNING_PATTERN = 'FocusFrog|FrogFocus';
+
 const WRITING_PATTERN =
   'Overleaf|overleaf\\.com|arXiv|arxiv\\.org|LaTeX|TeXstudio|Texmaker|BibTeX|Zotero|reMarkable|remarkable|Google Docs|docs\\.google\\.com|Microsoft Word|Pages|Manuscript|paper draft';
 
@@ -29,6 +31,9 @@ const NOT_WORK_ROOTS = new Set(['Media', 'Social Media', 'Food']);
 const CATEGORY_COLORS: Record<string, string> = {
   [JSON.stringify(['Work'])]: WORK_COLOR,
   [JSON.stringify(['Work', 'Programming'])]: '#2563eb',
+  [JSON.stringify(['Work', 'Planning'])]: '#4f46e5',
+  [JSON.stringify(['Work', 'Manual time'])]: '#64748b',
+  [JSON.stringify(['Work', 'Meetings'])]: '#eab308',
   [JSON.stringify(['Work', 'Writing'])]: '#14b8a6',
   [JSON.stringify(['Work', 'Email'])]: '#f59e0b',
   [JSON.stringify(['Work', 'AI Chats'])]: '#38bdf8',
@@ -126,6 +131,7 @@ export function categorizeFocusFrogEvent(
   if (matchesPattern(EMAIL_PATTERN, text)) return ['Work', 'Email'];
   if (matchesPattern(AI_CHATS_PATTERN, text)) return ['Work', 'AI Chats'];
   if (matchesPattern(PROGRAMMING_PATTERN, text)) return ['Work', 'Programming'];
+  if (matchesPattern(PLANNING_PATTERN, text)) return ['Work', 'Planning'];
   if (matchesPattern(COMMUNICATION_PATTERN, text)) return ['Work', MESSAGE_CALLS_CATEGORY];
   if (matchesPattern(SOCIAL_MEDIA_PATTERN, text)) return ['Social Media'];
 

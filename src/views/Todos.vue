@@ -3,7 +3,13 @@ div.todos-page
   div.todos-header
     div
       h3.mb-1 Todos
-      div.text-muted {{ todoSummary }}
+      div.todo-header-meta
+        div.text-muted {{ todoSummary }}
+        div.todo-done-counter(aria-live="polite")
+          icon(name="check-circle")
+          strong {{ doneTodoCount }}
+          span {{ doneTodoLabel }}
+          span.todo-done-counter-today(v-if="doneTodayCount > 0") {{ doneTodayCount }} today
     div.todos-header-actions
       b-button-group(size="sm")
         b-button(
@@ -35,16 +41,28 @@ div.todos-page
             autocomplete="off"
           )
         div.editor-grid
-          b-form-group(label="Due date" label-for="todo-due-date")
+          b-form-group(label="Due date (optional)" label-for="todo-due-date")
             b-form-input#todo-due-date(v-model="draft.dueDate" type="date")
-          b-form-group(label="Time" label-for="todo-due-time")
-            b-form-input#todo-due-time(v-model="draft.dueTime" type="time")
+          b-form-group(label="Time (optional)" label-for="todo-due-time")
+            b-form-input#todo-due-time(
+              v-model="draft.dueTime"
+              type="time"
+              :disabled="!draft.dueDate"
+            )
         div.editor-grid
           b-form-group(label="Area" label-for="todo-area")
             b-form-select#todo-area(v-model="draft.area" :options="areaOptions")
           b-form-group(label="Repeat" label-for="todo-repeat")
-            b-form-select#todo-repeat(v-model="draft.repeat" :options="repeatOptions")
-        b-form-group(v-if="draft.repeat === 'custom'" label="Every" label-for="todo-repeat-every")
+            b-form-select#todo-repeat(
+              v-model="draft.repeat"
+              :options="repeatOptions"
+              :disabled="!draft.dueDate"
+            )
+        b-form-group(
+          v-if="draft.dueDate && draft.repeat === 'custom'"
+          label="Every"
+          label-for="todo-repeat-every"
+        )
           div.repeat-every-row
             b-form-input#todo-repeat-every(
               v-model.number="draft.repeatEvery"
@@ -190,7 +208,7 @@ div.todos-page
                 h5.mb-0 Plan day
               span.todo-plan-subtle {{ planProgressLabel }}
             div.todo-frog-card(
-              :class="{ 'todo-frog-card--empty': !frogTodo && !frogIsEaten, 'todo-frog-card--drop-active': draggedFrogTodoId, 'todo-frog-card--drop-over': frogDropActive, 'todo-frog-card--eaten': frogIsEaten }"
+              :class="{ 'todo-frog-card--empty': !frogTodo && !frogIsEaten, 'todo-frog-card--drop-active': draggedFrogTodoId || draggedPlanTodoId, 'todo-frog-card--drop-over': frogDropActive, 'todo-frog-card--eaten': frogIsEaten, 'todo-frog-card--can-wake': frogIsEaten && openPlannedTodos.length > 0, 'todo-frog-card--waking': frogJustWoke }"
               @dragover.prevent="handleFrogDragOver"
               @dragenter.prevent="handleFrogDragEnter"
               @dragleave="handleFrogDragLeave($event)"
@@ -203,6 +221,7 @@ div.todos-page
                   alt=""
                   draggable="false"
                 )
+                div.todo-frog-wake-glow(v-if="frogJustWoke" aria-hidden="true")
                 div.todo-frog-confetti(v-if="frogEatenTodoId" aria-hidden="true")
                   span.todo-confetti.todo-confetti--1
                   span.todo-confetti.todo-confetti--2
@@ -218,12 +237,21 @@ div.todos-page
                   span.todo-confetti.todo-confetti--12
               div.todo-frog-content
                 div.section-label Frog of the day
-                h5.mb-1(v-if="frogIsEaten") Frog eaten today
+                h5.mb-1(v-if="frogDropActive && frogIsEaten") Let go to wake the frog
+                h5.mb-1(v-else-if="frogJustWoke") Frog awake!
+                h5.mb-1(v-else-if="frogIsEaten") Frog eaten today
                 h5.mb-1(v-else-if="frogTodo") Eat this frog first
                 h5.mb-1(v-else) Pick your frog
-                p.todo-frog-copy(v-if="frogIsEaten") {{ frogEatenCopy }}
+                p.todo-frog-copy(v-if="frogDropActive && frogIsEaten") This task becomes your new frog.
+                p.todo-frog-copy(v-else-if="frogIsEaten") {{ frogEatenCopy }}
                 p.todo-frog-copy(v-else-if="frogTodo") {{ frogTodo.title }}
                 p.todo-frog-copy(v-else) Drag a todo here or select one below.
+                p.todo-frog-wake-hint(v-if="frogIsEaten && openPlannedTodos.length > 0")
+                  icon.mr-1(name="hand-pointer")
+                  | Drag a task here to wake the frog, or tap one below.
+                p.todo-frog-wake-hint(v-else-if="frogIsEaten")
+                  icon.mr-1(name="plus-circle")
+                  | Add another task to your plan to wake the frog.
                 div.todo-frog-meta(v-if="frogTodo && !frogIsEaten")
                   span.todo-area-dot(:style="{ background: areaColor(frogTodo.area) }")
                   span {{ areaLabel(frogTodo.area) }}
@@ -238,12 +266,17 @@ div.todos-page
                   )
                     icon.mr-1(name="check")
                     | Done with frog
-            div.todo-frog-picker(v-if="openPlannedTodos.length > 0" aria-label="Choose frog of the day")
+              span.sr-only(aria-live="polite") {{ frogWakeAnnouncement }}
+            div.todo-frog-picker(
+              v-if="openPlannedTodos.length > 0"
+              :aria-label="frogIsEaten ? 'Choose a task to wake the frog' : 'Choose frog of the day'"
+            )
               button.todo-frog-pill(
                 v-for="todo in openPlannedTodos"
                 :key="'frog-' + todo.id"
                 type="button"
-                :class="{ 'todo-frog-pill--active': isFrogTodo(todo) }"
+                :class="{ 'todo-frog-pill--active': isFrogTodo(todo), 'todo-frog-pill--wake': frogIsEaten }"
+                :title="frogIsEaten ? 'Wake the frog with ' + todo.title : 'Make ' + todo.title + ' the frog'"
                 @click="selectFrogTodo(todo)"
               )
                 span.todo-frog-pill-dot(:style="{ background: areaColor(todo.area) }")
@@ -253,8 +286,15 @@ div.todos-page
               div.todo-plan-card(
                 v-for="(todo, index) in plannedTodos"
                 :key="todo.id"
-                :class="{ 'todo-plan-card--checking': isCompleting(todo), 'todo-plan-card--done': isPlanTodoDone(todo), 'todo-plan-card--frog': isFrogTodo(todo), 'todo-plan-card--dragging': draggedFrogTodoId === todo.id }"
+                :class="{ 'todo-plan-card--checking': isCompleting(todo), 'todo-plan-card--done': isPlanTodoDone(todo), 'todo-plan-card--frog': isFrogTodo(todo), 'todo-plan-card--dragging': draggedFrogTodoId === todo.id || draggedPlanTodoId === todo.id, 'todo-plan-card--drop-before': planDropTargetId === todo.id && planDropPosition === 'before', 'todo-plan-card--drop-after': planDropTargetId === todo.id && planDropPosition === 'after' }"
                 :style="{ borderColor: areaColor(todo.area) }"
+                :draggable="!isPlanTodoDone(todo)"
+                @dragstart="startPlanDrag(todo, $event)"
+                @dragover.prevent="handlePlanDragOver(todo, $event)"
+                @dragenter.prevent="handlePlanDragOver(todo, $event)"
+                @dragleave="handlePlanDragLeave(todo, $event)"
+                @drop.prevent="dropTodoOnPlan(todo, $event)"
+                @dragend="endPlanDrag"
                 @mousedown="startFrogMouseDrag(todo, $event)"
                 @pointerdown="startFrogPointerDrag(todo, $event)"
                 @pointermove="handleFrogPointerMove($event)"
@@ -267,6 +307,8 @@ div.todos-page
                     span.todo-area-dot(:style="{ background: areaColor(todo.area) }")
                     strong.todo-plan-title {{ todo.title }}
                     span.todo-frog-badge(v-if="isFrogTodo(todo) && !isPlanTodoDone(todo)") frog
+                    span.todo-drag-handle(title="Drag to reorder")
+                      icon(name="grip-lines")
                   div.todo-card-meta
                     span {{ areaLabel(todo.area) }}
                     span {{ dueLabel(todo) }}
@@ -274,22 +316,6 @@ div.todos-page
                     span(v-if="todo.repeat !== 'none'") {{ repeatLabel(todo) }}
                   div.todo-card-notes(v-if="todo.notes") {{ todo.notes }}
                 div.todo-plan-actions
-                  b-button(
-                    size="sm"
-                    variant="outline-secondary"
-                    :disabled="index === 0"
-                    title="Move up"
-                    @click="movePlannedTodo(todo.id, -1)"
-                  )
-                    icon(name="arrow-up")
-                  b-button(
-                    size="sm"
-                    variant="outline-secondary"
-                    :disabled="index === plannedTodos.length - 1"
-                    title="Move down"
-                    @click="movePlannedTodo(todo.id, 1)"
-                  )
-                    icon(name="arrow-down")
                   button.todo-check-button.todo-check-button--action(
                     type="button"
                     :class="{ 'todo-check-button--complete': isCompleting(todo), 'todo-check-button--done': isPlanTodoDone(todo) }"
@@ -456,18 +482,19 @@ div.todos-page
 </template>
 
 <script lang="ts">
-import 'vue-awesome/icons/arrow-down';
-import 'vue-awesome/icons/arrow-up';
 import 'vue-awesome/icons/border-all';
 import 'vue-awesome/icons/calendar-alt';
 import 'vue-awesome/icons/calendar-day';
 import 'vue-awesome/icons/check';
+import 'vue-awesome/icons/check-circle';
 import 'vue-awesome/icons/clipboard-list';
 import 'vue-awesome/icons/grip-lines';
+import 'vue-awesome/icons/hand-pointer';
 import 'vue-awesome/icons/list-ul';
 import 'vue-awesome/icons/minus';
 import 'vue-awesome/icons/pen';
 import 'vue-awesome/icons/plus';
+import 'vue-awesome/icons/plus-circle';
 import 'vue-awesome/icons/sync';
 import 'vue-awesome/icons/tasks';
 import 'vue-awesome/icons/times';
@@ -550,6 +577,7 @@ const TODO_EDITOR_MODAL_ID = 'todo-editor-modal';
 const CALENDAR_PAST_BUFFER_DAYS = 14;
 const CALENDAR_FUTURE_DAYS = 28;
 const CALENDAR_SCROLL_BATCH_DAYS = 14;
+const DAY_PLAN_ROLLOVER_HOUR = 6;
 
 const AREA_CONFIG: Record<TodoArea, { text: string; color: string }> = {
   work: { text: 'Work', color: '#10b981' },
@@ -564,13 +592,25 @@ function blankDraft(): TodoDraft {
     title: '',
     notes: '',
     area: 'work',
-    dueDate: moment().format('YYYY-MM-DD'),
-    dueTime: '09:00',
+    dueDate: '',
+    dueTime: '',
     repeat: 'none',
     repeatEvery: 2,
     important: false,
     urgent: false,
   };
+}
+
+function currentPlanDate(): string {
+  return moment().subtract(DAY_PLAN_ROLLOVER_HOUR, 'hours').format('YYYY-MM-DD');
+}
+
+function timestampInPlanDate(timestamp: string, planDate: string): boolean {
+  if (!timestamp || !planDate) return false;
+  const start = moment(`${planDate} ${DAY_PLAN_ROLLOVER_HOUR}:00`, 'YYYY-MM-DD H:mm');
+  const end = start.clone().add(1, 'day');
+  const value = moment(timestamp);
+  return value.isSameOrAfter(start) && value.isBefore(end);
 }
 
 export default {
@@ -586,6 +626,9 @@ export default {
       completingTodoId: '',
       draggedFrogTodoId: '',
       frogDropActive: false,
+      frogJustWoke: false,
+      frogWakeAnnouncement: '',
+      frogWakeTimer: 0,
       frogPointerTodoId: '',
       frogPointerStartX: 0,
       frogPointerStartY: 0,
@@ -593,9 +636,14 @@ export default {
       draggedCalendarTargetKey: '',
       draggedMatrixTodoId: '',
       draggedMatrixTargetKey: '',
+      draggedPlanTodoId: '',
+      planDropTargetId: '',
+      planDropPosition: '',
       draft: blankDraft(),
       editingId: '',
       viewMode: 'plan',
+      planDayDate: currentPlanDate(),
+      planRolloverTimer: 0,
       calendarStartDate: moment().format('YYYY-MM-DD'),
       calendarFocusDate: moment().format('YYYY-MM-DD'),
       calendarDayCount: CALENDAR_PAST_BUFFER_DAYS + CALENDAR_FUTURE_DAYS,
@@ -651,13 +699,28 @@ export default {
         )
         .slice(0, 8);
     },
+    doneTodoCount(): number {
+      return this.todos.reduce(
+        (total, todo) => total + Math.max(0, Number(todo.completedCount || 0)),
+        0
+      );
+    },
+    doneTodayCount(): number {
+      const today = currentPlanDate();
+      return this.todos.filter(
+        todo => todo.lastCompletedAt && timestampInPlanDate(todo.lastCompletedAt, today)
+      ).length;
+    },
+    doneTodoLabel(): string {
+      return this.doneTodoCount === 1 ? 'task done' : 'tasks done';
+    },
     todoSummary(): string {
       const due = this.dueTodos.length;
       const upcoming = this.activeTodos.length - due;
       return `${due} due now, ${upcoming} upcoming`;
     },
     todayPlanLabel(): string {
-      return moment().format('dddd, MMM D');
+      return moment(this.planDayDate, 'YYYY-MM-DD').format('dddd, MMM D');
     },
     plannedTodos(): TodoItem[] {
       const todosById = new Map(this.todos.map(todo => [todo.id, todo]));
@@ -768,6 +831,12 @@ export default {
         this.$nextTick(() => this.scrollCalendarToFocus());
       }
     },
+    'draft.dueDate'(dueDate) {
+      if (!dueDate) {
+        this.draft.dueTime = '';
+        this.draft.repeat = 'none';
+      }
+    },
   },
   mounted() {
     this.loadTodos();
@@ -775,7 +844,16 @@ export default {
     this.loadFrogTodo();
     this.pruneDayPlan();
     this.syncFrogTodoToFirstPlan();
+    this.planRolloverTimer = window.setInterval(this.handlePlanDayRollover, 60 * 1000);
     void this.loadServerTodoState();
+  },
+  beforeDestroy() {
+    if (this.planRolloverTimer) {
+      window.clearInterval(this.planRolloverTimer);
+    }
+    if (this.frogWakeTimer) {
+      window.clearTimeout(this.frogWakeTimer);
+    }
   },
   methods: {
     noop(event?: Event) {
@@ -871,7 +949,8 @@ export default {
         this.saveServerValue(TODO_SERVER_STORAGE_KEYS.todos, this.todos);
       }
 
-      const today = moment().format('YYYY-MM-DD');
+      const today = currentPlanDate();
+      this.planDayDate = today;
       if (
         serverDayPlan &&
         typeof serverDayPlan === 'object' &&
@@ -881,6 +960,18 @@ export default {
       ) {
         this.dayPlanIds = serverDayPlan.todoIds.filter(id => typeof id === 'string');
         this.saveDayPlan(false);
+      } else if (
+        serverDayPlan &&
+        typeof serverDayPlan === 'object' &&
+        serverDayPlan.date !== today &&
+        Array.isArray(serverDayPlan.todoIds) &&
+        this.dayPlanIds.length === 0
+      ) {
+        this.dayPlanIds = this.rollOverDayPlanIds(
+          serverDayPlan.todoIds.filter(id => typeof id === 'string'),
+          typeof serverDayPlan.date === 'string' ? serverDayPlan.date : today
+        );
+        this.saveDayPlan();
       } else if (this.dayPlanIds.length > 0) {
         this.saveDayPlan();
       }
@@ -924,15 +1015,22 @@ export default {
     },
     loadDayPlan() {
       if (typeof localStorage === 'undefined') return;
-      const today = moment().format('YYYY-MM-DD');
+      const today = currentPlanDate();
+      this.planDayDate = today;
       try {
         const raw = localStorage.getItem(TODO_DAY_PLAN_STORAGE_KEY);
         const parsed = raw ? (JSON.parse(raw) as Partial<DayPlanRecord>) : null;
-        this.dayPlanIds =
-          parsed?.date === today && Array.isArray(parsed.todoIds)
-            ? parsed.todoIds.filter(id => typeof id === 'string')
-            : [];
-        if (parsed?.date !== today) this.saveDayPlan();
+        if (parsed?.date === today && Array.isArray(parsed.todoIds)) {
+          this.dayPlanIds = parsed.todoIds.filter(id => typeof id === 'string');
+        } else if (parsed?.date && Array.isArray(parsed.todoIds)) {
+          this.dayPlanIds = this.rollOverDayPlanIds(
+            parsed.todoIds.filter(id => typeof id === 'string'),
+            parsed.date
+          );
+          this.saveDayPlan();
+        } else {
+          this.dayPlanIds = [];
+        }
       } catch (err) {
         console.error('Could not load day plan:', err);
         this.dayPlanIds = [];
@@ -940,7 +1038,7 @@ export default {
     },
     saveDayPlan(syncServer = true) {
       const record: DayPlanRecord = {
-        date: moment().format('YYYY-MM-DD'),
+        date: this.planDayDate || currentPlanDate(),
         todoIds: this.dayPlanIds,
       };
       if (typeof localStorage !== 'undefined') {
@@ -950,7 +1048,8 @@ export default {
     },
     loadFrogTodo() {
       if (typeof localStorage === 'undefined') return;
-      const today = moment().format('YYYY-MM-DD');
+      const today = currentPlanDate();
+      this.planDayDate = today;
       try {
         const raw = localStorage.getItem(TODO_FROG_STORAGE_KEY);
         const parsed = raw ? (JSON.parse(raw) as Partial<FrogPlanRecord>) : null;
@@ -969,7 +1068,7 @@ export default {
     },
     saveFrogTodo(syncServer = true) {
       const record: FrogPlanRecord = {
-        date: moment().format('YYYY-MM-DD'),
+        date: this.planDayDate || currentPlanDate(),
         todoId: this.frogTodoId,
         eatenToday: this.frogEatenToday,
         eatenTodoTitle: this.frogEatenTitle,
@@ -978,6 +1077,33 @@ export default {
         localStorage.setItem(TODO_FROG_STORAGE_KEY, JSON.stringify(record));
       }
       if (syncServer) this.saveServerValue(TODO_SERVER_STORAGE_KEYS.frog, record);
+    },
+    isTodoDoneForPlanDate(todo: TodoItem, planDate: string): boolean {
+      if (todo.completed) return true;
+      return Boolean(todo.lastCompletedAt && timestampInPlanDate(todo.lastCompletedAt, planDate));
+    },
+    rollOverDayPlanIds(todoIds: string[], previousPlanDate: string): string[] {
+      const todosById = new Map(this.todos.map(todo => [todo.id, todo]));
+      return todoIds.filter((id, index, ids) => {
+        if (ids.indexOf(id) !== index) return false;
+        const todo = todosById.get(id);
+        return Boolean(todo && !this.isTodoDoneForPlanDate(todo, previousPlanDate));
+      });
+    },
+    handlePlanDayRollover() {
+      const nextPlanDate = currentPlanDate();
+      if (this.planDayDate === nextPlanDate) return;
+
+      const previousPlanDate = this.planDayDate;
+      this.planDayDate = nextPlanDate;
+      this.dayPlanIds = this.rollOverDayPlanIds(this.dayPlanIds, previousPlanDate);
+      this.frogTodoId = '';
+      this.frogEatenTodoId = '';
+      this.frogEatenToday = false;
+      this.frogEatenTitle = '';
+      this.saveDayPlan();
+      this.saveFrogTodo();
+      this.syncFrogTodoToFirstPlan();
     },
     pruneDayPlan() {
       const existingIds = new Set(this.todos.map(todo => todo.id));
@@ -1021,11 +1147,27 @@ export default {
     moveTodoToPlanFront(todoId: string) {
       const todo = this.activeTodos.find(item => item.id === todoId);
       if (!todo) return;
+      const isWakingFrog = this.frogIsEaten;
       this.frogEatenToday = false;
       this.frogEatenTitle = '';
       this.dayPlanIds = [todo.id, ...this.dayPlanIds.filter(id => id !== todo.id)];
       this.saveDayPlan();
       this.syncFrogTodoToFirstPlan();
+      if (isWakingFrog) this.announceFrogWake(todo);
+    },
+    announceFrogWake(todo: TodoItem) {
+      if (this.frogWakeTimer) {
+        window.clearTimeout(this.frogWakeTimer);
+      }
+      this.frogJustWoke = false;
+      this.frogWakeAnnouncement = `${todo.title} is your new frog. The frog is awake.`;
+      this.$nextTick(() => {
+        this.frogJustWoke = true;
+        this.frogWakeTimer = window.setTimeout(() => {
+          this.frogJustWoke = false;
+          this.frogWakeTimer = 0;
+        }, 1100);
+      });
     },
     addToDayPlan(todo: TodoItem) {
       if (this.dayPlanIds.includes(todo.id)) return;
@@ -1039,12 +1181,64 @@ export default {
       this.saveDayPlan();
       this.syncFrogTodoToFirstPlan();
     },
-    movePlannedTodo(todoId: string, direction: number) {
-      const index = this.dayPlanIds.indexOf(todoId);
-      const targetIndex = index + direction;
-      if (index < 0 || targetIndex < 0 || targetIndex >= this.dayPlanIds.length) return;
-      const nextIds = [...this.dayPlanIds];
-      [nextIds[index], nextIds[targetIndex]] = [nextIds[targetIndex], nextIds[index]];
+    startPlanDrag(todo: TodoItem, event: DragEvent) {
+      if (this.isPlanTodoDone(todo)) {
+        event.preventDefault();
+        return;
+      }
+      this.cancelFrogMouseDrag();
+      this.cancelFrogPointerDrag();
+      this.draggedPlanTodoId = todo.id;
+      this.planDropTargetId = '';
+      this.planDropPosition = '';
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'copyMove';
+        event.dataTransfer.setData('text/plain', todo.id);
+      }
+    },
+    handlePlanDragOver(todo: TodoItem, event: DragEvent) {
+      const todoId = this.draggedPlanTodoId || event.dataTransfer?.getData('text/plain') || '';
+      if (!todoId || todoId === todo.id || !this.dayPlanIds.includes(todoId)) return;
+      const target = event.currentTarget as HTMLElement | null;
+      if (!target) return;
+      const rect = target.getBoundingClientRect();
+      this.planDropTargetId = todo.id;
+      this.planDropPosition = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+    },
+    handlePlanDragLeave(todo: TodoItem, event: DragEvent) {
+      const currentTarget = event.currentTarget as HTMLElement | null;
+      const relatedTarget = event.relatedTarget as Node | null;
+      if (currentTarget && relatedTarget && currentTarget.contains(relatedTarget)) return;
+      if (this.planDropTargetId === todo.id) {
+        this.planDropTargetId = '';
+        this.planDropPosition = '';
+      }
+    },
+    dropTodoOnPlan(todo: TodoItem, event: DragEvent) {
+      const todoId = this.draggedPlanTodoId || event.dataTransfer?.getData('text/plain') || '';
+      const position =
+        this.planDropTargetId === todo.id && this.planDropPosition
+          ? this.planDropPosition
+          : 'after';
+      this.reorderPlannedTodo(todoId, todo.id, position);
+      this.endPlanDrag();
+    },
+    endPlanDrag() {
+      this.draggedPlanTodoId = '';
+      this.planDropTargetId = '';
+      this.planDropPosition = '';
+    },
+    reorderPlannedTodo(todoId: string, targetTodoId: string, position: string) {
+      if (!todoId || !targetTodoId || todoId === targetTodoId) return;
+      if (!this.dayPlanIds.includes(todoId) || !this.dayPlanIds.includes(targetTodoId)) return;
+      const nextIds = this.dayPlanIds.filter(id => id !== todoId);
+      const targetIndex = nextIds.indexOf(targetTodoId);
+      if (targetIndex < 0) return;
+      const insertIndex = position === 'before' ? targetIndex : targetIndex + 1;
+      nextIds.splice(insertIndex, 0, todoId);
       this.dayPlanIds = nextIds;
       this.saveDayPlan();
       this.syncFrogTodoToFirstPlan();
@@ -1101,7 +1295,7 @@ export default {
       }
     },
     handleFrogDragEnter() {
-      if (this.draggedFrogTodoId) {
+      if (this.draggedFrogTodoId || this.draggedPlanTodoId) {
         this.frogDropActive = true;
       }
     },
@@ -1112,9 +1306,13 @@ export default {
       this.frogDropActive = false;
     },
     dropTodoOnFrog(event: DragEvent) {
-      const todoId = this.draggedFrogTodoId || event.dataTransfer?.getData('text/plain');
+      const todoId =
+        this.draggedFrogTodoId ||
+        this.draggedPlanTodoId ||
+        event.dataTransfer?.getData('text/plain');
       if (todoId) this.selectFrogTodoById(todoId);
       this.endFrogDrag();
+      this.endPlanDrag();
     },
     endFrogDrag() {
       this.draggedFrogTodoId = '';
@@ -1211,7 +1409,7 @@ export default {
         evening: '18:00',
         anytime: '',
       };
-      return laneTimes[lane] ?? blankDraft().dueTime;
+      return laneTimes[lane] ?? '';
     },
     startCalendarDrag(todo: TodoItem, event: DragEvent) {
       this.draggedCalendarTodoId = todo.id;
@@ -1299,22 +1497,60 @@ export default {
             .webkitAudioContext;
         if (!AudioContextClass) return;
         const audioContext = new AudioContextClass();
-        const oscillator = audioContext.createOscillator();
-        const gain = audioContext.createGain();
         const now = audioContext.currentTime;
+        const masterGain = audioContext.createGain();
+        masterGain.gain.setValueAtTime(0.8, now);
+        masterGain.connect(audioContext.destination);
 
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(660, now);
-        oscillator.frequency.exponentialRampToValueAtTime(990, now + 0.08);
-        gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.exponentialRampToValueAtTime(0.045, now + 0.012);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.13);
+        const playTone = (
+          frequency: number,
+          startOffset: number,
+          duration: number,
+          volume: number
+        ) => {
+          const oscillator = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          const start = now + startOffset;
+          const end = start + duration;
 
-        oscillator.connect(gain);
-        gain.connect(audioContext.destination);
-        oscillator.start(now);
-        oscillator.stop(now + 0.14);
-        oscillator.onended = () => audioContext.close();
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(frequency, start);
+          oscillator.frequency.exponentialRampToValueAtTime(frequency * 0.985, end);
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(volume, start + 0.008);
+          gain.gain.exponentialRampToValueAtTime(volume * 0.55, start + duration * 0.35);
+          gain.gain.exponentialRampToValueAtTime(0.0001, end);
+
+          oscillator.connect(gain);
+          gain.connect(masterGain);
+          oscillator.start(start);
+          oscillator.stop(end + 0.01);
+          return oscillator;
+        };
+
+        // A soft tactile pop followed by a warm major-third chime.
+        const pop = audioContext.createOscillator();
+        const popGain = audioContext.createGain();
+        pop.type = 'sine';
+        pop.frequency.setValueAtTime(185, now);
+        pop.frequency.exponentialRampToValueAtTime(105, now + 0.075);
+        popGain.gain.setValueAtTime(0.0001, now);
+        popGain.gain.exponentialRampToValueAtTime(0.045, now + 0.004);
+        popGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.075);
+        pop.connect(popGain);
+        popGain.connect(masterGain);
+        pop.start(now);
+        pop.stop(now + 0.085);
+
+        playTone(698.46, 0.015, 0.22, 0.032);
+        playTone(1396.91, 0.015, 0.16, 0.008);
+        const finalTone = playTone(880, 0.095, 0.34, 0.045);
+        playTone(1760, 0.095, 0.22, 0.007);
+
+        if (audioContext.state === 'suspended') {
+          void audioContext.resume();
+        }
+        finalTone.onended = () => void audioContext.close();
       } catch (_err) {
         // Sound is optional; browsers may block it in some contexts.
       }
@@ -1366,14 +1602,15 @@ export default {
       this.saveTodos();
     },
     normalizeTodo(todo): TodoItem {
+      const dueDate = typeof todo.dueDate === 'string' ? todo.dueDate : '';
       const normalized = {
         ...todo,
         title: todo.title || '',
         notes: todo.notes || '',
         area: AREA_CONFIG[todo.area] ? todo.area : 'work',
-        dueDate: todo.dueDate || moment().format('YYYY-MM-DD'),
-        dueTime: todo.dueTime || '',
-        repeat: todo.repeat || 'none',
+        dueDate,
+        dueTime: dueDate ? todo.dueTime || '' : '',
+        repeat: dueDate ? todo.repeat || 'none' : 'none',
         repeatEvery: Math.max(1, Number(todo.repeatEvery || 2)),
         important: Boolean(todo.important),
         urgent: Boolean(todo.urgent),
@@ -1386,16 +1623,32 @@ export default {
       };
       return normalized as TodoItem;
     },
+    normalizedDraft(): TodoDraft {
+      const repeatEvery = Math.max(1, Number(this.draft.repeatEvery || 1));
+      if (!this.draft.dueDate) {
+        return {
+          ...this.draft,
+          dueDate: '',
+          dueTime: '',
+          repeat: 'none',
+          repeatEvery,
+        };
+      }
+      return {
+        ...this.draft,
+        repeatEvery,
+      };
+    },
     saveTodo() {
       if (!this.draft.title) return;
       const now = moment().toISOString();
+      const draft = this.normalizedDraft();
       if (this.editingId) {
         this.todos = this.todos.map(todo =>
           todo.id === this.editingId
             ? {
                 ...todo,
-                ...this.draft,
-                repeatEvery: Math.max(1, Number(this.draft.repeatEvery || 1)),
+                ...draft,
                 completed: false,
                 completedAt: '',
                 updatedAt: now,
@@ -1407,8 +1660,7 @@ export default {
           ...this.todos,
           {
             id: `todo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            ...this.draft,
-            repeatEvery: Math.max(1, Number(this.draft.repeatEvery || 1)),
+            ...draft,
             completed: false,
             completedAt: '',
             completedCount: 0,
@@ -1465,7 +1717,7 @@ export default {
     },
     completeTodo(todo: TodoItem, keepInDayPlan = false) {
       const now = moment();
-      if (todo.repeat !== 'none') {
+      if (todo.repeat !== 'none' && todo.dueDate) {
         const nextDue = this.nextDueMoment(todo, now);
         this.todos = this.todos.map(item =>
           item.id === todo.id
@@ -1505,6 +1757,7 @@ export default {
       this.ensureCalendarCoversAnchor();
     },
     todoDueMoment(todo: TodoItem) {
+      if (!todo.dueDate) return moment('9999-12-31 23:59', 'YYYY-MM-DD HH:mm');
       const time = todo.dueTime || '23:59';
       return moment(`${todo.dueDate} ${time}`, 'YYYY-MM-DD HH:mm');
     },
@@ -1529,6 +1782,7 @@ export default {
       return next;
     },
     dueLabel(todo: TodoItem): string {
+      if (!todo.dueDate) return 'Anytime';
       const due = this.todoDueMoment(todo);
       if (due.isSame(moment(), 'day')) return `Today ${todo.dueTime || ''}`.trim();
       if (due.isSame(moment().add(1, 'day'), 'day')) return `Tomorrow ${todo.dueTime || ''}`.trim();
@@ -1541,8 +1795,7 @@ export default {
       return todo.completedAt ? `Done ${moment(todo.completedAt).format('MMM D HH:mm')}` : 'Done';
     },
     isPlanTodoDone(todo: TodoItem): boolean {
-      if (todo.completed) return true;
-      return Boolean(todo.lastCompletedAt && moment(todo.lastCompletedAt).isSame(moment(), 'day'));
+      return this.isTodoDoneForPlanDate(todo, this.planDayDate || currentPlanDate());
     },
     planDoneLabel(todo: TodoItem): string {
       const timestamp = todo.completedAt || todo.lastCompletedAt;
@@ -1597,6 +1850,7 @@ export default {
     calendarAnchorDate(): string {
       const today = moment().startOf('day');
       const overdue = this.activeTodos
+        .filter(todo => todo.dueDate)
         .map(todo => moment(todo.dueDate, 'YYYY-MM-DD').startOf('day'))
         .filter(date => date.isBefore(today, 'day'))
         .sort((a, b) => a.valueOf() - b.valueOf());
@@ -1691,6 +1945,77 @@ export default {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.todo-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.todo-done-counter {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.85rem;
+  gap: 0.35rem;
+  padding: 0.24rem 0.62rem;
+  border: 1px solid rgba(16, 185, 129, 0.34);
+  border-radius: 999px;
+  background: rgba(236, 253, 245, 0.9);
+  color: #065f46;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.todo-done-counter .fa-icon {
+  margin: 0;
+  color: #10b981;
+}
+
+.todo-done-counter strong {
+  color: #047857;
+  font-size: 0.98rem;
+  line-height: 1;
+}
+
+.todo-done-counter-today {
+  margin-left: 0.15rem;
+  padding-left: 0.45rem;
+  border-left: 1px solid rgba(16, 185, 129, 0.34);
+  color: #be185d;
+}
+
+html[data-dashboard-theme='flower'] .todo-done-counter {
+  border-color: rgba(16, 185, 129, 0.42);
+  background: rgba(255, 253, 245, 0.95);
+  color: #102a4c;
+}
+
+html[data-dashboard-theme='flower'] .todo-done-counter strong,
+html[data-dashboard-theme='flower'] .todo-done-counter .fa-icon {
+  color: #10b981;
+}
+
+html[data-dashboard-theme='flower'] .todo-done-counter-today {
+  border-left-color: rgba(236, 72, 153, 0.34);
+  color: #be185d;
+}
+
+html[data-dashboard-theme='contrast'] .todo-done-counter {
+  border-color: rgba(52, 211, 153, 0.58);
+  background: rgba(16, 185, 129, 0.16);
+  color: #f8fafc;
+}
+
+html[data-dashboard-theme='contrast'] .todo-done-counter strong,
+html[data-dashboard-theme='contrast'] .todo-done-counter .fa-icon {
+  color: #86efac;
+}
+
+html[data-dashboard-theme='contrast'] .todo-done-counter-today {
+  border-left-color: rgba(244, 114, 182, 0.48);
+  color: #f9a8d4;
 }
 
 .todo-workspace {
@@ -1986,6 +2311,19 @@ export default {
   border-color: rgba(4, 120, 87, 0.52);
 }
 
+.todo-frog-card--can-wake {
+  border-style: dashed;
+}
+
+.todo-frog-card--can-wake:hover {
+  border-color: rgba(236, 72, 153, 0.72);
+  box-shadow: 0 14px 30px rgba(236, 72, 153, 0.14);
+}
+
+.todo-frog-card--waking {
+  animation: frog-card-wake 900ms ease-out both;
+}
+
 .todo-frog-illustration {
   position: relative;
   width: 13.8rem;
@@ -2061,6 +2399,26 @@ export default {
 
 .todo-frog-card--eaten .todo-frog-illustration {
   overflow: hidden;
+}
+
+.todo-frog-card--drop-over .todo-frog-illustration {
+  border-color: rgba(236, 72, 153, 0.72);
+  transform: scale(1.02);
+}
+
+.todo-frog-card--waking .todo-frog-photo {
+  animation: frog-wake-up 900ms cubic-bezier(0.2, 0.82, 0.3, 1) both;
+}
+
+.todo-frog-wake-glow {
+  position: absolute;
+  inset: 8% 5%;
+  z-index: 0;
+  border: 0.18rem solid rgba(236, 72, 153, 0.5);
+  border-radius: 50%;
+  box-shadow: 0 0 1.4rem rgba(16, 185, 129, 0.52), inset 0 0 1rem rgba(236, 72, 153, 0.28);
+  pointer-events: none;
+  animation: frog-wake-glow 820ms ease-out both;
 }
 
 .todo-frog-confetti {
@@ -2233,6 +2591,20 @@ export default {
   font-weight: 700;
 }
 
+.todo-frog-wake-hint {
+  display: flex;
+  align-items: center;
+  margin: 0.55rem 0 0;
+  color: #9d174d;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.todo-frog-card--drop-over .todo-frog-wake-hint {
+  color: #047857;
+}
+
 .todo-frog-picker {
   display: flex;
   flex-wrap: wrap;
@@ -2277,6 +2649,14 @@ export default {
   background: #fdf2f8;
   color: #831843;
   box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.11);
+}
+
+.todo-frog-pill--wake::after {
+  margin-left: 0.05rem;
+  color: #ec4899;
+  content: '↗';
+  font-size: 0.76rem;
+  line-height: 1;
 }
 
 .todo-frog-pill-dot {
@@ -2393,6 +2773,27 @@ export default {
 .todo-plan-choice--dragging {
   opacity: 0.52;
   transform: scale(0.98);
+}
+
+.todo-plan-card--drop-before::before,
+.todo-plan-card--drop-after::after {
+  position: absolute;
+  right: 0.65rem;
+  left: 0.65rem;
+  z-index: 3;
+  height: 0.22rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #10b981, #ec4899);
+  box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.12);
+  content: '';
+}
+
+.todo-plan-card--drop-before::before {
+  top: 0.24rem;
+}
+
+.todo-plan-card--drop-after::after {
+  bottom: 0.24rem;
 }
 
 .todo-frog-badge {
@@ -2738,7 +3139,10 @@ export default {
 
   .todo-frog-illustration--ready .todo-frog-photo,
   .todo-frog-illustration--ready::after,
-  .todo-frog-card--eaten .todo-frog-photo {
+  .todo-frog-card--eaten .todo-frog-photo,
+  .todo-frog-card--waking,
+  .todo-frog-card--waking .todo-frog-photo,
+  .todo-frog-wake-glow {
     animation: none;
   }
 
@@ -2810,6 +3214,62 @@ export default {
   }
 }
 
+@keyframes frog-card-wake {
+  0% {
+    box-shadow: 0 12px 28px rgba(16, 185, 129, 0.11);
+  }
+
+  38% {
+    border-color: #ec4899;
+    box-shadow: 0 0 0 0.4rem rgba(236, 72, 153, 0.13), 0 18px 34px rgba(16, 185, 129, 0.24);
+  }
+
+  100% {
+    box-shadow: 0 12px 28px rgba(16, 185, 129, 0.11);
+  }
+}
+
+@keyframes frog-wake-up {
+  0% {
+    opacity: 0.35;
+    transform: translate3d(0, 0.7rem, 0) rotate(0deg) scale(0.78);
+  }
+
+  38% {
+    opacity: 1;
+    transform: translate3d(-0.08rem, -0.9rem, 0) rotate(-7deg) scale(1.1);
+  }
+
+  64% {
+    transform: translate3d(0.1rem, -0.32rem, 0) rotate(4deg) scale(0.98);
+  }
+
+  82% {
+    transform: translate3d(-0.04rem, -0.55rem, 0) rotate(-2deg) scale(1.035);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, -0.24rem, 0) rotate(-1.2deg) scale(1.01);
+  }
+}
+
+@keyframes frog-wake-glow {
+  0% {
+    opacity: 0;
+    transform: scale(0.42);
+  }
+
+  42% {
+    opacity: 0.88;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+}
+
 @keyframes frog-confetti-burst {
   0% {
     opacity: 0;
@@ -2825,5 +3285,15 @@ export default {
     transform: translate3d(var(--confetti-x), var(--confetti-y), 0) scale(1)
       rotate(var(--confetti-rotate));
   }
+}
+
+html[data-dashboard-theme='contrast'] .todo-frog-illustration {
+  border-color: rgba(16, 185, 129, 0.62);
+  background: #16202e;
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.36);
+}
+
+html[data-dashboard-theme='contrast'] .todo-frog-illustration::after {
+  background: rgba(0, 0, 0, 0.55);
 }
 </style>

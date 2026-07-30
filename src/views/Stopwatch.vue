@@ -439,9 +439,12 @@ div.pomodoro-page
 }
 
 html[data-dashboard-theme='flower'] .pomodoro-page {
-  background: linear-gradient(rgba(255, 253, 245, 0.64), rgba(255, 249, 244, 0.82)),
-    url('~@/assets/focusfrog-flower-chinoiserie-bg.webp') center top / 430px auto repeat,
-    linear-gradient(135deg, rgba(255, 247, 237, 0.96), rgba(253, 242, 248, 0.88) 52%);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 252, 248, 0.84),
+    rgba(253, 242, 248, 0.78) 52%,
+    rgba(240, 253, 244, 0.78)
+  );
   color: #10213a;
 }
 
@@ -851,7 +854,7 @@ export default {
     timerRingStyle() {
       const color = this.currentModeConfig.color;
       return {
-        background: `conic-gradient(${color} ${this.progressPercent}%, rgba(255, 255, 255, 0.72) 0)`,
+        background: `conic-gradient(${color} ${this.progressPercent}%, var(--pomodoro-ring-track, rgba(255, 255, 255, 0.72)) 0)`,
       };
     },
     startButtonText() {

@@ -93,6 +93,8 @@ const WORK_SPLIT_COLORS = {
   work: WORK_COLOR,
   notWork: NOT_WORK_COLOR,
 };
+const DAILY_MEETING_WORK_CATEGORY = ['Work', 'Meetings'];
+const DAILY_MEETING_WORK_SECONDS = 60 * 60;
 
 function buildPieBackground(rows: PieRow[], total: number): string {
   if (rows.length === 0 || total <= 0) return '#d1d5db';
@@ -223,7 +225,9 @@ export default {
         const query = buildWorkSummaryQuery(this.supportedHosts, '[]', []);
         const results = await client.query([this.getTodayTimeperiod()], [query]);
         const activeEvents = this.getGraceAdjustedEvents(results[0] || {});
-        this.summary = this.summarizeActiveEvents(activeEvents, sumEventDurations(activeEvents));
+        this.summary = this.applyDailyMeetingWorkToSummary(
+          this.summarizeActiveEvents(activeEvents, sumEventDurations(activeEvents))
+        );
         this.lastUpdated = new Date();
       } catch (err) {
         console.error('Error loading widget summary:', err);
@@ -243,6 +247,38 @@ export default {
 
     isNotWorkCategory(category: string[]): boolean {
       return isFocusFrogNotWorkCategory(category);
+    },
+
+    addWorkCategoryDuration(
+      categoryDurations: CategoryDuration[],
+      category: string[],
+      seconds: number
+    ): CategoryDuration[] {
+      if (seconds <= 0) return categoryDurations;
+      const key = categoryKey(category);
+      const categoryMap: Record<string, CategoryDuration> = {};
+      categoryDurations.forEach(row => {
+        categoryMap[categoryKey(row.category)] = { category: row.category, duration: row.duration };
+      });
+      categoryMap[key] = categoryMap[key] || {
+        category,
+        duration: 0,
+      };
+      categoryMap[key].duration += seconds;
+      return Object.values(categoryMap).sort((a, b) => b.duration - a.duration);
+    },
+
+    applyDailyMeetingWorkToSummary(summary: WorkCategorySummary): WorkCategorySummary {
+      return {
+        activeDuration: summary.activeDuration + DAILY_MEETING_WORK_SECONDS,
+        workDuration: summary.workDuration + DAILY_MEETING_WORK_SECONDS,
+        notWorkDuration: summary.notWorkDuration,
+        categoryDurations: this.addWorkCategoryDuration(
+          summary.categoryDurations,
+          DAILY_MEETING_WORK_CATEGORY,
+          DAILY_MEETING_WORK_SECONDS
+        ),
+      };
     },
 
     summarizeActiveEvents(events: any[], activeDuration: number): WorkCategorySummary {

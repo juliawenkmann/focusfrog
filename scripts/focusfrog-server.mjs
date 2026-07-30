@@ -33,7 +33,16 @@ const distDir = path.resolve(process.env.FOCUSFROG_DIST || defaultDist);
 const port = Number.parseInt(process.env.FOCUSFROG_PORT || '27180', 10);
 const awTarget = new URL(process.env.AW_API_TARGET || 'http://127.0.0.1:5600');
 const storagePath = path.resolve(process.env.FOCUSFROG_STORAGE_PATH || getDefaultStoragePath());
-const storageKeys = new Set(['todos', 'todoDayPlan', 'todoFrog']);
+const manualWorkStorageKey = 'manualWork';
+const dailyMeetingWorkMinutes = 60;
+const dailyMeetingWorkStartTime = '12:00';
+const storageKeys = new Set([
+  'todos',
+  'todoDayPlan',
+  'todoFrog',
+  'timeBlocks',
+  manualWorkStorageKey,
+]);
 const widgetSummaryRefreshSeconds = 5 * 60;
 const afkGraceSeconds = 5 * 60;
 
@@ -43,6 +52,7 @@ const notWorkColor = '#db2777';
 const messageCallsCategory = 'Messages & Calls';
 const programmingPattern =
   'ActivityWatch|aw-|Codex|GitHub|github|github\\.com|github\\.dev|githubusercontent\\.com|GitLab|gitlab\\.com|Bitbucket|Stack Overflow|stackoverflow|VS Code|VSCode|Visual Studio Code|Visual Studio|VSCodium|Cursor|PyCharm|Jupyter|JupyterLab|Jupyter Notebook|\\.ipynb\\b|ipynb|RStudio|Xcode|Terminal|Apple Terminal|iTerm|iTerm2|iTerm\\.app|iTerm2\\.app|com\\.apple\\.Terminal|com\\.googlecode\\.iterm2|vim|neovim|Spyder|Docker|npm|pnpm|yarn|conda|Python|TypeScript|JavaScript';
+const planningPattern = 'FocusFrog|FrogFocus';
 const writingPattern =
   'Overleaf|overleaf\\.com|arXiv|arxiv\\.org|LaTeX|TeXstudio|Texmaker|BibTeX|Zotero|reMarkable|remarkable|Google Docs|docs\\.google\\.com|Microsoft Word|Pages|Manuscript|paper draft';
 const emailPattern =
@@ -374,6 +384,7 @@ function categorizeEvent(event) {
   if (matchesPattern(emailPattern, text)) return ['Work', 'Email'];
   if (matchesPattern(aiChatsPattern, text)) return ['Work', 'AI Chats'];
   if (matchesPattern(programmingPattern, text)) return ['Work', 'Programming'];
+  if (matchesPattern(planningPattern, text)) return ['Work', 'Planning'];
   if (matchesPattern(communicationPattern, text)) return ['Work', messageCallsCategory];
   if (matchesPattern(socialMediaPattern, text)) return ['Social Media'];
   return ['Work'];
@@ -405,6 +416,91 @@ function summarizeActiveEvents(events) {
     workSeconds: Math.max(0, activeSeconds - boundedNotWork),
     notWorkSeconds: boundedNotWork,
   };
+}
+
+function normalizeManualWorkEntry(entry) {
+  if (!entry || typeof entry !== 'object') return null;
+  const date = typeof entry.date === 'string' ? entry.date : '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const minutes = Math.max(0, Math.round(Number(entry.minutes || 0)));
+  if (minutes <= 0) return null;
+  const startTime =
+    typeof entry.startTime === 'string' && /^\d{2}:\d{2}$/.test(entry.startTime)
+      ? entry.startTime
+      : '';
+  return {
+    date,
+    startTime,
+    minutes,
+  };
+}
+
+function manualWorkEntryStartMs(entry) {
+  const startTime = entry.startTime || '12:00';
+  const timestamp = new Date(`${entry.date}T${startTime}:00`).getTime();
+  return Number.isFinite(timestamp) ? timestamp : NaN;
+}
+
+function manualWorkEntrySecondsInRange(entry, rangeStartMs, rangeEndMs) {
+  if (!Number.isFinite(rangeStartMs) || !Number.isFinite(rangeEndMs) || rangeEndMs <= rangeStartMs) {
+    return 0;
+  }
+
+  if (!entry.startTime) {
+    const entryStartMs = new Date(`${entry.date}T00:00:00`).getTime();
+    const entryEndMs = entryStartMs + 24 * 60 * 60 * 1000;
+    return entryEndMs > rangeStartMs && entryStartMs < rangeEndMs ? entry.minutes * 60 : 0;
+  }
+
+  const entryStartMs = manualWorkEntryStartMs(entry);
+  if (!Number.isFinite(entryStartMs)) return 0;
+  const entryEndMs = entryStartMs + entry.minutes * 60 * 1000;
+  const clippedStart = Math.max(entryStartMs, rangeStartMs);
+  const clippedEnd = Math.min(entryEndMs, rangeEndMs);
+  return Math.max(0, (clippedEnd - clippedStart) / 1000);
+}
+
+function getManualWorkSecondsForTimeperiod(entries, timeperiod) {
+  const [startIso, endIso] = String(timeperiod || '').split('/');
+  const rangeStartMs = new Date(startIso).getTime();
+  const rangeEndMs = new Date(endIso).getTime();
+  return (Array.isArray(entries) ? entries : []).reduce((total, entry) => {
+    const normalized = normalizeManualWorkEntry(entry);
+    return normalized
+      ? total + manualWorkEntrySecondsInRange(normalized, rangeStartMs, rangeEndMs)
+      : total;
+  }, 0);
+}
+
+function localDateKey(date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+function getDailyMeetingWorkSecondsForTimeperiod(timeperiod) {
+  const [startIso, endIso] = String(timeperiod || '').split('/');
+  const rangeStartMs = new Date(startIso).getTime();
+  const rangeEndMs = new Date(endIso).getTime();
+  if (!Number.isFinite(rangeStartMs) || !Number.isFinite(rangeEndMs) || rangeEndMs <= rangeStartMs) {
+    return 0;
+  }
+
+  const date = localDateKey(new Date(rangeStartMs));
+  const today = localDateKey(new Date());
+  if (date > today) return 0;
+
+  return manualWorkEntrySecondsInRange(
+    {
+      date,
+      startTime: dailyMeetingWorkStartTime,
+      minutes: dailyMeetingWorkMinutes,
+    },
+    rangeStartMs,
+    rangeEndMs
+  );
 }
 
 function getOffsetMinutes(offset) {
@@ -483,8 +579,15 @@ async function serveWidgetSummary(req, res) {
     const hosts = await getSupportedHosts();
     const startOfDay = await getStartOfDay();
     const { label, timeperiod } = getTodayTimeperiod(startOfDay);
+    const manualWorkSeconds = getManualWorkSecondsForTimeperiod(
+      readStorage()[manualWorkStorageKey],
+      timeperiod
+    );
+    const dailyMeetingWorkSeconds = getDailyMeetingWorkSecondsForTimeperiod(timeperiod);
+    const extraWorkSeconds = manualWorkSeconds + dailyMeetingWorkSeconds;
 
     if (hosts.length === 0) {
+      const extraWorkPercent = extraWorkSeconds > 0 ? 100 : 0;
       sendWidgetJson(200, {
         ok: true,
         app: 'FocusFrog',
@@ -493,10 +596,10 @@ async function serveWidgetSummary(req, res) {
         timeperiod,
         startOfDay,
         hosts,
-        activeSeconds: 0,
-        workSeconds: 0,
+        activeSeconds: extraWorkSeconds,
+        workSeconds: extraWorkSeconds,
         notWorkSeconds: 0,
-        workPercent: 0,
+        workPercent: extraWorkPercent,
         notWorkPercent: 0,
         workColor,
         notWorkColor,
@@ -519,6 +622,8 @@ async function serveWidgetSummary(req, res) {
       result.rawActiveEvents || []
     );
     const summary = summarizeActiveEvents(activeEvents);
+    summary.activeSeconds += extraWorkSeconds;
+    summary.workSeconds += extraWorkSeconds;
     const workPercent =
       summary.activeSeconds > 0
         ? Math.round((summary.workSeconds / summary.activeSeconds) * 100)

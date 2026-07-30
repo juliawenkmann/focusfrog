@@ -55,6 +55,7 @@ const PROGRAMMING_GITHUB_PATTERN =
 const PROGRAMMING_TERMINAL_PATTERN =
   'Terminal|Apple Terminal|iTerm|iTerm2|iTerm\\.app|iTerm2\\.app|com\\.apple\\.Terminal|com\\.googlecode\\.iterm2';
 const PROGRAMMING_NOTEBOOK_PATTERN = 'JupyterLab|Jupyter Notebook|\\.ipynb\\b|ipynb';
+const PLANNING_PATTERN = 'FocusFrog|FrogFocus';
 const WRITING_REMARKABLE_PATTERN = 'reMarkable|remarkable';
 const EMAIL_IFICHAT_PATTERN = 'ifiChat';
 const AI_CHATS_PATTERN = 'ChatGPT|chatgpt\\.com|chat\\.openai\\.com|Claude|claude\\.ai|Anthropic';
@@ -64,6 +65,14 @@ const SOCIAL_STREAMING_NEWS_PATTERN =
 const AI_CHATS_CATEGORY: Category = {
   name: ['Work', 'AI Chats'],
   rule: { type: 'regex', regex: AI_CHATS_PATTERN, ignore_case: true },
+};
+const PLANNING_CATEGORY: Category = {
+  name: ['Work', 'Planning'],
+  rule: { type: 'regex', regex: PLANNING_PATTERN, ignore_case: true },
+};
+const MEETINGS_CATEGORY: Category = {
+  name: ['Work', 'Meetings'],
+  rule: { type: 'none' },
 };
 
 // The default categories
@@ -82,6 +91,8 @@ export const defaultCategories: Category[] = [
       ignore_case: true,
     },
   },
+  PLANNING_CATEGORY,
+  MEETINGS_CATEGORY,
   {
     name: ['Work', 'Writing'],
     rule: {
@@ -307,6 +318,10 @@ export function normalizeFocusFrogCategories(classes: Category[] = []): Category
 
   if (!normalizedClasses.some(category => _.isEqual(category.name, AI_CHATS_CATEGORY.name))) {
     normalizedClasses.push(_.cloneDeep(AI_CHATS_CATEGORY));
+  }
+
+  if (!normalizedClasses.some(category => _.isEqual(category.name, PLANNING_CATEGORY.name))) {
+    normalizedClasses.push(_.cloneDeep(PLANNING_CATEGORY));
   }
 
   return normalizedClasses;
