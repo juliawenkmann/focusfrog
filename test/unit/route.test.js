@@ -21,4 +21,18 @@ describe('router', () => {
     expect(workReportRoute).toBeTruthy();
     expect(typeof workReportRoute.component).toBe('function');
   });
+
+  test('includes the full-width vision board route', () => {
+    const visionBoardRoute = router.options.routes.find(route => route.path === '/vision-board');
+
+    expect(visionBoardRoute).toBeTruthy();
+    expect(typeof visionBoardRoute.component).toBe('function');
+    expect(visionBoardRoute.meta).toEqual({ fullContainer: true });
+  });
+
+  test('redirects the removed timeline page to time blocking', () => {
+    const timelineRoute = router.options.routes.find(route => route.path === '/timeline');
+
+    expect(timelineRoute).toEqual({ path: '/timeline', redirect: '/time-blocking' });
+  });
 });

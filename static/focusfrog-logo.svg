@@ -1,46 +1,28 @@
-<svg
-  xmlns="http://www.w3.org/2000/svg"
-  viewBox="0 0 512 512"
-  role="img"
-  aria-label="FocusFrog logo"
->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 512 512" role="img" aria-label="FocusFrog logo">
   <defs>
-    <linearGradient id="face" x1="132" y1="164" x2="380" y2="404" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#16a34a" />
-      <stop offset="1" stop-color="#86efac" />
+    <linearGradient id="ff-skin" x1="256" y1="40" x2="256" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34d399" />
+      <stop offset="0.55" stop-color="#10b981" />
+      <stop offset="1" stop-color="#047857" />
     </linearGradient>
-    <linearGradient id="rim" x1="86" y1="74" x2="430" y2="436" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#f8fbff" />
-      <stop offset="0.58" stop-color="#ffffff" />
-      <stop offset="1" stop-color="#fff7ed" />
-    </linearGradient>
+    <g id="ff-half" fill="url(#ff-skin)" stroke="url(#ff-skin)" stroke-linecap="round" stroke-linejoin="round">
+      <path fill="none" stroke-width="40" d="M214 186 L150 146" />
+      <path fill="none" stroke-width="30" d="M150 146 L116 96" />
+      <path fill="none" stroke-width="16" d="M116 98 L78 82 M116 98 L86 54 M116 98 L114 44 M116 98 L142 58" />
+      <circle stroke="none" cx="78" cy="82" r="13" />
+      <circle stroke="none" cx="86" cy="54" r="13" />
+      <circle stroke="none" cx="114" cy="44" r="13" />
+      <circle stroke="none" cx="142" cy="58" r="13" />
+      <path fill="none" stroke-width="58" d="M214 330 L130 366" />
+      <path fill="none" stroke-width="32" d="M130 366 L100 404" />
+      <path fill="none" stroke-width="16" d="M100 406 L44 400 M100 406 L46 440 M100 406 L72 466 M100 406 L112 468" />
+      <circle stroke="none" cx="44" cy="400" r="13" />
+      <circle stroke="none" cx="46" cy="440" r="13" />
+      <circle stroke="none" cx="72" cy="466" r="13" />
+      <circle stroke="none" cx="112" cy="468" r="13" />
+    </g>
   </defs>
-  <circle cx="256" cy="264" r="206" fill="url(#rim)" stroke="#0f766e" stroke-width="14" />
-  <circle cx="170" cy="142" r="70" fill="#f8fafc" stroke="#047857" stroke-width="16" />
-  <circle cx="342" cy="142" r="70" fill="#f8fafc" stroke="#047857" stroke-width="16" />
-  <ellipse
-    cx="256"
-    cy="286"
-    rx="176"
-    ry="158"
-    fill="url(#face)"
-    stroke="#047857"
-    stroke-width="16"
-  />
-  <circle cx="170" cy="142" r="25" fill="#0f172a" />
-  <circle cx="342" cy="142" r="25" fill="#0f172a" />
-  <circle cx="160" cy="132" r="8" fill="#ffffff" />
-  <circle cx="332" cy="132" r="8" fill="#ffffff" />
-  <path d="M256 286 L184 172" stroke="#059669" stroke-width="18" stroke-linecap="round" />
-  <path d="M256 286 L328 172" stroke="#db2777" stroke-width="18" stroke-linecap="round" />
-  <circle cx="256" cy="286" r="18" fill="#2563eb" stroke="#ffffff" stroke-width="10" />
-  <circle cx="178" cy="338" r="24" fill="#ec4899" opacity="0.34" />
-  <circle cx="334" cy="338" r="24" fill="#ec4899" opacity="0.34" />
-  <path
-    d="M184 334 C212 374 300 374 328 334"
-    fill="none"
-    stroke="#9d174d"
-    stroke-width="20"
-    stroke-linecap="round"
-  />
+  <use xlink:href="#ff-half" href="#ff-half" />
+  <use xlink:href="#ff-half" href="#ff-half" transform="matrix(-1 0 0 1 512 0)" />
+  <path fill="url(#ff-skin)" d="M256 56 C302 56 326 88 328 128 C330 162 356 200 356 258 C356 344 314 402 256 402 C198 402 156 344 156 258 C156 200 182 162 184 128 C186 88 210 56 256 56 Z" />
 </svg>

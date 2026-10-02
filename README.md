@@ -35,6 +35,7 @@ FocusFrog is a custom web UI for ActivityWatch. It keeps ActivityWatch's local t
 - inspect exactly when different kinds of activity happened
 - plan today's todos in order
 - choose the one task to do first
+- keep a visual bucket list of bigger dreams
 - run Pomodoro sessions with gentle distraction nudges
 
 It is meant to feel like a quiet personal dashboard: useful enough for daily use, but not loud or gamified for its own sake.
@@ -128,6 +129,10 @@ Todos are stored locally in the browser and can be viewed in the shape that fits
 
 The planning view keeps one task visually front and center. Drag a todo into the frog card, or let the first planned todo become the default. Completing it gives a small visual reward and keeps the frog done for the rest of the day.
 
+### Vision Board And Bucket List
+
+The Vision page keeps longer-term dreams separate from daily todos. Add a title, a note, and an optional background photo, then mark the dream achieved when it becomes real. Board data and uploaded photos stay in FocusFrog's local app storage.
+
 ### Pomodoro That Uses Your Activity
 
 The Pomodoro page is connected to the same categorization logic as the time dashboard.
@@ -163,6 +168,8 @@ The work-life balance scale treats work as tracked work time. Everything else in
 
 ## Quick Start
 
+FocusFrog's source tooling and local app server require Node.js 20 or newer.
+
 Start ActivityWatch first:
 
 ```bash
@@ -189,6 +196,8 @@ npm run build
 ```
 
 The built files are written to `dist/`.
+
+Vision Board photo uploads use FocusFrog's local app server. To test them from source, build first and run `npm run start:app`; the hot-reload development server only provides the web UI.
 
 ## Clickable macOS App
 
@@ -247,7 +256,7 @@ dist/FocusFrog-win32.zip
 
 On Windows, unzip the package and run `FocusFrog.cmd`. The launcher starts the local FocusFrog server, opens `http://127.0.0.1:27180/#/home`, and proxies ActivityWatch API requests to the local ActivityWatch server.
 
-The Windows package requires Node.js on `PATH` and an installed or running ActivityWatch. FocusFrog todos and planning state are stored in `%APPDATA%\FocusFrog\storage.json`.
+The Windows package requires Node.js 20 or newer on `PATH` and an installed or running ActivityWatch. FocusFrog todos and planning state are stored in `%APPDATA%\FocusFrog\storage.json`.
 
 ## Using It With ActivityWatch
 
@@ -259,9 +268,11 @@ aw-server-rust --webpath /path/to/aw-webui/dist
 
 If you are developing against a local ActivityWatch server, the dev server proxies API requests to the local backend.
 
+Static `aw-server-rust` hosting does not expose FocusFrog's photo-storage endpoint. Use the packaged app or `npm run build && npm run start:app` for Vision Board photo uploads.
+
 ## Privacy
 
-FocusFrog is local-first. It reads from your local ActivityWatch server and does not require an account. Your time data, todos, and planning state stay on your machine unless you choose to export or publish them yourself.
+FocusFrog is local-first. It reads from your local ActivityWatch server and does not require an account. Your time data, todos, planning state, vision-board entries, and uploaded photos stay on your machine unless you choose to export or publish them yourself.
 
 ## Development
 

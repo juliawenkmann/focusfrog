@@ -27,7 +27,6 @@ import { useSettingsStore } from '~/stores/settings';
 import { useCategoryStore } from '~/stores/categories';
 
 import DaystartSettings from '~/views/settings/DaystartSettings.vue';
-import TimelineDurationSettings from '~/views/settings/TimelineDurationSettings.vue';
 import ReleaseNotificationSettings from '~/views/settings/ReleaseNotificationSettings.vue';
 import UncategorizedHintSettings from '~/views/settings/UncategorizedHintSettings.vue';
 import CategorizationSettings from '~/views/settings/CategorizationSettings.vue';
@@ -49,7 +48,6 @@ export default {
   name: 'Settings',
   components: {
     DaystartSettings,
-    TimelineDurationSettings,
     ReleaseNotificationSettings,
     UncategorizedHintSettings,
     CategorizationSettings,
@@ -86,10 +84,9 @@ export default {
       const general: Group = {
         id: 'general',
         label: 'General',
-        help: 'Defaults that shape how time periods, the timeline, and landing page behave.',
+        help: 'Defaults that shape how time periods and the landing page behave.',
         components: [
           { name: 'DaystartSettings' },
-          { name: 'TimelineDurationSettings' },
           { name: 'LandingPageSettings' },
           { name: 'UncategorizedHintSettings' },
           // Release-notification check folded in here so it doesn't

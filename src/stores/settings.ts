@@ -27,8 +27,13 @@ function normalizeFocusFrogTheme(theme: unknown): FocusFrogTheme {
   return theme === 'contrast' || theme === 'flower' ? theme : 'bright';
 }
 
+const LEGACY_THEME_KEYS = ['timetracker.dashboardTheme', 'dayBloomTheme'];
+// Settings of removed pages (the Timeline view used `durationDefault`).
+const OBSOLETE_SETTING_KEYS = ['durationDefault'];
+const LANDING_PAGE_REDIRECTS: Record<string, string> = { '/timeline': '/time-blocking' };
+
 function normalizeLegacySettingsKey(key: string): string {
-  return key === 'timetracker.dashboardTheme' || key === 'dayBloomTheme' ? 'focusFrogTheme' : key;
+  return LEGACY_THEME_KEYS.includes(key) ? 'focusFrogTheme' : key;
 }
 
 // Backoffs for NewReleaseNotification
@@ -44,7 +49,6 @@ interface State {
 
   startOfDay: string;
   startOfWeek: string;
-  durationDefault: number;
   useColorFallback: boolean;
   landingpage: string;
   theme: 'light' | 'dark' | 'auto';
@@ -91,7 +95,6 @@ export const useSettingsStore = defineStore('settings', {
 
     startOfDay: '04:00',
     startOfWeek: 'Monday',
-    durationDefault: 4 * 60 * 60,
     useColorFallback: false,
     landingpage: '/home',
 
@@ -168,11 +171,22 @@ export const useSettingsStore = defineStore('settings', {
       // localStorage.getItem overrides the defaults defined in `state()`.
       const storage: Record<string, unknown> = {};
       const used = new Set<string>();
+      // Only known settings are loaded. Other keys (obsolete settings, or FocusFrog data that
+      // older versions copied from localStorage into the server settings) are cleaned up below.
+      const knownKeys = new Set(Object.keys(this.$state).filter(key => !key.startsWith('_')));
+      const staleServerKeys: string[] = [];
 
       // 1. Server settings take priority
       for (const key of Object.keys(server_settings)) {
         if (key.startsWith('_')) continue;
         const targetKey = normalizeLegacySettingsKey(key);
+        const isLegacyKey = targetKey !== key;
+        if (!knownKeys.has(targetKey) || isLegacyKey) {
+          if (server_settings[key] !== null) staleServerKeys.push(key);
+        }
+        if (!knownKeys.has(targetKey) || server_settings[key] === null) continue;
+        // A legacy key only fills in when the current key was never saved.
+        if (isLegacyKey && server_settings[targetKey] !== undefined) continue;
         storage[targetKey] = server_settings[key];
         used.add(targetKey);
       }
@@ -180,7 +194,8 @@ export const useSettingsStore = defineStore('settings', {
       // 2. localStorage fills in gaps, but skip missing keys (null)
       for (const key of Object.keys(localStorage)) {
         const targetKey = normalizeLegacySettingsKey(key);
-        if (targetKey.startsWith('_') || used.has(targetKey)) continue;
+        if (OBSOLETE_SETTING_KEYS.includes(key)) localStorage.removeItem(key);
+        if (!knownKeys.has(targetKey) || used.has(targetKey)) continue;
         const raw = localStorage.getItem(key);
         if (raw === null || raw === 'null') continue; // key absent or stored as null → keep state() default
 
@@ -209,6 +224,9 @@ export const useSettingsStore = defineStore('settings', {
           console.error('failed to parse', key, raw, e);
         }
       }
+      const landingRedirect = LANDING_PAGE_REDIRECTS[storage.landingpage as string];
+      if (landingRedirect) storage.landingpage = landingRedirect;
+
       this.$patch({ ...storage, _loaded: true });
       this.$patch({
         focusFrogTheme: normalizeFocusFrogTheme(this.focusFrogTheme),
@@ -223,8 +241,28 @@ export const useSettingsStore = defineStore('settings', {
       // https://github.com/ActivityWatch/activitywatch/issues/979
       client.req.defaults.timeout = this.requestTimeout * 1000;
 
-      if (save) {
+      if (staleServerKeys.length > 0) {
+        void this.removeServerSettings(staleServerKeys);
+      }
+      if (save || landingRedirect) {
         await this.save();
+      }
+    },
+    async removeServerSettings(keys: string[]) {
+      const client = getClient();
+      for (const key of keys) {
+        try {
+          await client.req.delete('/0/settings/' + key);
+        } catch (err) {
+          // The Python aw-server cannot delete settings, so clear the stored value instead.
+          try {
+            await client.req.post('/0/settings/' + key, 'null', {
+              headers: { 'Content-Type': 'application/json' },
+            });
+          } catch (clearErr) {
+            console.warn('Could not remove obsolete setting', key, clearErr);
+          }
+        }
       }
     },
     async save() {

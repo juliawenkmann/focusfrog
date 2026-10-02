@@ -3,15 +3,7 @@ div(:class="{'fixed-top-padding': fixedTopMenu}")
   b-navbar.aw-navbar(toggleable="lg" :fixed="fixedTopMenu ? 'top' : null")
     b-navbar-brand.app-brand(to="/home" aria-label="FocusFrog home")
       span.brand-logo(aria-hidden="true")
-        span.brand-logo-eye.brand-logo-eye--left
-          span.brand-logo-pupil
-        span.brand-logo-eye.brand-logo-eye--right
-          span.brand-logo-pupil
-        span.brand-logo-face
-          span.brand-logo-hand.brand-logo-hand--left
-          span.brand-logo-hand.brand-logo-hand--right
-          span.brand-logo-center
-          span.brand-logo-mouth
+        img.brand-logo-img(src="/focusfrog-logo.svg" alt="" draggable="false")
       span.brand-copy
         span.brand-name FocusFrog
         span.brand-tagline eat the frog first
@@ -24,10 +16,10 @@ div(:class="{'fixed-top-padding': fixedTopMenu}")
             icon(name="clock")
             | Hours
 
-        b-nav-item(to="/timeline" style="font-color: #000;")
+        b-nav-item(to="/time-blocking")
           div.px-2.px-lg-1
-            icon(name="stream")
-            | Timeline
+            icon(name="calendar-week")
+            | Time Blocking
 
         b-nav-item(to="/pomodoro")
           div.px-2.px-lg-1
@@ -37,10 +29,10 @@ div(:class="{'fixed-top-padding': fixedTopMenu}")
           div.px-2.px-lg-1
             icon(name="tasks")
             | Todos
-        b-nav-item(to="/time-blocking")
+        b-nav-item(to="/vision-board")
           div.px-2.px-lg-1
-            icon(name="calendar-week")
-            | Time Blocking
+            icon(name="images")
+            | Vision
 
       b-navbar-nav.ml-auto
         b-nav-form.app-theme-toggle-form
@@ -78,10 +70,10 @@ div(:class="{'fixed-top-padding': fixedTopMenu}")
 <script lang="ts">
 // only import the icons you use to reduce bundle size
 import 'vue-awesome/icons/clock';
-import 'vue-awesome/icons/stream';
 import 'vue-awesome/icons/cog';
 import 'vue-awesome/icons/calendar-week';
 import 'vue-awesome/icons/tasks';
+import 'vue-awesome/icons/images';
 import 'vue-awesome/icons/moon';
 import 'vue-awesome/icons/sun';
 
@@ -191,106 +183,13 @@ export default {
   overflow: visible;
 }
 
-.brand-logo-face {
+.brand-logo-img {
   position: absolute;
-  inset: 0.42rem 0.12rem 0.08rem;
-  border: 2px solid #047857;
-  border-radius: 54% 54% 48% 48%;
-  background: radial-gradient(circle at 28% 74%, rgba(236, 72, 153, 0.35) 0 9%, transparent 10%),
-    radial-gradient(circle at 72% 74%, rgba(236, 72, 153, 0.35) 0 9%, transparent 10%),
-    radial-gradient(circle at 50% 53%, rgba(255, 255, 255, 0.74) 0 18%, transparent 19%),
-    conic-gradient(from 0deg, rgba(255, 255, 255, 0.75) 0deg 4deg, transparent 4deg 30deg),
-    linear-gradient(135deg, #16a34a 0%, #86efac 100%);
-  box-shadow: inset 0 -0.16rem 0 rgba(4, 120, 87, 0.22), inset 0 0.16rem 0 rgba(255, 255, 255, 0.42);
-}
-
-.brand-logo-eye {
-  position: absolute;
-  top: 0.05rem;
-  z-index: 3;
-  width: 0.77rem;
-  height: 0.77rem;
-  border: 2px solid #047857;
-  border-radius: 50%;
-  background: radial-gradient(circle at 68% 28%, #ffffff 0 10%, transparent 11%), #f8fafc;
-  box-shadow: 0 0.08rem 0 rgba(4, 120, 87, 0.2);
-}
-
-.brand-logo-eye--left {
-  left: 0.2rem;
-}
-
-.brand-logo-eye--right {
-  right: 0.2rem;
-}
-
-.brand-logo-pupil {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0.27rem;
-  height: 0.27rem;
-  border-radius: 50%;
-  background: #0f172a;
-  transform: translate(-50%, -50%);
-}
-
-.brand-logo-pupil::after {
-  position: absolute;
-  top: 0.04rem;
-  left: 0.05rem;
-  width: 0.08rem;
-  height: 0.08rem;
-  border-radius: 50%;
-  background: #ffffff;
-  content: '';
-}
-
-.brand-logo-hand {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: 2;
-  height: 0.08rem;
-  border-radius: 999px;
-  background: #102033;
-  transform-origin: left center;
-}
-
-.brand-logo-hand--left {
-  width: 0.62rem;
-  background: #059669;
-  transform: rotate(-138deg);
-}
-
-.brand-logo-hand--right {
-  width: 0.62rem;
-  background: #db2777;
-  transform: rotate(-42deg);
-}
-
-.brand-logo-center {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: 3;
-  width: 0.2rem;
-  height: 0.2rem;
-  border: 2px solid #ffffff;
-  border-radius: 50%;
-  background: #2563eb;
-  transform: translate(-50%, -50%);
-}
-
-.brand-logo-mouth {
-  position: absolute;
-  bottom: 0.26rem;
-  left: 50%;
-  width: 0.72rem;
-  height: 0.3rem;
-  border-bottom: 0.09rem solid #9d174d;
-  border-radius: 0 0 999px 999px;
-  transform: translateX(-50%);
+  inset: 0.2rem 0.16rem 0.24rem 0.2rem;
+  width: calc(100% - 0.36rem);
+  height: calc(100% - 0.44rem);
+  object-fit: contain;
+  pointer-events: none;
 }
 
 .brand-copy {
@@ -601,7 +500,6 @@ html[data-dashboard-theme='flower'] .btn-outline-dark:hover {
 }
 
 html[data-dashboard-theme='flower'] .todos-page,
-html[data-dashboard-theme='flower'] .timeline-page,
 html[data-dashboard-theme='flower'] .settings-layout,
 html[data-dashboard-theme='flower'] .settings-title,
 html[data-dashboard-theme='flower'] .modal-content {
@@ -610,7 +508,6 @@ html[data-dashboard-theme='flower'] .modal-content {
 
 html[data-dashboard-theme='flower'] .todos-page h3,
 html[data-dashboard-theme='flower'] .todos-page h5,
-html[data-dashboard-theme='flower'] .timeline-page h3,
 html[data-dashboard-theme='flower'] .settings-title,
 html[data-dashboard-theme='flower'] .settings-section__title,
 html[data-dashboard-theme='flower'] .modal-title {
@@ -626,9 +523,6 @@ html[data-dashboard-theme='flower'] .todo-plan-subtle,
 html[data-dashboard-theme='flower'] .todo-drag-handle,
 html[data-dashboard-theme='flower'] .todo-calendar-lane-label,
 html[data-dashboard-theme='flower'] .todo-empty,
-html[data-dashboard-theme='flower'] .timeline-table-empty,
-html[data-dashboard-theme='flower'] .timeline-schedule-block-meta,
-html[data-dashboard-theme='flower'] .timeline-schedule-block-title,
 html[data-dashboard-theme='flower'] .settings-content .text-muted,
 html[data-dashboard-theme='flower'] .settings-content small,
 html[data-dashboard-theme='flower'] .settings-section .form-text {
@@ -649,9 +543,6 @@ html[data-dashboard-theme='flower'] .todo-card,
 html[data-dashboard-theme='flower'] .todo-mini-card,
 html[data-dashboard-theme='flower'] .todo-check-button,
 html[data-dashboard-theme='flower'] .todo-priority-flag,
-html[data-dashboard-theme='flower'] .timeline-day-panel,
-html[data-dashboard-theme='flower'] .timeline-table-card,
-html[data-dashboard-theme='flower'] .timeline-schedule-block,
 html[data-dashboard-theme='flower'] .modal-content {
   border-color: rgba(30, 64, 110, 0.32) !important;
   background: rgba(255, 253, 245, 0.97) !important;
@@ -671,7 +562,6 @@ html[data-dashboard-theme='flower'] .todos-page .todo-matrix-quadrant {
   background: rgba(255, 253, 245, 0.9) !important;
 }
 
-html[data-dashboard-theme='flower'] .timeline-schedule-block--not-work,
 html[data-dashboard-theme='flower'] .todo-card--upcoming,
 html[data-dashboard-theme='flower'] .todo-matrix-quadrant--delegate {
   background: #f8fbff !important;

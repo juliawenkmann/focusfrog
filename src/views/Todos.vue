@@ -40,6 +40,40 @@ div.todos-page
             placeholder="Write paper section"
             autocomplete="off"
           )
+        b-form-group(label="Project (optional)" label-for="todo-project")
+          div.todo-project-field
+            b-form-select#todo-project(v-model="draft.projectId" :options="projectOptions")
+            b-button(
+              variant="outline-secondary"
+              type="button"
+              @click="creatingEditorProject = !creatingEditorProject"
+            )
+              icon.mr-1(name="plus")
+              | Project
+          div.todo-project-composer.todo-project-composer--editor(v-if="creatingEditorProject")
+            b-form-input(
+              v-model.trim="editorProjectName"
+              placeholder="Project name"
+              autocomplete="off"
+              @keyup.enter.stop.prevent="createEditorProject"
+            )
+            div.todo-project-color-picker(aria-label="Project color")
+              button.todo-project-color(
+                v-for="color in projectColors"
+                :key="'editor-' + color"
+                type="button"
+                :class="{ 'todo-project-color--active': editorProjectColor === color }"
+                :style="{ background: color }"
+                :aria-label="'Use color ' + color"
+                @click="editorProjectColor = color"
+              )
+            b-button(
+              size="sm"
+              variant="primary"
+              type="button"
+              :disabled="!editorProjectName"
+              @click="createEditorProject"
+            ) Create
         div.editor-grid
           b-form-group(label="Due date (optional)" label-for="todo-due-date")
             b-form-input#todo-due-date(v-model="draft.dueDate" type="date")
@@ -86,6 +120,110 @@ div.todos-page
             icon.mr-1(name="times")
             | Cancel
 
+  section.todo-project-browser.mt-3
+    div.todo-project-browser-header
+      div
+        div.section-label Organize
+        h5.mb-0 Projects
+        p.todo-project-help(v-if="projectEditMode") Rename, recolor or delete projects. Todos of a deleted project move to the Inbox.
+        p.todo-project-help(v-else) Click the project tag on any todo to move it to another project.
+      div.todo-project-browser-actions
+        b-button(
+          v-if="projects.length > 0"
+          size="sm"
+          :variant="projectEditMode ? 'primary' : 'outline-secondary'"
+          type="button"
+          :aria-pressed="projectEditMode ? 'true' : 'false'"
+          @click="projectEditMode = !projectEditMode"
+        )
+          icon.mr-1(:name="projectEditMode ? 'check' : 'pen'")
+          | {{ projectEditMode ? 'Done' : 'Edit projects' }}
+        b-button(
+          size="sm"
+          variant="outline-secondary"
+          type="button"
+          @click="toggleProjectComposer"
+        )
+          icon.mr-1(name="plus")
+          | New project
+    form.todo-project-composer(
+      v-if="projectComposerOpen"
+      @submit.prevent="createProjectFromBrowser"
+    )
+      b-form-input(
+        v-model.trim="newProjectName"
+        placeholder="e.g. Thesis, FocusFrog, Apartment"
+        autocomplete="off"
+      )
+      div.todo-project-color-picker(aria-label="Project color")
+        button.todo-project-color(
+          v-for="color in projectColors"
+          :key="color"
+          type="button"
+          :class="{ 'todo-project-color--active': newProjectColor === color }"
+          :style="{ background: color }"
+          :aria-label="'Use color ' + color"
+          @click="newProjectColor = color"
+        )
+      b-button(size="sm" variant="primary" type="submit" :disabled="!newProjectName")
+        | Create project
+    div.todo-project-editor(v-if="projectEditMode && projects.length > 0")
+      div.todo-project-edit-row(v-for="project in projectsWithCounts" :key="'edit-' + project.id")
+        span.todo-project-pill-dot(:style="{ background: project.color }")
+        input.form-control.form-control-sm.todo-project-edit-name(
+          :value="project.name"
+          :aria-label="'Rename ' + project.name"
+          autocomplete="off"
+          @change="renameProject(project.id, $event.target)"
+          @keyup.enter="$event.target.blur()"
+        )
+        div.todo-project-color-picker(:aria-label="'Color for ' + project.name")
+          button.todo-project-color(
+            v-for="color in projectColors"
+            :key="project.id + '-' + color"
+            type="button"
+            :class="{ 'todo-project-color--active': project.color === color }"
+            :style="{ background: color }"
+            :aria-label="'Use color ' + color + ' for ' + project.name"
+            @click="recolorProject(project.id, color)"
+          )
+        span.todo-project-edit-count {{ project.todoCount === 1 ? '1 todo' : project.todoCount + ' todos' }}
+        b-button(
+          size="sm"
+          variant="outline-danger"
+          type="button"
+          :title="'Delete ' + project.name"
+          @click="deleteProject(project.id)"
+        )
+          icon(name="trash")
+    nav.todo-project-list(v-else aria-label="Filter todos by project")
+      button.todo-project-pill(
+        type="button"
+        :class="{ 'todo-project-pill--active': activeProjectFilter === 'all' }"
+        @click="selectProjectFilter('all')"
+      )
+        icon(name="tasks")
+        span All todos
+        span.todo-project-pill-count {{ allActiveTodos.length }}
+      button.todo-project-pill(
+        type="button"
+        :class="{ 'todo-project-pill--active': activeProjectFilter === 'inbox' }"
+        @click="selectProjectFilter('inbox')"
+      )
+        span.todo-project-pill-dot.todo-project-pill-dot--inbox
+        span Inbox
+        span.todo-project-pill-count {{ inboxTodoCount }}
+      button.todo-project-pill(
+        v-for="project in projectsWithCounts"
+        :key="project.id"
+        type="button"
+        :class="{ 'todo-project-pill--active': activeProjectFilter === project.id }"
+        @click="selectProjectFilter(project.id)"
+      )
+        span.todo-project-pill-dot(:style="{ background: project.color }")
+        span {{ project.name }}
+        span.todo-project-pill-count {{ project.todoCount }}
+
   div.todo-workspace.mt-3
     section.todo-main
       div.todo-list-view(v-if="viewMode === 'list'")
@@ -100,6 +238,7 @@ div.todos-page
             v-for="todo in dueTodos"
             :key="todo.id"
             :class="todoCardClass(todo)"
+            :style="todoColorStyle(todo, false)"
           )
             div.todo-card-main
               div.todo-card-title-row
@@ -116,6 +255,15 @@ div.todos-page
               div.todo-card-meta
                 span.todo-area-dot(:style="{ background: areaColor(todo.area) }")
                 span {{ areaLabel(todo.area) }}
+                button.todo-project-tag.todo-project-tag--button(
+                  type="button"
+                  :class="{ 'todo-project-tag--empty': !todoProject(todo) }"
+                  :title="todoProject(todo) ? 'Change project' : 'Add to a project'"
+                  :aria-label="projectTagAriaLabel(todo)"
+                  @click.stop="openProjectMenu(todo, $event)"
+                )
+                  span.todo-project-tag-dot(:style="{ background: projectColor(todo.projectId) }")
+                  span {{ todoProject(todo) ? projectLabel(todo.projectId) : 'Project' }}
                 span {{ dueLabel(todo) }}
                 span(v-if="todo.repeat !== 'none'") {{ repeatLabel(todo) }}
               div.todo-card-notes(v-if="todo.notes") {{ todo.notes }}
@@ -135,7 +283,8 @@ div.todos-page
           div.todo-card.todo-card--upcoming(
             v-for="todo in upcomingTodos"
             :key="todo.id"
-            :class="{ 'todo-card--checking': isCompleting(todo) }"
+            :class="[{ 'todo-card--checking': isCompleting(todo) }, projectColorClass(todo)]"
+            :style="todoColorStyle(todo, false)"
           )
             div.todo-card-main
               div.todo-card-title-row
@@ -152,6 +301,15 @@ div.todos-page
               div.todo-card-meta
                 span.todo-area-dot(:style="{ background: areaColor(todo.area) }")
                 span {{ areaLabel(todo.area) }}
+                button.todo-project-tag.todo-project-tag--button(
+                  type="button"
+                  :class="{ 'todo-project-tag--empty': !todoProject(todo) }"
+                  :title="todoProject(todo) ? 'Change project' : 'Add to a project'"
+                  :aria-label="projectTagAriaLabel(todo)"
+                  @click.stop="openProjectMenu(todo, $event)"
+                )
+                  span.todo-project-tag-dot(:style="{ background: projectColor(todo.projectId) }")
+                  span {{ todoProject(todo) ? projectLabel(todo.projectId) : 'Project' }}
                 span {{ dueLabel(todo) }}
                 span(v-if="todo.repeat !== 'none'") {{ repeatLabel(todo) }}
               div.todo-card-notes(v-if="todo.notes") {{ todo.notes }}
@@ -174,6 +332,9 @@ div.todos-page
                   icon(name="check")
                 strong {{ todo.title }}
               div.todo-card-meta
+                span.todo-project-tag(v-if="todoProject(todo)")
+                  span.todo-project-tag-dot(:style="{ background: projectColor(todo.projectId) }")
+                  | {{ projectLabel(todo.projectId) }}
                 span {{ completedLabel(todo) }}
             div.todo-card-actions
               b-button(size="sm" variant="outline-secondary" @click.stop="restoreTodo(todo)" title="Restore")
@@ -200,6 +361,46 @@ div.todos-page
             )
               icon.mr-1(name="times")
               | Clear
+        div.todo-plan-projects(v-if="projects.length > 0")
+          div.todo-plan-mix(
+            v-if="planProjectShares.length > 0"
+            role="img"
+            :aria-label="planMixLabel"
+            :title="planMixLabel"
+          )
+            span.todo-plan-mix-segment(
+              v-for="share in planProjectShares"
+              :key="'mix-' + share.id"
+              :style="{ flexGrow: share.count, background: share.color }"
+            )
+          div.todo-plan-filter(role="group" aria-label="Filter the day plan by project")
+            span.todo-plan-filter-label
+              icon(name="filter")
+              | Show
+            button.todo-plan-filter-chip(
+              type="button"
+              :class="{ 'todo-plan-filter-chip--active': activeProjectFilter === 'all' }"
+              :aria-pressed="activeProjectFilter === 'all' ? 'true' : 'false'"
+              @click="selectProjectFilter('all')"
+            )
+              span All projects
+              span.todo-plan-filter-count {{ plannedTodos.length }}
+            button.todo-plan-filter-chip(
+              v-for="option in planFilterOptions"
+              :key="'plan-filter-' + option.id"
+              type="button"
+              :class="{ 'todo-plan-filter-chip--active': activeProjectFilter === option.id, 'todo-plan-filter-chip--idle': option.count === 0 }"
+              :style="{ '--chip-color': option.color, '--chip-tint': option.tint }"
+              :aria-pressed="activeProjectFilter === option.id ? 'true' : 'false'"
+              :title="option.count === 1 ? '1 planned todo' : option.count + ' planned todos'"
+              @click="selectProjectFilter(activeProjectFilter === option.id ? 'all' : option.id)"
+            )
+              span.todo-project-pill-dot(
+                :class="{ 'todo-project-pill-dot--inbox': option.id === 'inbox' }"
+                :style="option.id === 'inbox' ? {} : { background: option.color }"
+              )
+              span {{ option.name }}
+              span.todo-plan-filter-count {{ option.count }}
         div.todo-plan-layout
           section.todo-plan-panel.todo-plan-panel--selected
             div.todo-section-header
@@ -255,6 +456,9 @@ div.todos-page
                 div.todo-frog-meta(v-if="frogTodo && !frogIsEaten")
                   span.todo-area-dot(:style="{ background: areaColor(frogTodo.area) }")
                   span {{ areaLabel(frogTodo.area) }}
+                  span.todo-project-tag(v-if="todoProject(frogTodo)")
+                    span.todo-project-tag-dot(:style="{ background: projectColor(frogTodo.projectId) }")
+                    | {{ projectLabel(frogTodo.projectId) }}
                   span {{ dueLabel(frogTodo) }}
                 div.todo-frog-actions(v-if="frogTodo && !frogIsEaten")
                   b-button(
@@ -279,15 +483,17 @@ div.todos-page
                 :title="frogIsEaten ? 'Wake the frog with ' + todo.title : 'Make ' + todo.title + ' the frog'"
                 @click="selectFrogTodo(todo)"
               )
-                span.todo-frog-pill-dot(:style="{ background: areaColor(todo.area) }")
+                span.todo-frog-pill-dot(:style="{ background: todoAccentColor(todo) }")
                 span {{ todo.title }}
             div.todo-empty(v-if="plannedTodos.length === 0") No todos selected.
-            div.todo-plan-list(v-else)
+            div.todo-empty(v-else-if="visiblePlannedTodos.length === 0")
+              | Nothing planned in {{ selectedProjectLabel }} today.
+            div.todo-plan-list(v-if="visiblePlannedTodos.length > 0")
               div.todo-plan-card(
-                v-for="(todo, index) in plannedTodos"
+                v-for="todo in visiblePlannedTodos"
                 :key="todo.id"
-                :class="{ 'todo-plan-card--checking': isCompleting(todo), 'todo-plan-card--done': isPlanTodoDone(todo), 'todo-plan-card--frog': isFrogTodo(todo), 'todo-plan-card--dragging': draggedFrogTodoId === todo.id || draggedPlanTodoId === todo.id, 'todo-plan-card--drop-before': planDropTargetId === todo.id && planDropPosition === 'before', 'todo-plan-card--drop-after': planDropTargetId === todo.id && planDropPosition === 'after' }"
-                :style="{ borderColor: areaColor(todo.area) }"
+                :class="[{ 'todo-plan-card--checking': isCompleting(todo), 'todo-plan-card--done': isPlanTodoDone(todo), 'todo-plan-card--frog': isFrogTodo(todo), 'todo-plan-card--dragging': draggedFrogTodoId === todo.id || draggedPlanTodoId === todo.id, 'todo-plan-card--drop-before': planDropTargetId === todo.id && planDropPosition === 'before', 'todo-plan-card--drop-after': planDropTargetId === todo.id && planDropPosition === 'after' }, projectColorClass(todo)]"
+                :style="todoColorStyle(todo)"
                 :draggable="!isPlanTodoDone(todo)"
                 @dragstart="startPlanDrag(todo, $event)"
                 @dragover.prevent="handlePlanDragOver(todo, $event)"
@@ -301,16 +507,25 @@ div.todos-page
                 @pointerup="endFrogPointerDrag($event)"
                 @pointercancel="cancelFrogPointerDrag($event)"
               )
-                div.todo-plan-index {{ index + 1 }}
+                div.todo-plan-index {{ planPositions[todo.id] }}
                 div.todo-card-main
                   div.todo-card-title-row
-                    span.todo-area-dot(:style="{ background: areaColor(todo.area) }")
+                    span.todo-area-dot(:style="{ background: todoAccentColor(todo) }")
                     strong.todo-plan-title {{ todo.title }}
                     span.todo-frog-badge(v-if="isFrogTodo(todo) && !isPlanTodoDone(todo)") frog
                     span.todo-drag-handle(title="Drag to reorder")
                       icon(name="grip-lines")
                   div.todo-card-meta
                     span {{ areaLabel(todo.area) }}
+                    button.todo-project-tag.todo-project-tag--button(
+                      type="button"
+                      :class="{ 'todo-project-tag--empty': !todoProject(todo) }"
+                      :title="todoProject(todo) ? 'Change project' : 'Add to a project'"
+                      :aria-label="projectTagAriaLabel(todo)"
+                      @click.stop="openProjectMenu(todo, $event)"
+                    )
+                      span.todo-project-tag-dot(:style="{ background: projectColor(todo.projectId) }")
+                      span {{ todoProject(todo) ? projectLabel(todo.projectId) : 'Project' }}
                     span {{ dueLabel(todo) }}
                     span(v-if="isPlanTodoDone(todo)") {{ planDoneLabel(todo) }}
                     span(v-if="todo.repeat !== 'none'") {{ repeatLabel(todo) }}
@@ -332,6 +547,9 @@ div.todos-page
                     @click="removeFromDayPlan(todo.id)"
                   )
                     icon(name="minus")
+            div.todo-plan-hidden(v-if="hiddenPlannedCount > 0")
+              span {{ hiddenPlannedCount }} more planned in other projects
+              b-button(size="sm" variant="link" type="button" @click="selectProjectFilter('all')") Show all
           section.todo-plan-panel.todo-plan-panel--available
             div.todo-section-header
               div
@@ -342,8 +560,8 @@ div.todos-page
             div.todo-plan-choice(
               v-for="todo in planCandidateTodos"
               :key="todo.id"
-              :class="{ 'todo-plan-choice--dragging': draggedFrogTodoId === todo.id }"
-              :style="{ borderColor: areaColor(todo.area) }"
+              :class="[{ 'todo-plan-choice--dragging': draggedFrogTodoId === todo.id }, projectColorClass(todo)]"
+              :style="todoColorStyle(todo)"
               @mousedown="startFrogMouseDrag(todo, $event)"
               @pointerdown="startFrogPointerDrag(todo, $event)"
               @pointermove="handleFrogPointerMove($event)"
@@ -352,10 +570,19 @@ div.todos-page
             )
               div.todo-card-main
                 div.todo-card-title-row
-                  span.todo-area-dot(:style="{ background: areaColor(todo.area) }")
+                  span.todo-area-dot(:style="{ background: todoAccentColor(todo) }")
                   strong {{ todo.title }}
                 div.todo-card-meta
                   span {{ areaLabel(todo.area) }}
+                  button.todo-project-tag.todo-project-tag--button(
+                    type="button"
+                    :class="{ 'todo-project-tag--empty': !todoProject(todo) }"
+                    :title="todoProject(todo) ? 'Change project' : 'Add to a project'"
+                    :aria-label="projectTagAriaLabel(todo)"
+                    @click.stop="openProjectMenu(todo, $event)"
+                  )
+                    span.todo-project-tag-dot(:style="{ background: projectColor(todo.projectId) }")
+                    span {{ todoProject(todo) ? projectLabel(todo.projectId) : 'Project' }}
                   span {{ dueLabel(todo) }}
                   span(v-if="todo.repeat !== 'none'") {{ repeatShortLabel(todo) }}
                 div.todo-card-notes(v-if="todo.notes") {{ todo.notes }}
@@ -395,8 +622,8 @@ div.todos-page
                 div.todo-mini-card(
                   v-for="todo in todosForDayLane(day, lane.value)"
                   :key="todo.id"
-                  :class="{ 'todo-mini-card--checking': isCompleting(todo), 'todo-mini-card--dragging': draggedCalendarTodoId === todo.id }"
-                  :style="{ borderColor: areaColor(todo.area) }"
+                  :class="[{ 'todo-mini-card--checking': isCompleting(todo), 'todo-mini-card--dragging': draggedCalendarTodoId === todo.id }, projectColorClass(todo)]"
+                  :style="todoColorStyle(todo)"
                   draggable="true"
                   @click.stop="noop"
                   @dragstart="startCalendarDrag(todo, $event)"
@@ -416,6 +643,15 @@ div.todos-page
                     span.todo-drag-handle(title="Drag to move")
                       icon(name="grip-lines")
                   div.todo-mini-meta
+                    button.todo-project-tag.todo-project-tag--button(
+                      type="button"
+                      :class="{ 'todo-project-tag--empty': !todoProject(todo) }"
+                      :title="todoProject(todo) ? 'Change project' : 'Add to a project'"
+                      :aria-label="projectTagAriaLabel(todo)"
+                      @click.stop="openProjectMenu(todo, $event)"
+                    )
+                      span.todo-project-tag-dot(:style="{ background: projectColor(todo.projectId) }")
+                      span(v-if="todoProject(todo)") {{ projectLabel(todo.projectId) }}
                     span {{ dueTimeLabel(todo) }}
                     span(v-if="todo.repeat !== 'none'") {{ repeatShortLabel(todo) }}
       div.todo-matrix-view(v-else-if="viewMode === 'matrix'")
@@ -448,8 +684,8 @@ div.todos-page
               div.todo-matrix-card(
                 v-for="todo in quadrant.todos"
                 :key="todo.id"
-                :class="{ 'todo-matrix-card--dragging': draggedMatrixTodoId === todo.id, 'todo-matrix-card--checking': isCompleting(todo) }"
-                :style="{ borderColor: areaColor(todo.area) }"
+                :class="[{ 'todo-matrix-card--dragging': draggedMatrixTodoId === todo.id, 'todo-matrix-card--checking': isCompleting(todo) }, projectColorClass(todo)]"
+                :style="todoColorStyle(todo)"
                 draggable="true"
                 @click.stop="noop"
                 @dragstart="startMatrixDrag(todo, $event)"
@@ -465,12 +701,21 @@ div.todos-page
                     @click.stop="completeTodoWithFeedback(todo)"
                   )
                     icon(name="check")
-                  span.todo-area-dot(:style="{ background: areaColor(todo.area) }")
+                  span.todo-area-dot(:style="{ background: todoAccentColor(todo) }")
                   strong {{ todo.title }}
                   span.todo-drag-handle(title="Drag to move")
                     icon(name="grip-lines")
                 div.todo-mini-meta
                   span {{ areaLabel(todo.area) }}
+                  button.todo-project-tag.todo-project-tag--button(
+                    type="button"
+                    :class="{ 'todo-project-tag--empty': !todoProject(todo) }"
+                    :title="todoProject(todo) ? 'Change project' : 'Add to a project'"
+                    :aria-label="projectTagAriaLabel(todo)"
+                    @click.stop="openProjectMenu(todo, $event)"
+                  )
+                    span.todo-project-tag-dot(:style="{ background: projectColor(todo.projectId) }")
+                    span {{ todoProject(todo) ? projectLabel(todo.projectId) : 'Project' }}
                   span {{ dueLabel(todo) }}
                   span(v-if="todo.repeat !== 'none'") {{ repeatShortLabel(todo) }}
                 div.todo-card-notes(v-if="todo.notes") {{ todo.notes }}
@@ -479,6 +724,68 @@ div.todos-page
                     icon(name="pen")
                   b-button(size="sm" variant="outline-danger" @click.stop="deleteTodo(todo.id)" title="Delete")
                     icon(name="trash")
+
+  div.todo-project-menu(
+    v-if="projectMenuTodo"
+    ref="projectMenu"
+    role="dialog"
+    aria-label="Choose a project"
+    :style="{ top: projectMenuTop + 'px', left: projectMenuLeft + 'px' }"
+  )
+    div.todo-project-menu-title
+      span Project for
+      strong {{ projectMenuTodo.title }}
+    div.todo-project-menu-list(role="menu")
+      button.todo-project-menu-item(
+        v-for="project in projects"
+        :key="'menu-' + project.id"
+        type="button"
+        role="menuitemradio"
+        :aria-checked="projectMenuTodo.projectId === project.id ? 'true' : 'false'"
+        :class="{ 'todo-project-menu-item--active': projectMenuTodo.projectId === project.id }"
+        :style="{ '--chip-tint': projectTint(project.color, 0.14) }"
+        @click="assignTodoProject(projectMenuTodo.id, project.id)"
+      )
+        span.todo-project-pill-dot(:style="{ background: project.color }")
+        span.todo-project-menu-name {{ project.name }}
+        icon(v-if="projectMenuTodo.projectId === project.id" name="check")
+      button.todo-project-menu-item(
+        type="button"
+        role="menuitemradio"
+        :aria-checked="todoProject(projectMenuTodo) ? 'false' : 'true'"
+        :class="{ 'todo-project-menu-item--active': !todoProject(projectMenuTodo) }"
+        @click="assignTodoProject(projectMenuTodo.id, '')"
+      )
+        span.todo-project-pill-dot.todo-project-pill-dot--inbox
+        span.todo-project-menu-name No project (Inbox)
+        icon(v-if="!todoProject(projectMenuTodo)" name="check")
+    form.todo-project-menu-create(v-if="projectMenuCreating" @submit.prevent="createProjectFromMenu")
+      input.form-control.form-control-sm(
+        ref="projectMenuInput"
+        v-model.trim="projectMenuName"
+        placeholder="New project name"
+        aria-label="New project name"
+        autocomplete="off"
+      )
+      div.todo-project-color-picker(aria-label="Project color")
+        button.todo-project-color(
+          v-for="color in projectColors"
+          :key="'menu-color-' + color"
+          type="button"
+          :class="{ 'todo-project-color--active': projectMenuColor === color }"
+          :style="{ background: color }"
+          :aria-label="'Use color ' + color"
+          @click="projectMenuColor = color"
+        )
+      b-button(size="sm" variant="primary" type="submit" :disabled="!projectMenuName")
+        | Create &amp; assign
+    button.todo-project-menu-item.todo-project-menu-item--new(
+      v-else
+      type="button"
+      @click="startProjectMenuCreate"
+    )
+      icon(name="plus")
+      span New project…
 </template>
 
 <script lang="ts">
@@ -488,6 +795,7 @@ import 'vue-awesome/icons/calendar-day';
 import 'vue-awesome/icons/check';
 import 'vue-awesome/icons/check-circle';
 import 'vue-awesome/icons/clipboard-list';
+import 'vue-awesome/icons/filter';
 import 'vue-awesome/icons/grip-lines';
 import 'vue-awesome/icons/hand-pointer';
 import 'vue-awesome/icons/list-ul';
@@ -500,6 +808,20 @@ import 'vue-awesome/icons/tasks';
 import 'vue-awesome/icons/times';
 import 'vue-awesome/icons/trash';
 import moment from 'moment';
+import {
+  cleanProjectName,
+  findProjectByName,
+  INBOX_PROJECT_COLOR,
+  isProjectColor,
+  mergeTodoProjects,
+  nextProjectColor,
+  normalizeTodoProjects,
+  ProjectShare,
+  projectShares,
+  projectTint,
+  TodoProject,
+  TODO_PROJECT_COLORS,
+} from '~/util/todoProjects';
 
 type RepeatRule = 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'custom';
 type TodoArea = 'work' | 'personal' | 'health' | 'home' | 'admin';
@@ -508,6 +830,7 @@ interface TodoItem {
   id: string;
   title: string;
   notes: string;
+  projectId: string;
   area: TodoArea;
   dueDate: string;
   dueTime: string;
@@ -526,6 +849,7 @@ interface TodoItem {
 interface TodoDraft {
   title: string;
   notes: string;
+  projectId: string;
   area: TodoArea;
   dueDate: string;
   dueTime: string;
@@ -566,10 +890,12 @@ interface FrogPlanRecord {
 }
 
 const TODO_STORAGE_KEY = 'timetracker.todos.v1';
+const TODO_PROJECT_STORAGE_KEY = 'timetracker.todoProjects.v1';
 const TODO_DAY_PLAN_STORAGE_KEY = 'timetracker.todoDayPlan.v1';
 const TODO_FROG_STORAGE_KEY = 'timetracker.todoFrog.v1';
 const TODO_SERVER_STORAGE_KEYS = {
   todos: 'todos',
+  projects: 'todoProjects',
   dayPlan: 'todoDayPlan',
   frog: 'todoFrog',
 };
@@ -591,6 +917,7 @@ function blankDraft(): TodoDraft {
   return {
     title: '',
     notes: '',
+    projectId: '',
     area: 'work',
     dueDate: '',
     dueTime: '',
@@ -618,6 +945,23 @@ export default {
   data() {
     return {
       todos: [] as TodoItem[],
+      projects: [] as TodoProject[],
+      activeProjectFilter: 'all',
+      projectComposerOpen: false,
+      newProjectName: '',
+      newProjectColor: TODO_PROJECT_COLORS[0] as string,
+      creatingEditorProject: false,
+      editorProjectName: '',
+      editorProjectColor: TODO_PROJECT_COLORS[1] as string,
+      projectColors: [...TODO_PROJECT_COLORS] as string[],
+      projectEditMode: false,
+      projectMenuTodoId: '',
+      projectMenuTrigger: null as HTMLElement | null,
+      projectMenuTop: 0,
+      projectMenuLeft: 0,
+      projectMenuCreating: false,
+      projectMenuName: '',
+      projectMenuColor: TODO_PROJECT_COLORS[0] as string,
       dayPlanIds: [] as string[],
       frogTodoId: '',
       frogEatenTodoId: '',
@@ -676,10 +1020,31 @@ export default {
         text: config.text,
       }));
     },
-    activeTodos(): TodoItem[] {
+    projectOptions() {
+      return [
+        { value: '', text: 'Inbox (no project)' },
+        ...this.projects.map(project => ({ value: project.id, text: project.name })),
+      ];
+    },
+    allActiveTodos(): TodoItem[] {
       return this.todos
         .filter(todo => !todo.completed)
         .sort((a, b) => this.todoDueMoment(a).valueOf() - this.todoDueMoment(b).valueOf());
+    },
+    projectsById(): Record<string, TodoProject> {
+      return Object.fromEntries(this.projects.map(project => [project.id, project]));
+    },
+    activeTodos(): TodoItem[] {
+      return this.allActiveTodos.filter(this.matchesProjectFilter);
+    },
+    inboxTodoCount(): number {
+      return this.allActiveTodos.filter(todo => this.projectKey(todo) === 'inbox').length;
+    },
+    projectsWithCounts(): Array<TodoProject & { todoCount: number }> {
+      return this.projects.map(project => ({
+        ...project,
+        todoCount: this.allActiveTodos.filter(todo => todo.projectId === project.id).length,
+      }));
     },
     dueTodos(): TodoItem[] {
       const now = moment();
@@ -691,7 +1056,7 @@ export default {
     },
     completedTodos(): TodoItem[] {
       return this.todos
-        .filter(todo => todo.completed)
+        .filter(todo => todo.completed && this.matchesProjectFilter(todo))
         .sort(
           (a, b) =>
             moment(b.completedAt || b.updatedAt).valueOf() -
@@ -717,7 +1082,13 @@ export default {
     todoSummary(): string {
       const due = this.dueTodos.length;
       const upcoming = this.activeTodos.length - due;
-      return `${due} due now, ${upcoming} upcoming`;
+      const project = this.selectedProjectLabel;
+      return `${due} due now, ${upcoming} upcoming${project ? ` in ${project}` : ''}`;
+    },
+    selectedProjectLabel(): string {
+      if (this.activeProjectFilter === 'all') return '';
+      if (this.activeProjectFilter === 'inbox') return 'Inbox';
+      return this.projects.find(project => project.id === this.activeProjectFilter)?.name || '';
     },
     todayPlanLabel(): string {
       return moment(this.planDayDate, 'YYYY-MM-DD').format('dddd, MMM D');
@@ -727,6 +1098,41 @@ export default {
       return this.dayPlanIds
         .map(id => todosById.get(id))
         .filter((todo): todo is TodoItem => Boolean(todo));
+    },
+    visiblePlannedTodos(): TodoItem[] {
+      return this.plannedTodos.filter(this.matchesProjectFilter);
+    },
+    hiddenPlannedCount(): number {
+      return this.plannedTodos.length - this.visiblePlannedTodos.length;
+    },
+    planPositions(): Record<string, number> {
+      return Object.fromEntries(this.plannedTodos.map((todo, index) => [todo.id, index + 1]));
+    },
+    planProjectShares(): ProjectShare[] {
+      return projectShares(this.projects, this.plannedTodos);
+    },
+    planMixLabel(): string {
+      const parts = this.planProjectShares.map(share => `${share.name} ${share.count}`);
+      return `Today's plan by project: ${parts.join(', ')}`;
+    },
+    planFilterOptions(): Array<ProjectShare & { tint: string }> {
+      const counts = new Map(this.planProjectShares.map(share => [share.id, share.count]));
+      return [
+        ...this.projects.map(project => ({
+          id: project.id,
+          name: project.name,
+          color: project.color,
+        })),
+        { id: 'inbox', name: 'Inbox', color: INBOX_PROJECT_COLOR },
+      ].map(option => ({
+        ...option,
+        count: counts.get(option.id) || 0,
+        tint: projectTint(option.color, 0.14),
+      }));
+    },
+    projectMenuTodo(): TodoItem | null {
+      if (!this.projectMenuTodoId) return null;
+      return this.todos.find(todo => todo.id === this.projectMenuTodoId) || null;
     },
     openPlannedTodos(): TodoItem[] {
       return this.plannedTodos.filter(todo => !this.isPlanTodoDone(todo));
@@ -826,10 +1232,15 @@ export default {
     },
   },
   watch: {
+    projectMenuTodo(todo) {
+      if (!todo && this.projectMenuTodoId) this.closeProjectMenu();
+    },
     viewMode(mode) {
       if (mode === 'calendar') {
         this.$nextTick(() => this.scrollCalendarToFocus());
       }
+      // The day plan always opens with every project visible.
+      if (mode === 'plan') this.activeProjectFilter = 'all';
     },
     'draft.dueDate'(dueDate) {
       if (!dueDate) {
@@ -839,6 +1250,7 @@ export default {
     },
   },
   mounted() {
+    this.loadProjects();
     this.loadTodos();
     this.loadDayPlan();
     this.loadFrogTodo();
@@ -848,6 +1260,9 @@ export default {
     void this.loadServerTodoState();
   },
   beforeDestroy() {
+    this.closeProjectMenu();
+    const menu = this.$refs.projectMenu as HTMLElement | undefined;
+    menu?.parentNode?.removeChild(menu);
     if (this.planRolloverTimer) {
       window.clearInterval(this.planRolloverTimer);
     }
@@ -867,10 +1282,16 @@ export default {
     },
     openNewTodo(prefill: Partial<TodoDraft> = {}) {
       this.editingId = '';
+      const selectedProjectId =
+        this.activeProjectFilter !== 'all' && this.activeProjectFilter !== 'inbox'
+          ? this.activeProjectFilter
+          : '';
       this.draft = {
         ...blankDraft(),
+        projectId: selectedProjectId,
         ...prefill,
       };
+      this.resetEditorProjectComposer();
       this.$nextTick(() => this.showTodoModal());
     },
     openNewTodoFromCalendar(day: CalendarDay, lane: string) {
@@ -891,6 +1312,232 @@ export default {
     },
     handleTodoModalHidden() {
       this.resetDraft();
+    },
+    selectProjectFilter(projectId: string) {
+      this.activeProjectFilter = projectId;
+      this.ensureCalendarCoversAnchor();
+      if (this.viewMode === 'calendar') {
+        this.$nextTick(() => this.scrollCalendarToFocus());
+      }
+    },
+    createProject(name: string, color: string): TodoProject | null {
+      const cleanedName = cleanProjectName(name);
+      if (!cleanedName) return null;
+      const existing = findProjectByName(this.projects, cleanedName);
+      if (existing) return existing;
+
+      const now = moment().toISOString();
+      const project: TodoProject = {
+        id: `project-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: cleanedName,
+        color: isProjectColor(color) ? color : nextProjectColor(this.projects),
+        createdAt: now,
+        updatedAt: now,
+      };
+      this.projects = [...this.projects, project].sort((a, b) => a.name.localeCompare(b.name));
+      this.saveProjects();
+      return project;
+    },
+    createProjectFromBrowser() {
+      const project = this.createProject(this.newProjectName, this.newProjectColor);
+      if (!project) return;
+      if (this.viewMode !== 'plan') this.activeProjectFilter = project.id;
+      this.newProjectName = '';
+      this.projectComposerOpen = false;
+    },
+    toggleProjectComposer() {
+      this.projectComposerOpen = !this.projectComposerOpen;
+      if (this.projectComposerOpen) {
+        this.projectEditMode = false;
+        this.newProjectColor = nextProjectColor(this.projects);
+      }
+    },
+    createEditorProject() {
+      const project = this.createProject(this.editorProjectName, this.editorProjectColor);
+      if (!project) return;
+      this.draft.projectId = project.id;
+      this.resetEditorProjectComposer();
+    },
+    resetEditorProjectComposer() {
+      this.creatingEditorProject = false;
+      this.editorProjectName = '';
+      this.editorProjectColor = nextProjectColor(this.projects);
+    },
+    updateProject(projectId: string, changes: Partial<TodoProject>) {
+      this.projects = this.projects
+        .map(project =>
+          project.id === projectId
+            ? { ...project, ...changes, updatedAt: moment().toISOString() }
+            : project
+        )
+        .sort((a, b) => a.name.localeCompare(b.name));
+      this.saveProjects();
+    },
+    recolorProject(projectId: string, color: string) {
+      if (!isProjectColor(color)) return;
+      this.updateProject(projectId, { color });
+    },
+    renameProject(projectId: string, input: HTMLInputElement) {
+      const project = this.projectsById[projectId];
+      if (!project) return;
+      const name = cleanProjectName(input.value);
+      const duplicate = findProjectByName(this.projects, name);
+      if (!name || (duplicate && duplicate.id !== projectId)) {
+        input.value = project.name;
+        return;
+      }
+      input.value = name;
+      if (name !== project.name) this.updateProject(projectId, { name });
+    },
+    async deleteProject(projectId: string) {
+      const project = this.projectsById[projectId];
+      if (!project) return;
+      const todoCount = this.todos.filter(todo => todo.projectId === projectId).length;
+      const message =
+        todoCount > 0
+          ? `Delete "${project.name}"? Its ${todoCount} todo${
+              todoCount === 1 ? '' : 's'
+            } will move to the Inbox.`
+          : `Delete "${project.name}"?`;
+      const confirmed = await this.$bvModal.msgBoxConfirm(message, {
+        title: 'Delete project',
+        okTitle: 'Delete',
+        okVariant: 'danger',
+        cancelTitle: 'Keep',
+        centered: true,
+      });
+      if (!confirmed) return;
+
+      const now = moment().toISOString();
+      this.projects = this.projects.filter(item => item.id !== projectId);
+      this.todos = this.todos.map(todo =>
+        todo.projectId === projectId ? { ...todo, projectId: '', updatedAt: now } : todo
+      );
+      if (this.activeProjectFilter === projectId) this.activeProjectFilter = 'all';
+      if (this.draft.projectId === projectId) this.draft.projectId = '';
+      if (this.projects.length === 0) this.projectEditMode = false;
+      this.saveProjects();
+      this.saveTodos();
+    },
+    assignTodoProject(todoId: string, projectId: string) {
+      const nextProjectId = projectId && this.projectsById[projectId] ? projectId : '';
+      const now = moment().toISOString();
+      this.todos = this.todos.map(todo =>
+        todo.id === todoId && todo.projectId !== nextProjectId
+          ? { ...todo, projectId: nextProjectId, updatedAt: now }
+          : todo
+      );
+      this.saveTodos();
+      this.closeProjectMenu(true);
+    },
+    openProjectMenu(todo: TodoItem, event: MouseEvent) {
+      const trigger = event.currentTarget as HTMLElement | null;
+      if (!trigger) return;
+      if (this.projectMenuTodoId === todo.id) {
+        this.closeProjectMenu();
+        return;
+      }
+      this.closeProjectMenu();
+      this.projectMenuTrigger = trigger;
+      this.projectMenuTodoId = todo.id;
+      this.projectMenuCreating = false;
+      this.projectMenuName = '';
+      this.projectMenuColor = nextProjectColor(this.projects);
+      const rect = trigger.getBoundingClientRect();
+      this.projectMenuLeft = rect.left;
+      this.projectMenuTop = rect.bottom + 6;
+      window.addEventListener('mousedown', this.handleProjectMenuOutside, true);
+      window.addEventListener('touchstart', this.handleProjectMenuOutside, true);
+      window.addEventListener('keydown', this.handleProjectMenuKeydown);
+      window.addEventListener('resize', this.handleProjectMenuViewportChange);
+      window.addEventListener('scroll', this.handleProjectMenuViewportChange, true);
+      this.$nextTick(() => {
+        const menu = this.$refs.projectMenu as HTMLElement | undefined;
+        if (!menu) return;
+        // Escape themed containers that clip overflow or create their own fixed-position context.
+        if (menu.parentNode !== document.body) document.body.appendChild(menu);
+        this.positionProjectMenu();
+        const current = menu.querySelector('.todo-project-menu-item--active') as HTMLElement | null;
+        (current || (menu.querySelector('.todo-project-menu-item') as HTMLElement | null))?.focus({
+          preventScroll: true,
+        });
+      });
+    },
+    positionProjectMenu() {
+      const menu = this.$refs.projectMenu as HTMLElement | undefined;
+      const trigger = this.projectMenuTrigger as HTMLElement | null;
+      if (!menu || !trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const margin = 8;
+      const width = menu.offsetWidth;
+      const height = menu.offsetHeight;
+      const maxLeft = Math.max(margin, window.innerWidth - width - margin);
+      let nextTop = rect.bottom + 6;
+      if (nextTop + height > window.innerHeight - margin && rect.top - height - 6 >= margin) {
+        nextTop = rect.top - height - 6;
+      }
+      this.projectMenuLeft = Math.min(Math.max(margin, rect.left), maxLeft);
+      this.projectMenuTop = Math.max(
+        margin,
+        Math.min(nextTop, window.innerHeight - height - margin)
+      );
+    },
+    closeProjectMenu(restoreFocus = false) {
+      window.removeEventListener('mousedown', this.handleProjectMenuOutside, true);
+      window.removeEventListener('touchstart', this.handleProjectMenuOutside, true);
+      window.removeEventListener('keydown', this.handleProjectMenuKeydown);
+      window.removeEventListener('resize', this.handleProjectMenuViewportChange);
+      window.removeEventListener('scroll', this.handleProjectMenuViewportChange, true);
+      const trigger = this.projectMenuTrigger as HTMLElement | null;
+      this.projectMenuTrigger = null;
+      this.projectMenuTodoId = '';
+      this.projectMenuCreating = false;
+      if (restoreFocus && trigger?.isConnected) trigger.focus({ preventScroll: true });
+    },
+    handleProjectMenuOutside(event: Event) {
+      const target = event.target as Node | null;
+      const menu = this.$refs.projectMenu as HTMLElement | undefined;
+      const trigger = this.projectMenuTrigger as HTMLElement | null;
+      if (target && (menu?.contains(target) || trigger?.contains(target))) return;
+      this.closeProjectMenu();
+    },
+    handleProjectMenuKeydown(event: KeyboardEvent) {
+      if (event.key === 'Escape') this.closeProjectMenu(true);
+    },
+    handleProjectMenuViewportChange(event?: Event) {
+      const menu = this.$refs.projectMenu as HTMLElement | undefined;
+      if (
+        event?.type === 'scroll' &&
+        menu &&
+        event.target instanceof Node &&
+        menu.contains(event.target)
+      ) {
+        return;
+      }
+      // Keep the picker anchored to its tag while scrolling; close once the tag leaves the screen.
+      const trigger = this.projectMenuTrigger as HTMLElement | null;
+      const rect = trigger?.isConnected ? trigger.getBoundingClientRect() : null;
+      if (!rect || rect.bottom < 0 || rect.top > window.innerHeight) {
+        this.closeProjectMenu();
+        return;
+      }
+      this.positionProjectMenu();
+    },
+    startProjectMenuCreate() {
+      this.projectMenuCreating = true;
+      this.projectMenuColor = nextProjectColor(this.projects);
+      this.$nextTick(() => {
+        this.positionProjectMenu();
+        (this.$refs.projectMenuInput as HTMLInputElement | undefined)?.focus({
+          preventScroll: true,
+        });
+      });
+    },
+    createProjectFromMenu() {
+      const todoId = this.projectMenuTodoId;
+      const project = this.createProject(this.projectMenuName, this.projectMenuColor);
+      if (!project || !todoId) return;
+      this.assignTodoProject(todoId, project.id);
     },
     async loadServerValue(key: string) {
       if (typeof fetch === 'undefined') return null;
@@ -932,11 +1579,25 @@ export default {
       );
     },
     async loadServerTodoState() {
-      const [serverTodos, serverDayPlan, serverFrog] = await Promise.all([
+      const [serverTodos, serverProjects, serverDayPlan, serverFrog] = await Promise.all([
         this.loadServerValue(TODO_SERVER_STORAGE_KEYS.todos),
+        this.loadServerValue(TODO_SERVER_STORAGE_KEYS.projects),
         this.loadServerValue(TODO_SERVER_STORAGE_KEYS.dayPlan),
         this.loadServerValue(TODO_SERVER_STORAGE_KEYS.frog),
       ]);
+
+      if (Array.isArray(serverProjects) && serverProjects.length > 0) {
+        const mergedProjects = mergeTodoProjects(
+          this.projects,
+          normalizeTodoProjects(serverProjects)
+        );
+        if (JSON.stringify(mergedProjects) !== JSON.stringify(this.projects)) {
+          this.projects = mergedProjects;
+          this.saveProjects(false);
+        }
+      } else if (this.projects.length > 0) {
+        this.saveServerValue(TODO_SERVER_STORAGE_KEYS.projects, this.projects);
+      }
 
       if (Array.isArray(serverTodos) && serverTodos.length > 0) {
         const mergedTodos = this.mergeTodos(this.todos, serverTodos.map(this.normalizeTodo));
@@ -1013,6 +1674,24 @@ export default {
       }
       if (syncServer) this.saveServerValue(TODO_SERVER_STORAGE_KEYS.todos, this.todos);
     },
+    loadProjects() {
+      if (typeof localStorage === 'undefined') return;
+      try {
+        const raw = localStorage.getItem(TODO_PROJECT_STORAGE_KEY);
+        this.projects = normalizeTodoProjects(raw ? JSON.parse(raw) : []).sort((a, b) =>
+          a.name.localeCompare(b.name)
+        );
+      } catch (err) {
+        console.error('Could not load todo projects:', err);
+        this.projects = [];
+      }
+    },
+    saveProjects(syncServer = true) {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(TODO_PROJECT_STORAGE_KEY, JSON.stringify(this.projects));
+      }
+      if (syncServer) this.saveServerValue(TODO_SERVER_STORAGE_KEYS.projects, this.projects);
+    },
     loadDayPlan() {
       if (typeof localStorage === 'undefined') return;
       const today = currentPlanDate();
@@ -1075,6 +1754,11 @@ export default {
       };
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(TODO_FROG_STORAGE_KEY, JSON.stringify(record));
+        window.dispatchEvent(
+          new CustomEvent('focusfrog:frog-state-changed', {
+            detail: record,
+          })
+        );
       }
       if (syncServer) this.saveServerValue(TODO_SERVER_STORAGE_KEYS.frog, record);
     },
@@ -1145,7 +1829,7 @@ export default {
       this.saveFrogTodo();
     },
     moveTodoToPlanFront(todoId: string) {
-      const todo = this.activeTodos.find(item => item.id === todoId);
+      const todo = this.allActiveTodos.find(item => item.id === todoId);
       if (!todo) return;
       const isWakingFrog = this.frogIsEaten;
       this.frogEatenToday = false;
@@ -1269,7 +1953,7 @@ export default {
       this.moveTodoToPlanFront(todo.id);
     },
     selectFrogTodoById(todoId: string) {
-      const todo = this.activeTodos.find(item => item.id === todoId);
+      const todo = this.allActiveTodos.find(item => item.id === todoId);
       if (!todo) return;
       this.moveTodoToPlanFront(todo.id);
     },
@@ -1607,6 +2291,7 @@ export default {
         ...todo,
         title: todo.title || '',
         notes: todo.notes || '',
+        projectId: typeof todo.projectId === 'string' ? todo.projectId : '',
         area: AREA_CONFIG[todo.area] ? todo.area : 'work',
         dueDate,
         dueTime: dueDate ? todo.dueTime || '' : '',
@@ -1678,12 +2363,14 @@ export default {
     resetDraft() {
       this.draft = blankDraft();
       this.editingId = '';
+      this.resetEditorProjectComposer();
     },
     editTodo(todo: TodoItem) {
       this.editingId = todo.id;
       this.draft = {
         title: todo.title,
         notes: todo.notes,
+        projectId: todo.projectId,
         area: todo.area,
         dueDate: todo.dueDate,
         dueTime: todo.dueTime,
@@ -1820,11 +2507,53 @@ export default {
     areaColor(area: TodoArea): string {
       return AREA_CONFIG[area]?.color || AREA_CONFIG.work.color;
     },
+    todoProject(todo: TodoItem): TodoProject | null {
+      return this.projectsById[todo.projectId] || null;
+    },
+    projectLabel(projectId: string): string {
+      return this.projectsById[projectId]?.name || 'Project';
+    },
+    projectColor(projectId: string): string {
+      return this.projectsById[projectId]?.color || INBOX_PROJECT_COLOR;
+    },
+    projectTint(color: string, alpha: number): string {
+      return projectTint(color, alpha);
+    },
+    // Todos pointing at a missing project (e.g. deleted elsewhere) count as Inbox.
+    projectKey(todo: TodoItem): string {
+      return this.projectsById[todo.projectId] ? todo.projectId : 'inbox';
+    },
+    matchesProjectFilter(todo: TodoItem): boolean {
+      return (
+        this.activeProjectFilter === 'all' || this.projectKey(todo) === this.activeProjectFilter
+      );
+    },
+    todoAccentColor(todo: TodoItem): string {
+      return this.todoProject(todo)?.color || this.areaColor(todo.area);
+    },
+    todoColorStyle(todo: TodoItem, areaBorder = true): Record<string, string> {
+      const project = this.todoProject(todo);
+      if (!project) return areaBorder ? { borderColor: this.areaColor(todo.area) } : {};
+      return {
+        '--todo-project-color': project.color,
+        '--todo-project-tint': projectTint(project.color, 0.13),
+      };
+    },
+    projectColorClass(todo: TodoItem) {
+      return { 'todo-project-colored': Boolean(this.todoProject(todo)) };
+    },
+    projectTagAriaLabel(todo: TodoItem): string {
+      const project = this.todoProject(todo);
+      return project
+        ? `Project ${project.name}. Change project for ${todo.title}`
+        : `No project. Add ${todo.title} to a project`;
+    },
     todoCardClass(todo: TodoItem) {
       return {
         'todo-card--due': this.todoDueMoment(todo).isSameOrBefore(moment()),
         'todo-card--repeating': todo.repeat !== 'none',
         'todo-card--checking': this.isCompleting(todo),
+        ...this.projectColorClass(todo),
       };
     },
     resetCalendarWindow() {
@@ -1986,6 +2715,156 @@ export default {
   color: #be185d;
 }
 
+.todo-project-browser {
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(236, 253, 245, 0.92), rgba(253, 242, 248, 0.78));
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+}
+
+.todo-project-browser-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.todo-project-help {
+  margin: 0.18rem 0 0;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.todo-project-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.48rem;
+  margin-top: 0.72rem;
+}
+
+.todo-project-pill {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.2rem;
+  gap: 0.42rem;
+  padding: 0.42rem 0.7rem;
+  border: 1px solid rgba(148, 163, 184, 0.42);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #334155;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease,
+    transform 120ms ease;
+}
+
+.todo-project-pill:hover {
+  border-color: rgba(16, 185, 129, 0.64);
+  background: #ffffff;
+  transform: translateY(-1px);
+}
+
+.todo-project-pill--active {
+  border-color: #10b981;
+  background: #ffffff;
+  color: #065f46;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+}
+
+.todo-project-pill-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.28rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.16);
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.todo-project-pill-dot,
+.todo-project-tag-dot {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 999px;
+}
+
+.todo-project-pill-dot--inbox {
+  border: 2px solid #94a3b8;
+  background: transparent;
+}
+
+.todo-project-composer {
+  display: grid;
+  grid-template-columns: minmax(13rem, 1fr) auto auto;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 0.75rem;
+  padding: 0.72rem;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.todo-project-composer--editor {
+  margin-top: 0.5rem;
+  background: rgba(248, 250, 252, 0.88);
+}
+
+.todo-project-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.todo-project-color-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.todo-project-color {
+  appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(100, 116, 139, 0.42);
+  cursor: pointer;
+}
+
+.todo-project-color--active {
+  box-shadow: 0 0 0 2px #0f172a;
+  transform: scale(1.08);
+}
+
+.todo-project-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.12rem 0.45rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  background: rgba(248, 250, 252, 0.92);
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.todo-project-tag-dot {
+  width: 0.48rem;
+  height: 0.48rem;
+}
+
 html[data-dashboard-theme='flower'] .todo-done-counter {
   border-color: rgba(16, 185, 129, 0.42);
   background: rgba(255, 253, 245, 0.95);
@@ -2002,6 +2881,19 @@ html[data-dashboard-theme='flower'] .todo-done-counter-today {
   color: #be185d;
 }
 
+html[data-dashboard-theme='flower'] .todo-project-browser {
+  border-color: rgba(236, 72, 153, 0.28);
+  background: rgba(255, 253, 245, 0.72);
+  box-shadow: 0 14px 34px rgba(128, 78, 89, 0.1);
+  backdrop-filter: blur(12px);
+}
+
+html[data-dashboard-theme='flower'] .todo-project-pill,
+html[data-dashboard-theme='flower'] .todo-project-composer,
+html[data-dashboard-theme='flower'] .todo-project-tag {
+  background: rgba(255, 253, 245, 0.82);
+}
+
 html[data-dashboard-theme='contrast'] .todo-done-counter {
   border-color: rgba(52, 211, 153, 0.58);
   background: rgba(16, 185, 129, 0.16);
@@ -2016,6 +2908,351 @@ html[data-dashboard-theme='contrast'] .todo-done-counter .fa-icon {
 html[data-dashboard-theme='contrast'] .todo-done-counter-today {
   border-left-color: rgba(244, 114, 182, 0.48);
   color: #f9a8d4;
+}
+
+html[data-dashboard-theme='contrast'] .todo-project-browser {
+  border-color: rgba(52, 211, 153, 0.34);
+  background: linear-gradient(135deg, rgba(6, 78, 59, 0.34), rgba(131, 24, 67, 0.22));
+  color: #f8fafc;
+}
+
+html[data-dashboard-theme='contrast'] .todo-project-help {
+  color: #cbd5e1;
+}
+
+html[data-dashboard-theme='contrast'] .todo-project-pill,
+html[data-dashboard-theme='contrast'] .todo-project-composer,
+html[data-dashboard-theme='contrast'] .todo-project-tag {
+  border-color: rgba(148, 163, 184, 0.42);
+  background: rgba(15, 23, 42, 0.78);
+  color: #e2e8f0;
+}
+
+html[data-dashboard-theme='contrast'] .todo-project-pill--active {
+  border-color: #34d399;
+  color: #a7f3d0;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.14);
+}
+
+.todo-project-browser-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* Project colors on todo cards. Themes force card borders/backgrounds with !important,
+   so these rules need the extra specificity to keep the project color visible. */
+.todos-page .todo-workspace .todo-project-colored.todo-project-colored {
+  border-left-color: var(--todo-project-color) !important;
+}
+
+.todos-page .todo-workspace .todo-project-colored.todo-project-colored:not(.todo-plan-card--frog) {
+  background-image: linear-gradient(90deg, var(--todo-project-tint), transparent 72%) !important;
+}
+
+.todo-project-tag--button {
+  appearance: none;
+  cursor: pointer;
+  line-height: 1.25;
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+}
+
+.todo-project-tag--button:hover,
+.todo-project-tag--button:focus-visible {
+  border-color: rgba(16, 185, 129, 0.62);
+  background: #ffffff;
+  color: #0f172a;
+  outline: none;
+}
+
+.todo-project-tag--button:focus-visible {
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.35);
+}
+
+.todo-project-tag--empty {
+  border-style: dashed;
+  background: transparent;
+  color: #94a3b8;
+}
+
+.todo-project-tag--empty .todo-project-tag-dot {
+  border: 1.5px dashed currentColor;
+  background: transparent !important;
+}
+
+.todo-project-editor {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.72rem;
+}
+
+.todo-project-edit-row {
+  display: grid;
+  grid-template-columns: auto minmax(8rem, 14rem) auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.todo-project-edit-count {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.todo-plan-projects {
+  display: grid;
+  gap: 0.55rem;
+  margin-bottom: 0.9rem;
+}
+
+.todo-plan-mix {
+  display: flex;
+  gap: 2px;
+  height: 0.5rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.18);
+}
+
+.todo-plan-mix-segment {
+  flex-basis: 0;
+  min-width: 0.5rem;
+}
+
+.todo-plan-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.todo-plan-filter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-right: 0.15rem;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.todo-plan-filter-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.95rem;
+  gap: 0.38rem;
+  padding: 0.3rem 0.62rem;
+  border: 1px solid rgba(148, 163, 184, 0.42);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease,
+    transform 120ms ease;
+}
+
+.todo-plan-filter-chip:hover {
+  border-color: var(--chip-color, #10b981);
+  transform: translateY(-1px);
+}
+
+.todo-plan-filter-chip--idle {
+  color: #94a3b8;
+}
+
+.todo-plan-filter-chip--active {
+  border-color: var(--chip-color, #10b981);
+  background: var(--chip-tint, rgba(16, 185, 129, 0.12));
+  color: #0f172a;
+  box-shadow: 0 0 0 2px var(--chip-tint, rgba(16, 185, 129, 0.14));
+}
+
+.todo-plan-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.16);
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
+.todo-plan-hidden {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px dashed rgba(148, 163, 184, 0.5);
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.todo-project-menu {
+  position: fixed;
+  z-index: 1045;
+  width: 16rem;
+  max-width: calc(100vw - 16px);
+  padding: 0.45rem;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 10px;
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+}
+
+.todo-project-menu-title {
+  display: flex;
+  min-width: 0;
+  gap: 0.3rem;
+  padding: 0.25rem 0.45rem 0.45rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.todo-project-menu-title strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #0f172a;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todo-project-menu-list {
+  display: grid;
+  gap: 2px;
+  max-height: 15rem;
+  overflow-y: auto;
+}
+
+.todo-project-menu-item {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 0.5rem;
+  padding: 0.42rem 0.5rem;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #334155;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.todo-project-menu-item:hover,
+.todo-project-menu-item:focus-visible,
+.todo-project-menu-item--active {
+  background: var(--chip-tint, rgba(148, 163, 184, 0.14));
+  color: #0f172a;
+  outline: none;
+}
+
+.todo-project-menu-item:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.6);
+}
+
+.todo-project-menu-item .fa-icon {
+  color: #10b981;
+}
+
+.todo-project-menu-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todo-project-menu-item--new {
+  margin-top: 0.3rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 0 0 7px 7px;
+  color: #047857;
+}
+
+.todo-project-menu-create {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  padding: 0.5rem 0.3rem 0.2rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+html[data-dashboard-theme='flower'] .todo-project-edit-row,
+html[data-dashboard-theme='flower'] .todo-plan-filter-chip:not(.todo-plan-filter-chip--active) {
+  background: rgba(255, 253, 245, 0.82);
+}
+
+html[data-dashboard-theme='flower'] .todo-project-menu {
+  border-color: rgba(167, 103, 127, 0.3);
+  background: rgba(255, 253, 249, 0.98);
+  box-shadow: 0 18px 40px rgba(103, 61, 78, 0.2);
+}
+
+html[data-dashboard-theme='contrast'] .todo-project-edit-row,
+html[data-dashboard-theme='contrast'] .todo-plan-filter-chip,
+html[data-dashboard-theme='contrast'] .todo-project-menu {
+  border-color: rgba(148, 163, 184, 0.42);
+  background: rgba(15, 23, 42, 0.92);
+  color: #e2e8f0;
+}
+
+html[data-dashboard-theme='contrast'] .todo-plan-filter-chip--active {
+  background: var(--chip-tint, rgba(52, 211, 153, 0.16));
+  color: #f8fafc;
+}
+
+html[data-dashboard-theme='contrast'] .todo-plan-filter-chip--idle,
+html[data-dashboard-theme='contrast'] .todo-plan-filter-label,
+html[data-dashboard-theme='contrast'] .todo-plan-hidden,
+html[data-dashboard-theme='contrast'] .todo-project-edit-count,
+html[data-dashboard-theme='contrast'] .todo-project-menu-title,
+html[data-dashboard-theme='contrast'] .todo-project-tag--empty {
+  color: #94a3b8;
+}
+
+html[data-dashboard-theme='contrast'] .todo-project-menu-title strong,
+html[data-dashboard-theme='contrast'] .todo-project-menu-item {
+  color: #e2e8f0;
+}
+
+html[data-dashboard-theme='contrast'] .todo-project-menu-item:hover,
+html[data-dashboard-theme='contrast'] .todo-project-menu-item:focus-visible,
+html[data-dashboard-theme='contrast'] .todo-project-menu-item--active {
+  background: var(--chip-tint, rgba(148, 163, 184, 0.18));
+  color: #f8fafc;
+}
+
+html[data-dashboard-theme='contrast'] .todo-project-tag--button:hover,
+html[data-dashboard-theme='contrast'] .todo-project-tag--button:focus-visible {
+  background: rgba(30, 41, 59, 0.95);
+  color: #f8fafc;
+}
+
+html[data-dashboard-theme='contrast'] .todo-project-tag--empty {
+  background: transparent;
 }
 
 .todo-workspace {
@@ -3079,6 +4316,24 @@ html[data-dashboard-theme='contrast'] .todo-done-counter-today {
     grid-template-columns: 1fr;
   }
 
+  .todo-project-browser-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .todo-project-composer {
+    grid-template-columns: 1fr;
+  }
+
+  .todo-project-edit-row {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+  }
+
+  .todo-project-edit-row .todo-project-color-picker {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
   .todo-matrix-grid {
     grid-template-columns: 1fr;
   }
@@ -3133,7 +4388,11 @@ html[data-dashboard-theme='contrast'] .todo-done-counter-today {
   .todo-matrix-card,
   .todo-plan-card,
   .todo-plan-choice,
-  .todo-frog-card {
+  .todo-frog-card,
+  .todo-project-pill,
+  .todo-project-color,
+  .todo-project-tag--button,
+  .todo-plan-filter-chip {
     transition: none;
   }
 

@@ -128,6 +128,16 @@ url_ready() {
   /usr/bin/curl -fsS --max-time 1 "$1" >/dev/null 2>&1
 }
 
+focusfrog_server_current() {
+  local health app api_version has_vision_images current_dist
+  health="$(/usr/bin/curl -fsS --max-time 1 "$HEALTH_URL" 2>/dev/null)" || return 1
+  app="$(printf '%s' "$health" | /usr/bin/plutil -extract app raw -o - - 2>/dev/null)" || return 1
+  api_version="$(printf '%s' "$health" | /usr/bin/plutil -extract apiVersion raw -o - - 2>/dev/null)" || return 1
+  has_vision_images="$(printf '%s' "$health" | /usr/bin/plutil -extract capabilities.visionBoardImages raw -o - - 2>/dev/null)" || return 1
+  current_dist="$(printf '%s' "$health" | /usr/bin/plutil -extract distDir raw -o - - 2>/dev/null)" || return 1
+  [[ "$app" == "FocusFrog" && "$api_version" == "2" && "$has_vision_images" == "true" && "$current_dist" == "$RESOURCES_DIR/webui" ]]
+}
+
 activitywatch_target() {
   if [[ -n "${AW_API_TARGET:-}" ]] && url_ready "$AW_API_TARGET/api/0/info"; then
     echo "$AW_API_TARGET"
@@ -169,10 +179,10 @@ if [[ -z "$AW_TARGET" ]]; then
   show_dialog "I could not reach ActivityWatch yet. I will open FocusFrog, but time data may load only after ActivityWatch is running."
 fi
 
-if ! url_ready "$HEALTH_URL"; then
-  if url_ready "http://127.0.0.1:${PORT}/"; then
-    /usr/bin/open "$FOCUSFROG_URL"
-    exit 0
+if ! focusfrog_server_current; then
+  if ! url_ready "$HEALTH_URL" && url_ready "http://127.0.0.1:${PORT}/"; then
+    show_dialog "Another app is already using FocusFrog's local port ${PORT}. Close that app or set FOCUSFROG_PORT to a free port, then try again."
+    exit 1
   fi
 
   if ! command -v node >/dev/null 2>&1; then
@@ -180,8 +190,14 @@ if ! url_ready "$HEALTH_URL"; then
     exit 1
   fi
 
-  mkdir -p "$HOME/Library/LaunchAgents"
   NODE_BIN="$(command -v node)"
+  NODE_MAJOR="$("$NODE_BIN" -p "Number(process.versions.node.split('.')[0])" 2>/dev/null || echo 0)"
+  if [[ ! "$NODE_MAJOR" =~ ^[0-9]+$ ]] || (( NODE_MAJOR < 20 )); then
+    show_dialog "FocusFrog needs Node.js 20 or newer to run this local app bundle."
+    exit 1
+  fi
+
+  mkdir -p "$HOME/Library/LaunchAgents"
   cat > "$LAUNCH_AGENT_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -223,12 +239,12 @@ PLIST
   /bin/launchctl kickstart -k "gui/$(id -u)/$LAUNCH_AGENT_LABEL" >>"$SERVER_LOG" 2>&1 || true
 
   for _ in {1..20}; do
-    url_ready "$HEALTH_URL" && break
+    focusfrog_server_current && break
     sleep 0.25
   done
 fi
 
-if ! url_ready "$HEALTH_URL"; then
+if ! focusfrog_server_current; then
   show_dialog "FocusFrog could not start its local server. See $SERVER_LOG for details."
   exit 1
 fi

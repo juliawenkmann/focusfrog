@@ -111,6 +111,32 @@ function Test-FocusFrogUrl([string]$Url) {
   }
 }
 
+function Get-FocusFrogHealth([string]$Url) {
+  try {
+    return Invoke-RestMethod -Uri $Url -UseBasicParsing -TimeoutSec 1
+  } catch {
+    return $null
+  }
+}
+
+function Test-FocusFrogServerCurrent([string]$Url, [string]$ExpectedDist) {
+  $health = Get-FocusFrogHealth $Url
+  try {
+    $currentDist = [System.IO.Path]::GetFullPath([string]$health.distDir)
+    $expectedDistPath = [System.IO.Path]::GetFullPath($ExpectedDist)
+  } catch {
+    return $false
+  }
+  return [bool](
+    $health -and
+    $health.app -eq 'FocusFrog' -and
+    $health.apiVersion -eq 2 -and
+    $health.capabilities -and
+    $health.capabilities.visionBoardImages -and
+    $currentDist -eq $expectedDistPath
+  )
+}
+
 function Get-ActivityWatchTarget {
   if ($env:AW_API_TARGET) {
     $candidate = $env:AW_API_TARGET.TrimEnd('/')
@@ -189,10 +215,38 @@ if (-not $AwTarget) {
   Show-FocusFrogMessage 'I could not reach ActivityWatch yet. I will open FocusFrog, but time data may load only after ActivityWatch is running.'
 }
 
-if (-not (Test-FocusFrogUrl $HealthUrl)) {
+if (-not (Test-FocusFrogServerCurrent $HealthUrl $WebuiDir)) {
+  $staleHealth = Get-FocusFrogHealth $HealthUrl
+  if ($staleHealth -and $staleHealth.app -eq 'FocusFrog') {
+    $stalePids = @()
+    if ($staleHealth.pid) {
+      $stalePids += [int]$staleHealth.pid
+    } else {
+      $stalePids += @(
+        Get-NetTCPConnection -LocalPort ([int]$Port) -State Listen -ErrorAction SilentlyContinue |
+          Select-Object -ExpandProperty OwningProcess -Unique
+      )
+    }
+    foreach ($stalePid in $stalePids) {
+      Stop-Process -Id $stalePid -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Milliseconds 500
+  }
+
   $node = Get-Command 'node.exe' -ErrorAction SilentlyContinue
   if (-not $node) {
     Show-FocusFrogMessage 'FocusFrog needs Node.js to run this portable Windows package. Node.js was not found on PATH.'
+    exit 1
+  }
+
+  $nodeMajor = 0
+  try {
+    $nodeMajor = [int]([string](& $node.Source -p "Number(process.versions.node.split('.')[0])"))
+  } catch {
+    $nodeMajor = 0
+  }
+  if ($nodeMajor -lt 20) {
+    Show-FocusFrogMessage 'FocusFrog needs Node.js 20 or newer to run this portable Windows package.'
     exit 1
   }
 
@@ -212,13 +266,13 @@ if (-not (Test-FocusFrogUrl $HealthUrl)) {
 
   for ($i = 0; $i -lt 40; $i++) {
     Start-Sleep -Milliseconds 250
-    if (Test-FocusFrogUrl $HealthUrl) {
+    if (Test-FocusFrogServerCurrent $HealthUrl $WebuiDir) {
       break
     }
   }
 }
 
-if (-not (Test-FocusFrogUrl $HealthUrl)) {
+if (-not (Test-FocusFrogServerCurrent $HealthUrl $WebuiDir)) {
   Show-FocusFrogMessage "FocusFrog could not start its local server. See $ServerErrLog for details."
   exit 1
 }
@@ -232,7 +286,7 @@ const windowsReadme = `FocusFrog for Windows
 Run FocusFrog.cmd to start the local FocusFrog server and open the dashboard.
 
 Requirements:
-- Node.js must be installed and available on PATH.
+- Node.js 20 or newer must be installed and available on PATH.
 - ActivityWatch should be installed or already running locally.
 
 What the launcher does:

@@ -119,31 +119,18 @@ test.clientScripts({
   // TODO: resize to mobile size and take another screenshot
 });
 
-fixture(`Timeline view`).page(`${baseURL}/#/timeline`).requestHooks(HTTPLogger);
+fixture(`Time blocking view`).page(`${baseURL}/#/time-blocking`).requestHooks(HTTPLogger);
 
 test.clientScripts({
   content: logJsErrorCode,
-})('Screenshot the timeline view', async t => {
+})('Screenshot the time blocking calendar', async t => {
   await hide_devonly(t);
+  await t.expect(Selector('.cal-board').exists).ok();
   await t.takeScreenshot({
-    path: 'timeline-initial.png',
-    fullPage: true,
-  });
-  await waitForLoading(t);
-  await t
-    .click(Selector('label').withText('12h'))
-    .expect(Selector('input[value="43200"]').checked)
-    .eql(true);
-
-  await t.takeScreenshot({
-    path: 'timeline.png',
+    path: 'time-blocking.png',
     fullPage: true,
   });
   await checkNoError(t);
-
-  // Debugging
-  // console.log(await t.getBrowserConsoleMessages());
-  // console.log(JSON.stringify(HTTPLogger.requests, null, '\t'));
 });
 
 fixture(`Buckets view`).page(`${baseURL}/#/buckets/`).requestHooks(HTTPLogger);

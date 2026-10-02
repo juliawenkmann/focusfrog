@@ -8,6 +8,7 @@ div#wrapper(v-if="loaded")
     )
 
   aw-header(v-if="!chromeless")
+  frog-reminder(v-if="!chromeless")
 
   div(:class="{'container': !fullContainer, 'container-fluid': fullContainer}").px-0.px-md-2
     div.aw-container.my-sm-3.p-3(:class="{ 'aw-container-widget': chromeless }")
@@ -22,8 +23,12 @@ div#wrapper(v-if="loaded")
 <script lang="ts">
 import { useSettingsStore } from '~/stores/settings';
 import { useServerStore } from '~/stores/server';
+import FrogReminder from '~/components/FrogReminder.vue';
 
 export default {
+  components: {
+    FrogReminder,
+  },
   data: function () {
     return {
       activityViews: [],
@@ -93,7 +98,7 @@ html[data-dashboard-theme='flower'] .flower-petal-field {
   display: block;
 }
 
-html[data-dashboard-theme='flower'] #wrapper > :not(.flower-petal-field) {
+html[data-dashboard-theme='flower'] #wrapper > :not(.flower-petal-field):not(.frog-reminder) {
   position: relative;
   z-index: 1;
 }

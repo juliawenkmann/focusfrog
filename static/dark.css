@@ -345,7 +345,6 @@ html[data-dashboard-theme='flower'] .btn-outline-dark:hover {
 
 html[data-dashboard-theme='flower'] .time-dashboard.theme-flower,
 html[data-dashboard-theme='flower'] .todos-page,
-html[data-dashboard-theme='flower'] .timeline-page,
 html[data-dashboard-theme='flower'] .settings-layout,
 html[data-dashboard-theme='flower'] .settings-title,
 html[data-dashboard-theme='flower'] .pomodoro-page {
@@ -356,7 +355,6 @@ html[data-dashboard-theme='flower'] .time-dashboard.theme-flower h3,
 html[data-dashboard-theme='flower'] .time-dashboard.theme-flower h5,
 html[data-dashboard-theme='flower'] .todos-page h3,
 html[data-dashboard-theme='flower'] .todos-page h5,
-html[data-dashboard-theme='flower'] .timeline-page h3,
 html[data-dashboard-theme='flower'] .settings-title,
 html[data-dashboard-theme='flower'] .settings-section__title,
 html[data-dashboard-theme='flower'] .pomodoro-page h3,
@@ -379,9 +377,6 @@ html[data-dashboard-theme='flower'] .todo-plan-subtle,
 html[data-dashboard-theme='flower'] .todo-drag-handle,
 html[data-dashboard-theme='flower'] .todo-calendar-lane-label,
 html[data-dashboard-theme='flower'] .todo-empty,
-html[data-dashboard-theme='flower'] .timeline-table-empty,
-html[data-dashboard-theme='flower'] .timeline-schedule-block-meta,
-html[data-dashboard-theme='flower'] .timeline-schedule-block-title,
 html[data-dashboard-theme='flower'] .settings-content .text-muted,
 html[data-dashboard-theme='flower'] .settings-content small,
 html[data-dashboard-theme='flower'] .settings-section .form-text,
@@ -416,9 +411,6 @@ html[data-dashboard-theme='flower'] .todo-card,
 html[data-dashboard-theme='flower'] .todo-mini-card,
 html[data-dashboard-theme='flower'] .todo-check-button,
 html[data-dashboard-theme='flower'] .todo-priority-flag,
-html[data-dashboard-theme='flower'] .timeline-day-panel,
-html[data-dashboard-theme='flower'] .timeline-table-card,
-html[data-dashboard-theme='flower'] .timeline-schedule-block,
 html[data-dashboard-theme='flower'] .pomodoro-card,
 html[data-dashboard-theme='flower'] .pomodoro-mode-button,
 html[data-dashboard-theme='flower'] .pomodoro-legend-pill,
@@ -445,7 +437,6 @@ html[data-dashboard-theme='flower'] .todos-page .todo-matrix-quadrant {
   background: rgba(255, 253, 245, 0.9) !important;
 }
 
-html[data-dashboard-theme='flower'] .timeline-schedule-block--not-work,
 html[data-dashboard-theme='flower'] .todo-card--upcoming,
 html[data-dashboard-theme='flower'] .todo-matrix-quadrant--delegate {
   background: #f8fbff !important;
@@ -462,9 +453,7 @@ html[data-dashboard-theme='flower'] .todo-calendar-day-header--today {
 }
 
 html[data-dashboard-theme='flower'] .todo-plan-panel--available,
-html[data-dashboard-theme='flower'] .todo-frog-pill--active,
-html[data-dashboard-theme='flower'] .timeline-day-chip,
-html[data-dashboard-theme='flower'] .timeline-date-input {
+html[data-dashboard-theme='flower'] .todo-frog-pill--active {
   background: rgba(255, 253, 245, 0.97) !important;
   border-color: rgba(30, 64, 110, 0.34) !important;
   color: #0b1f35 !important;
@@ -581,14 +570,6 @@ html[data-dashboard-theme='flower']
   ~ .custom-control-label::before {
   background-color: #10b981 !important;
   border-color: #10b981 !important;
-}
-
-html[data-dashboard-theme='flower'] .timeline-day-chip--selected,
-html[data-dashboard-theme='flower'] .timeline-day-chip--selected:hover,
-html[data-dashboard-theme='flower'] .timeline-day-panel .btn-primary {
-  background: #10b981 !important;
-  border-color: #10b981 !important;
-  color: #ffffff !important;
 }
 
 html[data-dashboard-theme='flower'] .settings-nav .nav-link {
@@ -1377,72 +1358,6 @@ div[style='color: rgb(85, 85, 85); font-size: 0.9em;'] {
   color: #e9ebf0 !important;
 }
 
-.timeline-table-card {
-  background: #1a1d24 !important;
-  border-color: #282c32 !important;
-  color: #e9ebf0 !important;
-}
-
-.timeline-table-card .text-muted,
-.timeline-table-empty {
-  color: #cbd5e1 !important;
-}
-
-.timeline-table-header,
-.timeline-table th,
-.timeline-table td {
-  border-color: #282c32 !important;
-}
-
-.timeline-table th {
-  background: #101318 !important;
-  color: #fff !important;
-}
-
-.timeline-table tbody tr:hover {
-  background: #242936 !important;
-}
-
-.timeline-table-row--not-work {
-  background: rgba(219, 39, 119, 0.16) !important;
-}
-
-.timeline-category-pill {
-  background: rgba(15, 19, 26, 0.88) !important;
-  border-color: #374151 !important;
-  color: #fff !important;
-}
-
-.timeline-schedule-day + .timeline-schedule-day {
-  border-color: #282c32 !important;
-}
-
-.timeline-schedule-date,
-.timeline-schedule-time,
-.timeline-schedule-duration,
-.timeline-schedule-block-header strong {
-  color: #fff !important;
-}
-
-.timeline-schedule-track {
-  border-color: #cbd5e1 !important;
-}
-
-.timeline-schedule-block {
-  background: #151922 !important;
-  box-shadow: 0 7px 20px rgba(0, 0, 0, 0.28) !important;
-  color: #fff !important;
-}
-
-.timeline-schedule-block--not-work {
-  background: rgba(219, 39, 119, 0.22) !important;
-}
-
-.timeline-schedule-block-meta,
-.timeline-schedule-block-title {
-  color: #cbd5e1 !important;
-}
-
 .todos-page,
 .todos-page h3,
 .todos-page h5,
@@ -1623,58 +1538,6 @@ html[data-dashboard-theme='bright'] .btn-outline-secondary:focus {
   background-color: #e0f2fe !important;
   border-color: rgba(37, 99, 235, 0.52) !important;
   color: #0f172a !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-table-card {
-  background: rgba(255, 255, 255, 0.86) !important;
-  border-color: rgba(148, 163, 184, 0.4) !important;
-  color: #0f172a !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-table-card .text-muted,
-html[data-dashboard-theme='bright'] .timeline-table-empty {
-  color: #64748b !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-table-header,
-html[data-dashboard-theme='bright'] .timeline-table th,
-html[data-dashboard-theme='bright'] .timeline-table td {
-  border-color: rgba(148, 163, 184, 0.28) !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-table th {
-  background: #f8fafc !important;
-  color: #334155 !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-schedule-day + .timeline-schedule-day {
-  border-color: rgba(148, 163, 184, 0.28) !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-schedule-date,
-html[data-dashboard-theme='bright'] .timeline-schedule-time,
-html[data-dashboard-theme='bright'] .timeline-schedule-duration,
-html[data-dashboard-theme='bright'] .timeline-schedule-block-header strong {
-  color: #0f172a !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-schedule-track {
-  border-color: rgba(100, 116, 139, 0.34) !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-schedule-block {
-  background: rgba(248, 250, 252, 0.95) !important;
-  box-shadow: 0 7px 20px rgba(15, 23, 42, 0.08) !important;
-  color: #0f172a !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-schedule-block--not-work {
-  background: rgba(253, 242, 248, 0.9) !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-schedule-block-meta,
-html[data-dashboard-theme='bright'] .timeline-schedule-block-title {
-  color: #64748b !important;
 }
 
 html[data-dashboard-theme='bright'] .todos-page,
@@ -2115,130 +1978,6 @@ html[data-dashboard-theme='bright']
   color: #0f172a !important;
 }
 
-/* FocusFrog Timeline: keep the day selector and timetable crisp in both themes. */
-html[data-dashboard-theme='bright'] .timeline-page,
-html[data-dashboard-theme='bright'] .timeline-page h3,
-html[data-dashboard-theme='bright'] .timeline-page strong {
-  color: #0f172a !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-day-panel,
-html[data-dashboard-theme='bright'] .timeline-table-card {
-  background: #ffffff !important;
-  border-color: rgba(148, 163, 184, 0.48) !important;
-  color: #0f172a !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-day-panel {
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06) !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-day-panel,
-html[data-dashboard-theme='bright'] .timeline-day-panel .text-muted,
-html[data-dashboard-theme='bright'] .timeline-day-panel .btn,
-html[data-dashboard-theme='bright'] .timeline-day-chip,
-html[data-dashboard-theme='bright'] .timeline-date-input {
-  color: #334155 !important;
-  opacity: 1 !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-day-panel .btn-outline-secondary,
-html[data-dashboard-theme='bright'] .timeline-day-chip,
-html[data-dashboard-theme='bright'] .timeline-date-input {
-  background: #f8fafc !important;
-  border-color: rgba(37, 99, 235, 0.34) !important;
-  color: #0f172a !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-day-panel .btn-outline-secondary:hover,
-html[data-dashboard-theme='bright'] .timeline-day-chip:hover {
-  background: #e0f2fe !important;
-  border-color: rgba(37, 99, 235, 0.58) !important;
-  color: #0f172a !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-day-chip--selected,
-html[data-dashboard-theme='bright'] .timeline-day-chip--selected:hover,
-html[data-dashboard-theme='bright'] .timeline-day-panel .btn-primary {
-  background: #2563eb !important;
-  border-color: #2563eb !important;
-  color: #ffffff !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-day-chip--today:not(.timeline-day-chip--selected) {
-  border-color: rgba(16, 185, 129, 0.82) !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-table-card .text-muted,
-html[data-dashboard-theme='bright'] .timeline-table-empty,
-html[data-dashboard-theme='bright'] .timeline-schedule-block-meta,
-html[data-dashboard-theme='bright'] .timeline-schedule-block-title {
-  color: #475569 !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-schedule-block {
-  background: #ffffff !important;
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.1) !important;
-}
-
-html[data-dashboard-theme='bright'] .timeline-schedule-block--not-work {
-  background: #fff1f7 !important;
-}
-
-html[data-dashboard-theme='contrast'] .timeline-page,
-html[data-dashboard-theme='contrast'] .timeline-page h3,
-html[data-dashboard-theme='contrast'] .timeline-page strong,
-html[data-dashboard-theme='contrast'] .timeline-day-panel,
-html[data-dashboard-theme='contrast'] .timeline-day-panel .btn,
-html[data-dashboard-theme='contrast'] .timeline-day-chip,
-html[data-dashboard-theme='contrast'] .timeline-date-input {
-  color: #ffffff !important;
-}
-
-html[data-dashboard-theme='contrast'] .timeline-day-panel,
-html[data-dashboard-theme='contrast'] .timeline-table-card {
-  background: #151922 !important;
-  border-color: #ffffff !important;
-  color: #ffffff !important;
-}
-
-html[data-dashboard-theme='contrast'] .timeline-day-panel .text-muted,
-html[data-dashboard-theme='contrast'] .timeline-table-card .text-muted,
-html[data-dashboard-theme='contrast'] .timeline-table-empty,
-html[data-dashboard-theme='contrast'] .timeline-schedule-block-meta,
-html[data-dashboard-theme='contrast'] .timeline-schedule-block-title {
-  color: #e2e8f0 !important;
-  opacity: 1 !important;
-}
-
-html[data-dashboard-theme='contrast'] .timeline-day-panel .btn-outline-secondary,
-html[data-dashboard-theme='contrast'] .timeline-day-chip,
-html[data-dashboard-theme='contrast'] .timeline-date-input {
-  background: #0f131a !important;
-  border-color: #ffffff !important;
-  color: #ffffff !important;
-  opacity: 1 !important;
-}
-
-html[data-dashboard-theme='contrast'] .timeline-day-panel .btn-outline-secondary:hover,
-html[data-dashboard-theme='contrast'] .timeline-day-chip:hover {
-  background: #1f2937 !important;
-  border-color: #ffffff !important;
-  color: #ffffff !important;
-}
-
-html[data-dashboard-theme='contrast'] .timeline-day-chip--selected,
-html[data-dashboard-theme='contrast'] .timeline-day-chip--selected:hover,
-html[data-dashboard-theme='contrast'] .timeline-day-panel .btn-primary {
-  background: #2563eb !important;
-  border-color: #ffffff !important;
-  color: #ffffff !important;
-}
-
-html[data-dashboard-theme='contrast'] .timeline-day-chip--today:not(.timeline-day-chip--selected) {
-  border-color: #10b981 !important;
-}
-
 /* Todo modal editor and contextual add targets */
 .todo-editor.todo-editor--modal,
 html[data-dashboard-theme='bright'] .todo-editor.todo-editor--modal,
@@ -2379,8 +2118,6 @@ html[data-dashboard-theme='contrast'] .todo-frog-meta,
 html[data-dashboard-theme='contrast'] .todo-mini-meta,
 html[data-dashboard-theme='contrast'] .todo-plan-subtle,
 html[data-dashboard-theme='contrast'] .todo-empty,
-html[data-dashboard-theme='contrast'] .timeline-schedule-block-meta,
-html[data-dashboard-theme='contrast'] .timeline-schedule-block-title,
 html[data-dashboard-theme='contrast'] .pomodoro-subtitle,
 html[data-dashboard-theme='contrast'] .pomodoro-running-note,
 html[data-dashboard-theme='contrast'] .pomodoro-session-meta,
@@ -2391,8 +2128,7 @@ html[data-dashboard-theme='contrast'] .pomodoro-date {
   opacity: 1 !important;
 }
 
-html[data-dashboard-theme='contrast'] .todo-frog-copy,
-html[data-dashboard-theme='contrast'] .timeline-schedule-block-title {
+html[data-dashboard-theme='contrast'] .todo-frog-copy {
   color: var(--ff-dark-text) !important;
 }
 
@@ -2434,7 +2170,6 @@ html[data-dashboard-theme='contrast'] .aw-navbar .app-theme-toggle .btn-outline-
 html[data-dashboard-theme='contrast'] .aw-container,
 html[data-dashboard-theme='contrast'] .time-dashboard.theme-contrast,
 html[data-dashboard-theme='contrast'] .todos-page,
-html[data-dashboard-theme='contrast'] .timeline-page,
 html[data-dashboard-theme='contrast'] .pomodoro-page,
 html[data-dashboard-theme='contrast'] .settings-layout,
 html[data-dashboard-theme='contrast'] .widget-page {
@@ -2457,10 +2192,6 @@ html[data-dashboard-theme='contrast'] .modal-content,
 html[data-dashboard-theme='contrast'] .settings-content,
 html[data-dashboard-theme='contrast'] .settings-section,
 html[data-dashboard-theme='contrast'] .settings-nav,
-html[data-dashboard-theme='contrast'] .timeline-day-panel,
-html[data-dashboard-theme='contrast'] .timeline-table-card,
-html[data-dashboard-theme='contrast'] .timeline-schedule-block,
-html[data-dashboard-theme='contrast'] .timeline-category-pill,
 html[data-dashboard-theme='contrast'] .timeline-chip,
 html[data-dashboard-theme='contrast'] .timeline-filters-panel,
 html[data-dashboard-theme='contrast'] .todo-section,
@@ -2539,10 +2270,6 @@ html[data-dashboard-theme='contrast'] .todo-plan-card--frog {
 html[data-dashboard-theme='contrast'] .todo-plan-panel--available,
 html[data-dashboard-theme='contrast'] .todo-calendar-day-header--today {
   background: linear-gradient(180deg, rgba(96, 165, 250, 0.05), var(--ff-dark-surface)) !important;
-}
-
-html[data-dashboard-theme='contrast'] .timeline-schedule-block--not-work {
-  background: linear-gradient(180deg, rgba(219, 39, 119, 0.2), var(--ff-dark-surface)) !important;
 }
 
 html[data-dashboard-theme='contrast'] .metric-work,
@@ -2625,8 +2352,7 @@ html[data-dashboard-theme='contrast'] select,
 html[data-dashboard-theme='contrast'] textarea,
 html[data-dashboard-theme='contrast'] input,
 html[data-dashboard-theme='contrast'] .input-group-text,
-html[data-dashboard-theme='contrast'] .custom-file-label,
-html[data-dashboard-theme='contrast'] .timeline-date-input {
+html[data-dashboard-theme='contrast'] .custom-file-label {
   background-color: var(--ff-dark-surface-2) !important;
   border-color: var(--ff-dark-border-soft) !important;
   color: var(--ff-dark-text) !important;
@@ -2746,21 +2472,17 @@ html[data-dashboard-theme='contrast'] .settings-nav .nav-link.active:hover {
 
 html[data-dashboard-theme='contrast'] .table,
 html[data-dashboard-theme='contrast'] .table th,
-html[data-dashboard-theme='contrast'] .table td,
-html[data-dashboard-theme='contrast'] .timeline-table th,
-html[data-dashboard-theme='contrast'] .timeline-table td {
+html[data-dashboard-theme='contrast'] .table td {
   background-color: transparent !important;
   border-color: var(--ff-dark-border-soft) !important;
   color: var(--ff-dark-text) !important;
 }
 
-html[data-dashboard-theme='contrast'] .table thead th,
-html[data-dashboard-theme='contrast'] .timeline-table th {
+html[data-dashboard-theme='contrast'] .table thead th {
   background: var(--ff-dark-surface-2) !important;
 }
 
-html[data-dashboard-theme='contrast'] .table-hover tbody tr:hover,
-html[data-dashboard-theme='contrast'] .timeline-table tbody tr:hover {
+html[data-dashboard-theme='contrast'] .table-hover tbody tr:hover {
   background: var(--ff-dark-surface-3) !important;
   color: var(--ff-dark-text) !important;
 }
@@ -2770,8 +2492,6 @@ html[data-dashboard-theme='contrast'] .modal-content .modal-footer,
 html[data-dashboard-theme='contrast'] .card-header,
 html[data-dashboard-theme='contrast'] .card-footer,
 html[data-dashboard-theme='contrast'] .popover-header,
-html[data-dashboard-theme='contrast'] .timeline-table-header,
-html[data-dashboard-theme='contrast'] .timeline-schedule-day + .timeline-schedule-day,
 html[data-dashboard-theme='contrast'] .pomodoro-side-section + .pomodoro-side-section,
 html[data-dashboard-theme='contrast'] .pomodoro-session-row,
 html[data-dashboard-theme='contrast'] hr {
@@ -2896,82 +2616,6 @@ html[data-dashboard-theme='contrast'] .balance-bar {
 html[data-dashboard-theme='contrast'] .loading-cover {
   background: rgba(4, 6, 9, 0.88) !important;
   color: var(--ff-dark-text) !important;
-}
-
-html[data-dashboard-theme='contrast'] .time-block-panel,
-html[data-dashboard-theme='contrast'] .time-block-schedule-wrap,
-html[data-dashboard-theme='contrast'] .time-block-template,
-html[data-dashboard-theme='contrast'] .time-block-stat {
-  background: var(--ff-dark-surface) !important;
-  border-color: var(--ff-dark-border-soft) !important;
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24) !important;
-}
-
-html[data-dashboard-theme='contrast'] .time-block-stat--work {
-  background: linear-gradient(
-    180deg,
-    rgba(52, 211, 153, 0.09),
-    var(--ff-dark-surface-2)
-  ) !important;
-}
-
-html[data-dashboard-theme='contrast'] .time-block-stat--life {
-  background: linear-gradient(
-    180deg,
-    rgba(244, 114, 182, 0.09),
-    var(--ff-dark-surface-2)
-  ) !important;
-}
-
-html[data-dashboard-theme='contrast'] .time-block-stat--open {
-  background: linear-gradient(
-    180deg,
-    rgba(96, 165, 250, 0.09),
-    var(--ff-dark-surface-2)
-  ) !important;
-}
-
-html[data-dashboard-theme='contrast'] .time-block-empty {
-  background: rgba(52, 211, 153, 0.065) !important;
-  border-color: rgba(52, 211, 153, 0.34) !important;
-  color: var(--ff-dark-muted) !important;
-}
-
-html[data-dashboard-theme='contrast'] .time-block-schedule-wrap,
-html[data-dashboard-theme='contrast'] .time-block-grid {
-  background: var(--ff-dark-page) !important;
-}
-
-html[data-dashboard-theme='contrast'] .time-block-hour-rail {
-  background: var(--ff-dark-surface) !important;
-  border-right-color: var(--ff-dark-border-soft) !important;
-}
-
-html[data-dashboard-theme='contrast'] .time-block-hour-label {
-  color: var(--ff-dark-muted) !important;
-}
-
-html[data-dashboard-theme='contrast'] .time-block-hour-line,
-html[data-dashboard-theme='contrast'] .time-block-slot {
-  border-color: var(--ff-dark-border-soft) !important;
-}
-
-html[data-dashboard-theme='contrast'] .time-block-hour-line {
-  background: var(--ff-dark-border-soft) !important;
-}
-
-html[data-dashboard-theme='contrast'] .time-block-slot:hover {
-  background: linear-gradient(
-    90deg,
-    rgba(52, 211, 153, 0.08),
-    rgba(244, 114, 182, 0.055)
-  ) !important;
-}
-
-html[data-dashboard-theme='contrast'] .time-block-event {
-  background: linear-gradient(135deg, var(--ff-dark-surface-2), var(--ff-dark-surface)) !important;
-  border-color: var(--ff-dark-border-soft) !important;
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.34) !important;
 }
 
 html[data-dashboard-theme='contrast'] .pomodoro-page {

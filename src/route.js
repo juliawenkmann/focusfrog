@@ -10,8 +10,8 @@ const ActivityView = () => import('./views/activity/ActivityView.vue');
 const Buckets = () => import('./views/Buckets.vue');
 const Bucket = () => import('./views/Bucket.vue');
 const QueryExplorer = () => import('./views/QueryExplorer.vue');
-const Timeline = () => import('./views/Timeline.vue');
 const Todos = () => import('./views/Todos.vue');
+const VisionBoard = () => import('./views/VisionBoard.vue');
 const TimeBlocking = () => import('./views/TimeBlocking.vue');
 const Trends = () => import('./views/Trends.vue');
 const Widget = () => import('./views/Widget.vue');
@@ -63,8 +63,10 @@ const router = new VueRouter({
     },
     { path: '/buckets', component: Buckets },
     { path: '/buckets/:id', component: Bucket, props: true },
-    { path: '/timeline', component: Timeline, meta: { fullContainer: true } },
+    // The Timeline page was replaced by the Time Blocking calendar.
+    { path: '/timeline', redirect: '/time-blocking' },
     { path: '/todos', component: Todos, meta: { fullContainer: true } },
+    { path: '/vision-board', component: VisionBoard, meta: { fullContainer: true } },
     { path: '/time-blocking', component: TimeBlocking, meta: { fullContainer: true } },
     { path: '/trends', component: Trends, meta: { fullContainer: true } },
     { path: '/trends/:host', component: Trends, meta: { fullContainer: true } },

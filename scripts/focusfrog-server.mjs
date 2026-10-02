@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import http from 'node:http';
 import https from 'node:https';
 import os from 'node:os';
@@ -33,16 +34,45 @@ const distDir = path.resolve(process.env.FOCUSFROG_DIST || defaultDist);
 const port = Number.parseInt(process.env.FOCUSFROG_PORT || '27180', 10);
 const awTarget = new URL(process.env.AW_API_TARGET || 'http://127.0.0.1:5600');
 const storagePath = path.resolve(process.env.FOCUSFROG_STORAGE_PATH || getDefaultStoragePath());
+const visionImageDir = path.join(path.dirname(storagePath), 'vision-board-images');
 const manualWorkStorageKey = 'manualWork';
 const dailyMeetingWorkMinutes = 60;
 const dailyMeetingWorkStartTime = '12:00';
 const storageKeys = new Set([
   'todos',
+  'todoProjects',
   'todoDayPlan',
   'todoFrog',
   'timeBlocks',
+  'visionBoard',
   manualWorkStorageKey,
 ]);
+const visionImageMaxBytes = 8 * 1024 * 1024;
+const visionImageIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const visionImageFormats = [
+  {
+    extension: '.jpg',
+    mimeType: 'image/jpeg',
+    matches: buffer =>
+      buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff,
+  },
+  {
+    extension: '.png',
+    mimeType: 'image/png',
+    matches: buffer =>
+      buffer.length >= 8 &&
+      buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+  },
+  {
+    extension: '.webp',
+    mimeType: 'image/webp',
+    matches: buffer =>
+      buffer.length >= 12 &&
+      buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      buffer.subarray(8, 12).toString('ascii') === 'WEBP',
+  },
+];
 const widgetSummaryRefreshSeconds = 5 * 60;
 const afkGraceSeconds = 5 * 60;
 
@@ -150,6 +180,11 @@ function serveHealth(res) {
     JSON.stringify({
       ok: true,
       app: 'FocusFrog',
+      apiVersion: 2,
+      pid: process.pid,
+      capabilities: {
+        visionBoardImages: true,
+      },
       awTarget: awTarget.origin,
       distDir,
       storagePath,
@@ -189,19 +224,41 @@ function buildWorkSummaryQuery(hosts) {
     .join('\n');
 }
 
-function readStorage() {
+function readStorage({ failOnError = false } = {}) {
   try {
     if (!fs.existsSync(storagePath)) return {};
-    return JSON.parse(fs.readFileSync(storagePath, 'utf8'));
+    const parsed = JSON.parse(fs.readFileSync(storagePath, 'utf8'));
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('FocusFrog storage must contain a JSON object');
+    }
+    return parsed;
   } catch (error) {
     console.warn(`Could not read FocusFrog storage at ${storagePath}:`, error);
+    if (failOnError) {
+      throw requestBodyError('FocusFrog app storage is currently unreadable', 500);
+    }
     return {};
   }
 }
 
 function writeStorage(storage) {
-  fs.mkdirSync(path.dirname(storagePath), { recursive: true });
-  fs.writeFileSync(storagePath, JSON.stringify(storage, null, 2));
+  const storageDir = path.dirname(storagePath);
+  fs.mkdirSync(storageDir, { recursive: true });
+  const temporaryPath = path.join(
+    storageDir,
+    `.${path.basename(storagePath)}.${process.pid}.${randomUUID()}.tmp`
+  );
+  try {
+    fs.writeFileSync(temporaryPath, JSON.stringify(storage, null, 2), {
+      encoding: 'utf8',
+      flag: 'wx',
+      mode: 0o600,
+    });
+    fs.renameSync(temporaryPath, storagePath);
+  } catch (error) {
+    if (fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath);
+    throw error;
+  }
 }
 
 function readRequestBody(req, limitBytes = 1024 * 1024) {
@@ -218,6 +275,215 @@ function readRequestBody(req, limitBytes = 1024 * 1024) {
     req.on('end', () => resolve(body));
     req.on('error', reject);
   });
+}
+
+function requestBodyError(message, statusCode) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
+
+function readRequestBuffer(req, limitBytes) {
+  return new Promise((resolve, reject) => {
+    const declaredLength = Number(req.headers['content-length']);
+    if (Number.isFinite(declaredLength) && declaredLength > limitBytes) {
+      reject(requestBodyError('Image is larger than 8 MB', 413));
+      req.resume();
+      return;
+    }
+
+    const chunks = [];
+    let byteLength = 0;
+    let bodyError = null;
+    req.on('data', chunk => {
+      if (bodyError) return;
+      byteLength += chunk.length;
+      if (byteLength > limitBytes) {
+        bodyError = requestBodyError('Image is larger than 8 MB', 413);
+        chunks.length = 0;
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (bodyError) {
+        reject(bodyError);
+        return;
+      }
+      resolve(Buffer.concat(chunks, byteLength));
+    });
+    req.on('error', reject);
+  });
+}
+
+function isLoopbackHostname(hostname) {
+  return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '[::1]';
+}
+
+function isAllowedLocalMutation(req) {
+  try {
+    const requestHost = new URL(`http://${req.headers.host || ''}`);
+    if (!isLoopbackHostname(requestHost.hostname)) return false;
+
+    const requestOrigin = req.headers.origin;
+    if (!requestOrigin) return true;
+    const originUrl = new URL(requestOrigin);
+    const originPort = Number.parseInt(
+      originUrl.port || (originUrl.protocol === 'https:' ? '443' : '80'),
+      10
+    );
+    return isLoopbackHostname(originUrl.hostname) && originPort === port;
+  } catch (_error) {
+    return false;
+  }
+}
+
+function detectVisionImageFormat(buffer) {
+  return visionImageFormats.find(format => format.matches(buffer)) || null;
+}
+
+function findVisionImage(imageId) {
+  if (!visionImageIdPattern.test(imageId)) return null;
+  for (const format of visionImageFormats) {
+    const filePath = path.join(visionImageDir, `${imageId.toLowerCase()}${format.extension}`);
+    try {
+      const stats = fs.statSync(filePath);
+      if (stats.isFile()) return { ...format, filePath, size: stats.size };
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+  }
+  return null;
+}
+
+async function storeVisionImage(req, res) {
+  if (!isAllowedLocalMutation(req)) {
+    sendJson(res, 403, { error: 'Vision board image upload is only available inside FocusFrog' });
+    return;
+  }
+
+  try {
+    const buffer = await readRequestBuffer(req, visionImageMaxBytes);
+    const format = detectVisionImageFormat(buffer);
+    if (!format) {
+      sendJson(res, 415, { error: 'Use a JPEG, PNG, or WebP image' });
+      return;
+    }
+
+    const declaredType = String(req.headers['content-type'] || '')
+      .split(';')[0]
+      .trim()
+      .toLowerCase()
+      .replace('image/jpg', 'image/jpeg');
+    if (declaredType && declaredType !== format.mimeType) {
+      sendJson(res, 415, { error: 'The selected file does not match its image type' });
+      return;
+    }
+
+    fs.mkdirSync(visionImageDir, { recursive: true, mode: 0o700 });
+    if (process.platform !== 'win32') fs.chmodSync(visionImageDir, 0o700);
+    const imageId = randomUUID();
+    const filePath = path.join(visionImageDir, `${imageId}${format.extension}`);
+    const temporaryPath = `${filePath}.uploading`;
+    try {
+      fs.writeFileSync(temporaryPath, buffer, { flag: 'wx', mode: 0o600 });
+      fs.renameSync(temporaryPath, filePath);
+    } catch (error) {
+      if (fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath);
+      throw error;
+    }
+
+    sendJson(res, 201, {
+      id: imageId,
+      url: `/focusfrog-vision-images/${imageId}`,
+      mimeType: format.mimeType,
+      size: buffer.length,
+    });
+  } catch (error) {
+    const statusCode = Number(error?.statusCode) || 500;
+    sendJson(res, statusCode, {
+      error:
+        statusCode === 500
+          ? 'FocusFrog could not store this image'
+          : error instanceof Error
+          ? error.message
+          : 'Invalid image upload',
+    });
+  }
+}
+
+function serveVisionImage(req, res) {
+  const requestUrl = new URL(req.url || '/', `http://${req.headers.host || '127.0.0.1'}`);
+  if (requestUrl.pathname === '/focusfrog-vision-images') {
+    if (req.method !== 'POST') {
+      sendJson(res, 405, { error: 'Method not allowed' });
+      return;
+    }
+    void storeVisionImage(req, res);
+    return;
+  }
+
+  const match = requestUrl.pathname.match(/^\/focusfrog-vision-images\/([^/]+)$/);
+  const imageId = match?.[1] || '';
+  if (!visionImageIdPattern.test(imageId)) {
+    sendJson(res, 404, { error: 'Vision board image not found' });
+    return;
+  }
+
+  if (req.method === 'DELETE') {
+    if (!isAllowedLocalMutation(req)) {
+      sendJson(res, 403, {
+        error: 'Vision board image deletion is only available inside FocusFrog',
+      });
+      return;
+    }
+    try {
+      const image = findVisionImage(imageId);
+      if (image) fs.unlinkSync(image.filePath);
+      sendJson(res, 200, { ok: true });
+    } catch (error) {
+      console.warn(`Could not delete FocusFrog vision image ${imageId}:`, error);
+      sendJson(res, 500, { error: 'FocusFrog could not delete this image' });
+    }
+    return;
+  }
+
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    sendJson(res, 405, { error: 'Method not allowed' });
+    return;
+  }
+
+  let image;
+  try {
+    image = findVisionImage(imageId);
+  } catch (error) {
+    console.warn(`Could not read FocusFrog vision image ${imageId}:`, error);
+    sendJson(res, 500, { error: 'FocusFrog could not read this image' });
+    return;
+  }
+  if (!image) {
+    sendJson(res, 404, { error: 'Vision board image not found' });
+    return;
+  }
+
+  const headers = {
+    'content-type': image.mimeType,
+    'content-length': image.size,
+    'cache-control': 'private, max-age=31536000, immutable',
+    'x-content-type-options': 'nosniff',
+    'cross-origin-resource-policy': 'same-origin',
+  };
+  res.writeHead(200, headers);
+  if (req.method === 'HEAD') {
+    res.end();
+    return;
+  }
+  const imageStream = fs.createReadStream(image.filePath);
+  imageStream.on('error', error => {
+    console.warn(`Could not stream FocusFrog vision image ${imageId}:`, error);
+    res.destroy(error);
+  });
+  imageStream.pipe(res);
 }
 
 async function serveStorage(req, res) {
@@ -244,20 +510,46 @@ async function serveStorage(req, res) {
     return;
   }
 
-  if (req.method !== 'PUT' && req.method !== 'POST') {
+  if (req.method !== 'PUT') {
     sendJson(res, 405, { error: 'Method not allowed' });
     return;
   }
 
+  if (!isAllowedLocalMutation(req)) {
+    sendJson(res, 403, { error: 'FocusFrog storage is only writable inside FocusFrog' });
+    return;
+  }
+
+  const contentType = String(req.headers['content-type'] || '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+  if (contentType !== 'application/json') {
+    sendJson(res, 415, { error: 'FocusFrog storage writes require application/json' });
+    return;
+  }
+
+  let payload;
   try {
     const body = await readRequestBody(req);
-    const payload = body ? JSON.parse(body) : {};
-    const storage = readStorage();
+    payload = body ? JSON.parse(body) : null;
+    if (!payload || typeof payload !== 'object' || !Object.hasOwn(payload, 'value')) {
+      throw new Error('Request body must contain a value');
+    }
+  } catch (error) {
+    sendJson(res, 400, { error: error instanceof Error ? error.message : 'Invalid request' });
+    return;
+  }
+
+  try {
+    const storage = readStorage({ failOnError: true });
     storage[key] = payload.value ?? null;
     writeStorage(storage);
     sendJson(res, 200, { ok: true });
   } catch (error) {
-    sendJson(res, 400, { error: error instanceof Error ? error.message : 'Invalid request' });
+    sendJson(res, Number(error?.statusCode) || 500, {
+      error: error instanceof Error ? error.message : 'FocusFrog could not save app storage',
+    });
   }
 }
 
@@ -724,6 +1016,10 @@ const server = http.createServer((req, res) => {
   }
   if (req.url?.startsWith('/focusfrog-widget-summary')) {
     void serveWidgetSummary(req, res);
+    return;
+  }
+  if (req.url?.startsWith('/focusfrog-vision-images')) {
+    serveVisionImage(req, res);
     return;
   }
   if (req.url?.startsWith('/focusfrog-storage/')) {
