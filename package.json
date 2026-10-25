@@ -19,6 +19,7 @@
     "build": "vue-cli-service build",
     "test": "jest",
     "test:unit": "jest --selectProjects jsdom",
+    "test:tracking": "node --test scripts/tracking/*.test.mjs",
     "test:e2e": "vue-cli-service test:e2e",
     "lint": "vue-cli-service lint",
     "lint_old": "eslint --ignore-path=.gitignore --ext .vue,.js,.ts .",

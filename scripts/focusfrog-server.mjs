@@ -32,8 +32,22 @@ function getDefaultStoragePath() {
 
 const distDir = path.resolve(process.env.FOCUSFROG_DIST || defaultDist);
 const port = Number.parseInt(process.env.FOCUSFROG_PORT || '27180', 10);
-const awTarget = new URL(process.env.AW_API_TARGET || 'http://127.0.0.1:5600');
 const storagePath = path.resolve(process.env.FOCUSFROG_STORAGE_PATH || getDefaultStoragePath());
+// "native": FocusFrog records and serves activity itself (macOS app).
+// Otherwise /api is proxied to a running ActivityWatch server.
+const trackingMode = process.env.FOCUSFROG_TRACKING === 'native' ? 'native' : 'activitywatch';
+const trackingDir = path.resolve(
+  process.env.FOCUSFROG_TRACKING_DIR || path.join(path.dirname(storagePath), 'tracking')
+);
+const awTarget = new URL(
+  trackingMode === 'native'
+    ? `http://127.0.0.1:${port}`
+    : process.env.AW_API_TARGET || 'http://127.0.0.1:5600'
+);
+const FOCUSFROG_VERSION = 'v1.0.0';
+const WEEKLY_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+let nativeApi = null;
+let retention = null;
 const visionImageDir = path.join(path.dirname(storagePath), 'vision-board-images');
 const manualWorkStorageKey = 'manualWork';
 const dailyMeetingWorkMinutes = 60;
@@ -181,11 +195,14 @@ function serveHealth(res) {
     JSON.stringify({
       ok: true,
       app: 'FocusFrog',
-      apiVersion: 2,
+      apiVersion: 3,
       pid: process.pid,
       capabilities: {
         visionBoardImages: true,
+        nativeTracking: Boolean(nativeApi),
       },
+      tracking: trackingMode,
+      trackingDir: nativeApi ? trackingDir : null,
       awTarget: awTarget.origin,
       distDir,
       storagePath,
@@ -1010,6 +1027,50 @@ if (!fs.existsSync(path.join(distDir, 'index.html'))) {
   process.exit(1);
 }
 
+if (trackingMode === 'native') {
+  const { NativeActivityApi } = await import('./tracking/aw-api.mjs');
+  retention = await import('./tracking/retention.mjs');
+  nativeApi = new NativeActivityApi({
+    dir: trackingDir,
+    hostname: os.hostname(),
+    version: FOCUSFROG_VERSION,
+    deviceId: randomUUID(),
+  });
+}
+
+// Deletes raw window/AFK events older than the last finished week, but only for
+// weeks whose sums the Hours page has already stored.
+function runWeeklyCleanup() {
+  if (!nativeApi || !retention) return;
+  try {
+    const cutoffUs = retention.retentionCutoff({
+      nowMs: Date.now(),
+      startOfDay: nativeApi.settings.get('startOfDay') || '04:00',
+      summaries: readStorage().weeklySummaries,
+      oldestEventUs: nativeApi.store.oldestEventStart(retention.RAW_EVENT_TYPES),
+    });
+    if (cutoffUs === null) return;
+    const removed = nativeApi.store.pruneEndedBefore(cutoffUs, retention.RAW_EVENT_TYPES);
+    if (removed > 0) {
+      console.log(
+        `Weekly cleanup removed ${removed} raw events from before ${new Date(cutoffUs / 1000).toISOString()}`
+      );
+    }
+  } catch (error) {
+    console.warn('Weekly cleanup failed:', error);
+  }
+}
+
+function shutdown() {
+  try {
+    nativeApi?.close();
+  } finally {
+    process.exit(0);
+  }
+}
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
+
 const server = http.createServer((req, res) => {
   if (req.url?.startsWith('/focusfrog-healthz')) {
     serveHealth(res);
@@ -1028,7 +1089,8 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (req.url?.startsWith('/api/')) {
-    proxyApi(req, res);
+    if (nativeApi) void nativeApi.handle(req, res);
+    else proxyApi(req, res);
     return;
   }
   serveStatic(req, res);
@@ -1037,5 +1099,11 @@ const server = http.createServer((req, res) => {
 server.listen(port, '127.0.0.1', () => {
   console.log(`FocusFrog is serving ${distDir}`);
   console.log(`Open http://127.0.0.1:${port}/#/home`);
-  console.log(`Proxying ActivityWatch API to ${awTarget.origin}`);
+  if (nativeApi) {
+    console.log(`Recording activity natively in ${trackingDir}`);
+    setTimeout(runWeeklyCleanup, 60 * 1000).unref();
+    setInterval(runWeeklyCleanup, WEEKLY_CLEANUP_INTERVAL_MS).unref();
+  } else {
+    console.log(`Proxying ActivityWatch API to ${awTarget.origin}`);
+  }
 });
