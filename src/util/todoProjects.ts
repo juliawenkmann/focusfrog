@@ -128,3 +128,24 @@ export function projectShares(
   }
   return shares;
 }
+
+export interface ProjectProgressShare extends ProjectShare {
+  done: number;
+}
+
+// Like projectShares, but also counts how many todos of each project are already done.
+export function projectProgressShares(
+  projects: TodoProject[],
+  todos: Array<{ projectId: string; done: boolean }>
+): ProjectProgressShare[] {
+  const doneCounts = new Map(
+    projectShares(
+      projects,
+      todos.filter(todo => todo.done)
+    ).map(share => [share.id, share.count])
+  );
+  return projectShares(projects, todos).map(share => ({
+    ...share,
+    done: doneCounts.get(share.id) || 0,
+  }));
+}

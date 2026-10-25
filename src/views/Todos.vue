@@ -361,19 +361,99 @@ div.todos-page
             )
               icon.mr-1(name="times")
               | Clear
-        div.todo-plan-projects(v-if="projects.length > 0")
-          div.todo-plan-mix(
-            v-if="planProjectShares.length > 0"
-            role="img"
-            :aria-label="planMixLabel"
-            :title="planMixLabel"
+        div.todo-plan-projects(v-if="planProgressTotal > 0 || projects.length > 0")
+          div.todo-progress-card(
+            v-if="planProgressTotal > 0"
+            :class="{ 'todo-progress-card--complete': planProgressComplete }"
           )
-            span.todo-plan-mix-segment(
-              v-for="share in planProjectShares"
-              :key="'mix-' + share.id"
-              :style="{ flexGrow: share.count, background: share.color }"
+            div.todo-progress-ring(ref="progressRing" role="img" :aria-label="planMixLabel")
+              svg.todo-progress-ring-svg(viewBox="0 0 100 100" aria-hidden="true")
+                defs
+                  linearGradient#todo-progress-ring-gradient(x1="0" y1="0" x2="1" y2="1")
+                    stop(offset="0%" stop-color="#bef264")
+                    stop(offset="50%" stop-color="#10b981")
+                    stop(offset="100%" stop-color="#06b6d4")
+                circle.todo-progress-ring-track(cx="50" cy="50" :r="progressRingRadius")
+                circle.todo-progress-ring-value(
+                  cx="50"
+                  cy="50"
+                  :r="progressRingRadius"
+                  :stroke-dasharray="progressRingCircumference"
+                  :stroke-dashoffset="progressRingOffset"
+                  :opacity="displayedProgress > 0.002 ? 1 : 0"
+                )
+              div.todo-progress-ring-center
+                template(v-if="planProgressComplete")
+                  svg.todo-progress-ring-check(viewBox="0 0 24 24" aria-hidden="true")
+                    path(d="M5 12.5l4.5 4.5L19 7.5")
+                  span.todo-progress-ring-sub Done!
+                template(v-else)
+                  strong.todo-progress-ring-percent {{ displayedProgressPercent }}%
+                  span.todo-progress-ring-sub {{ planProgressDone }}/{{ planProgressTotal }}
+            div.todo-progress-head
+              div.section-label Today's progress
+              transition(name="todo-cheer" mode="out-in")
+                div.todo-progress-cheer(:key="progressCheer" aria-live="polite") {{ progressCheer }}
+            div.todo-progress-tiles(
+              :class="{ 'todo-progress-tiles--intro': progressIntro }"
+              aria-hidden="true"
             )
-          div.todo-plan-filter(role="group" aria-label="Filter the day plan by project")
+              div.todo-progress-group(
+                v-for="group in progressTileGroups"
+                :key="'group-' + group.id"
+                :style="group.style"
+                :title="group.name + ': ' + group.done + ' of ' + group.count + ' done'"
+              )
+                span.todo-progress-tile(
+                  v-for="(tile, index) in group.tiles"
+                  :key="tile.key"
+                  :class="{ 'todo-progress-tile--done': tile.done, 'todo-progress-tile--fresh': progressPulseShareId === group.id && index === group.done - 1 }"
+                  :style="{ '--i': tile.order }"
+                )
+                  svg.todo-progress-tile-check(v-if="tile.done" viewBox="0 0 16 16")
+                    path(d="M3.5 8.5l3 3 6-7")
+                  span.todo-progress-burst(
+                    v-if="progressPulseShareId === group.id && index === group.done - 1"
+                    :key="'burst-' + progressPulseKey"
+                  )
+                    span.todo-progress-spark(
+                      v-for="spark in progressSparks"
+                      :key="spark.key"
+                      :style="spark.style"
+                    )
+                    span.todo-progress-plus +1
+            div.todo-progress-confetti(
+              v-if="progressCelebrationKey > 0"
+              :key="'confetti-' + progressCelebrationKey"
+              aria-hidden="true"
+            )
+              span.todo-progress-confetto(
+                v-for="piece in progressConfetti"
+                :key="piece.key"
+                :style="piece.style"
+              )
+            div.todo-plan-achievements(v-if="doneTodayTodos.length > 0")
+              span.todo-plan-achievements-label
+                icon(name="trophy")
+                | Done today
+              span.todo-achievement-chip(
+                v-for="todo in visibleDoneTodayTodos"
+                :key="'done-' + todo.id"
+                :class="{ 'todo-achievement-chip--new': todo.id === latestDoneTodoId }"
+                :style="achievementChipStyle(todo)"
+                :title="todo.title + ' · ' + planDoneLabel(todo)"
+              )
+                icon(name="check")
+                span.todo-achievement-title {{ todo.title }}
+              span.todo-achievement-more(
+                v-if="hiddenDoneTodayCount > 0"
+                :title="hiddenDoneTodayTitles"
+              ) +{{ hiddenDoneTodayCount }} more
+          div.todo-plan-filter(
+            v-if="projects.length > 0"
+            role="group"
+            aria-label="Filter the day plan by project"
+          )
             span.todo-plan-filter-label
               icon(name="filter")
               | Show
@@ -384,7 +464,9 @@ div.todos-page
               @click="selectProjectFilter('all')"
             )
               span All projects
-              span.todo-plan-filter-count {{ plannedTodos.length }}
+              span.todo-plan-filter-count(
+                :class="{ 'todo-plan-filter-count--progress': planProgressDone > 0, 'todo-plan-filter-count--complete': planProgressComplete }"
+              ) {{ progressCountLabel(planProgressDone, planProgressTotal) }}
             button.todo-plan-filter-chip(
               v-for="option in planFilterOptions"
               :key="'plan-filter-' + option.id"
@@ -392,7 +474,7 @@ div.todos-page
               :class="{ 'todo-plan-filter-chip--active': activeProjectFilter === option.id, 'todo-plan-filter-chip--idle': option.count === 0 }"
               :style="{ '--chip-color': option.color, '--chip-tint': option.tint }"
               :aria-pressed="activeProjectFilter === option.id ? 'true' : 'false'"
-              :title="option.count === 1 ? '1 planned todo' : option.count + ' planned todos'"
+              :title="option.count === 0 ? 'Nothing planned' : option.done + ' of ' + option.count + ' done today'"
               @click="selectProjectFilter(activeProjectFilter === option.id ? 'all' : option.id)"
             )
               span.todo-project-pill-dot(
@@ -400,7 +482,9 @@ div.todos-page
                 :style="option.id === 'inbox' ? {} : { background: option.color }"
               )
               span {{ option.name }}
-              span.todo-plan-filter-count {{ option.count }}
+              span.todo-plan-filter-count(
+                :class="{ 'todo-plan-filter-count--progress': option.done > 0, 'todo-plan-filter-count--complete': option.count > 0 && option.done === option.count }"
+              ) {{ progressCountLabel(option.done, option.count) }}
         div.todo-plan-layout
           section.todo-plan-panel.todo-plan-panel--selected
             div.todo-section-header
@@ -537,7 +621,7 @@ div.todos-page
                     :disabled="isCompleting(todo) || isPlanTodoDone(todo)"
                     :aria-label="isPlanTodoDone(todo) ? todo.title + ' is done' : 'Complete ' + todo.title"
                     :title="isPlanTodoDone(todo) ? 'Done' : 'Complete'"
-                    @click="completeTodoWithFeedback(todo, true)"
+                    @click="completeTodoWithFeedback(todo)"
                   )
                     icon(name="check")
                   b-button(
@@ -807,6 +891,7 @@ import 'vue-awesome/icons/sync';
 import 'vue-awesome/icons/tasks';
 import 'vue-awesome/icons/times';
 import 'vue-awesome/icons/trash';
+import 'vue-awesome/icons/trophy';
 import moment from 'moment';
 import {
   cleanProjectName,
@@ -816,8 +901,8 @@ import {
   mergeTodoProjects,
   nextProjectColor,
   normalizeTodoProjects,
-  ProjectShare,
-  projectShares,
+  ProjectProgressShare,
+  projectProgressShares,
   projectTint,
   TodoProject,
   TODO_PROJECT_COLORS,
@@ -904,6 +989,42 @@ const CALENDAR_PAST_BUFFER_DAYS = 14;
 const CALENDAR_FUTURE_DAYS = 28;
 const CALENDAR_SCROLL_BATCH_DAYS = 14;
 const DAY_PLAN_ROLLOVER_HOUR = 6;
+const DONE_TODAY_VISIBLE_LIMIT = 6;
+const PROGRESS_PULSE_MS = 1400;
+const PROGRESS_RING_RADIUS = 42;
+const PROGRESS_COUNT_UP_MS = 900;
+const PROGRESS_INTRO_STAGGER_MS = 60;
+const PROGRESS_CELEBRATION_MS = 2600;
+// Each completion chimes one step higher on a major scale; the last task lands on the octave.
+const MAJOR_SCALE_STEPS = [0, 2, 4, 5, 7, 9, 11, 12];
+const PROGRESS_SPARKS = Array.from({ length: 10 }, (_item, index) => ({
+  key: `spark-${index}`,
+  angle: index * 36,
+  distance: index % 2 === 0 ? 40 : 28,
+  gold: index % 3 === 0,
+}));
+// Fixed pseudo-random layout so the confetti looks scattered but renders the same every time.
+const PROGRESS_CONFETTI = Array.from({ length: 42 }, (_item, index) => ({
+  key: `confetto-${index}`,
+  left: (index * 37 + 11) % 100,
+  delay: (index % 7) * 60,
+  drift: ((index * 53) % 140) - 70,
+  spin: ((index * 97) % 540) + 240,
+  size: 6 + (index % 3) * 2,
+  round: index % 4 === 0,
+}));
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+  );
+}
+
+function progressChimeSemitones(fraction: number): number {
+  const step = Math.round(Math.min(1, Math.max(0, fraction)) * (MAJOR_SCALE_STEPS.length - 1));
+  return MAJOR_SCALE_STEPS[step];
+}
 
 const AREA_CONFIG: Record<TodoArea, { text: string; color: string }> = {
   work: { text: 'Work', color: '#10b981' },
@@ -968,6 +1089,16 @@ export default {
       frogEatenToday: false,
       frogEatenTitle: '',
       completingTodoId: '',
+      progressPulseShareId: '',
+      progressPulseKey: 0,
+      progressPulseTimer: 0,
+      latestDoneTodoId: '',
+      progressCelebrationKey: 0,
+      progressCelebrationTimer: 0,
+      progressIntro: true,
+      progressIntroTimer: 0,
+      displayedProgress: 0,
+      progressFrame: 0,
       draggedFrogTodoId: '',
       frogDropActive: false,
       frogJustWoke: false,
@@ -1108,15 +1239,144 @@ export default {
     planPositions(): Record<string, number> {
       return Object.fromEntries(this.plannedTodos.map((todo, index) => [todo.id, index + 1]));
     },
-    planProjectShares(): ProjectShare[] {
-      return projectShares(this.projects, this.plannedTodos);
+    // Everything finished today, planned or not, oldest first.
+    doneTodayTodos(): TodoItem[] {
+      const planDate = this.planDayDate || currentPlanDate();
+      return this.todos
+        .filter(todo => timestampInPlanDate(todo.lastCompletedAt, planDate))
+        .sort((a, b) => moment(a.lastCompletedAt).valueOf() - moment(b.lastCompletedAt).valueOf());
+    },
+    visibleDoneTodayTodos(): TodoItem[] {
+      return this.doneTodayTodos.slice(-DONE_TODAY_VISIBLE_LIMIT);
+    },
+    hiddenDoneTodayCount(): number {
+      return this.doneTodayTodos.length - this.visibleDoneTodayTodos.length;
+    },
+    hiddenDoneTodayTitles(): string {
+      return this.doneTodayTodos
+        .slice(0, this.hiddenDoneTodayCount)
+        .map(todo => todo.title)
+        .join('\n');
+    },
+    // Today's plan plus todos finished today without being planned, so every
+    // completion shows up in the progress line.
+    planProgressShares(): ProjectProgressShare[] {
+      const plannedIds = new Set(this.dayPlanIds);
+      const unplannedDone = this.doneTodayTodos.filter(todo => !plannedIds.has(todo.id));
+      return projectProgressShares(this.projects, [
+        ...this.plannedTodos.map(todo => ({
+          projectId: todo.projectId,
+          done: this.isPlanTodoDone(todo),
+        })),
+        ...unplannedDone.map(todo => ({ projectId: todo.projectId, done: true })),
+      ]);
+    },
+    planProgressTotal(): number {
+      return this.planProgressShares.reduce((total, share) => total + share.count, 0);
+    },
+    planProgressDone(): number {
+      return this.planProgressShares.reduce((total, share) => total + share.done, 0);
+    },
+    planProgressPercent(): number {
+      if (this.planProgressTotal === 0) return 0;
+      return Math.round((100 * this.planProgressDone) / this.planProgressTotal);
+    },
+    planProgressComplete(): boolean {
+      return this.planProgressTotal > 0 && this.planProgressDone === this.planProgressTotal;
+    },
+    planProgressFraction(): number {
+      return this.planProgressTotal === 0 ? 0 : this.planProgressDone / this.planProgressTotal;
+    },
+    displayedProgressPercent(): number {
+      return Math.round(this.displayedProgress * 100);
+    },
+    progressRingRadius(): number {
+      return PROGRESS_RING_RADIUS;
+    },
+    progressRingCircumference(): number {
+      return 2 * Math.PI * PROGRESS_RING_RADIUS;
+    },
+    progressRingOffset(): number {
+      return this.progressRingCircumference * (1 - this.displayedProgress);
+    },
+    progressCheer(): string {
+      const done = this.planProgressDone;
+      const remaining = this.planProgressTotal - done;
+      if (this.planProgressComplete) return 'Day cleared! Every single task is done.';
+      if (done === 0) return 'Your first win is one click away.';
+      if (remaining === 1) return 'One more and the day is cleared!';
+      if (this.planProgressFraction >= 0.75) return `Almost there, only ${remaining} to go.`;
+      if (this.planProgressFraction >= 0.5) return `Past halfway! ${remaining} to go.`;
+      if (done === 1) return 'First one down. Keep the momentum!';
+      return `Nice, ${done} down and ${remaining} to go.`;
+    },
+    // One tile per task, grouped by project; done tiles fill each group from the left.
+    progressTileGroups(): Array<
+      ProjectProgressShare & {
+        style: Record<string, string | number>;
+        tiles: Array<{ key: string; done: boolean; order: number }>;
+      }
+    > {
+      let doneOrder = 0;
+      return this.planProgressShares.map(share => ({
+        ...share,
+        style: {
+          '--count': share.count,
+          '--tile-color': share.color,
+          '--tile-tint': projectTint(share.color, 0.14),
+          '--tile-ring': projectTint(share.color, 0.5),
+          '--tile-glow': projectTint(share.color, 0.5),
+        },
+        tiles: Array.from({ length: share.count }, (_item, index) => ({
+          key: `${share.id}-${index}`,
+          done: index < share.done,
+          order: index < share.done ? doneOrder++ : 0,
+        })),
+      }));
+    },
+    progressSparks(): Array<{ key: string; style: Record<string, string> }> {
+      return PROGRESS_SPARKS.map(spark => ({
+        key: spark.key,
+        style: {
+          '--angle': `${spark.angle}deg`,
+          '--distance': `${spark.distance}px`,
+          ...(spark.gold ? { background: '#fbbf24' } : {}),
+        },
+      }));
+    },
+    progressConfetti(): Array<{ key: string; style: Record<string, string> }> {
+      const colors = [
+        ...this.planProgressShares.map(share => share.color),
+        '#fbbf24',
+        '#34d399',
+        '#f472b6',
+      ];
+      return PROGRESS_CONFETTI.map((piece, index) => ({
+        key: piece.key,
+        style: {
+          left: `${piece.left}%`,
+          width: `${piece.size}px`,
+          height: `${piece.round ? piece.size : piece.size * 1.6}px`,
+          borderRadius: piece.round ? '50%' : '2px',
+          background: colors[index % colors.length],
+          animationDelay: `${piece.delay}ms`,
+          '--drift': `${piece.drift}px`,
+          '--spin': `${piece.spin}deg`,
+        },
+      }));
     },
     planMixLabel(): string {
-      const parts = this.planProjectShares.map(share => `${share.name} ${share.count}`);
-      return `Today's plan by project: ${parts.join(', ')}`;
+      const parts = this.planProgressShares.map(
+        share => `${share.name} ${share.done} of ${share.count}`
+      );
+      return `Today's progress: ${this.planProgressDone} of ${
+        this.planProgressTotal
+      } done. ${parts.join(', ')}`;
     },
-    planFilterOptions(): Array<ProjectShare & { tint: string }> {
-      const counts = new Map(this.planProjectShares.map(share => [share.id, share.count]));
+    planFilterOptions(): Array<ProjectProgressShare & { tint: string }> {
+      const sharesById = new Map<string, ProjectProgressShare>(
+        this.planProgressShares.map(share => [share.id, share])
+      );
       return [
         ...this.projects.map(project => ({
           id: project.id,
@@ -1126,7 +1386,8 @@ export default {
         { id: 'inbox', name: 'Inbox', color: INBOX_PROJECT_COLOR },
       ].map(option => ({
         ...option,
-        count: counts.get(option.id) || 0,
+        count: sharesById.get(option.id)?.count || 0,
+        done: sharesById.get(option.id)?.done || 0,
         tint: projectTint(option.color, 0.14),
       }));
     },
@@ -1240,7 +1501,13 @@ export default {
         this.$nextTick(() => this.scrollCalendarToFocus());
       }
       // The day plan always opens with every project visible.
-      if (mode === 'plan') this.activeProjectFilter = 'all';
+      if (mode === 'plan') {
+        this.activeProjectFilter = 'all';
+        this.startProgressIntro();
+      }
+    },
+    planProgressFraction(fraction: number) {
+      this.animateProgressTo(fraction);
     },
     'draft.dueDate'(dueDate) {
       if (!dueDate) {
@@ -1256,6 +1523,7 @@ export default {
     this.loadFrogTodo();
     this.pruneDayPlan();
     this.syncFrogTodoToFirstPlan();
+    this.startProgressIntro();
     this.planRolloverTimer = window.setInterval(this.handlePlanDayRollover, 60 * 1000);
     void this.loadServerTodoState();
   },
@@ -1268,6 +1536,18 @@ export default {
     }
     if (this.frogWakeTimer) {
       window.clearTimeout(this.frogWakeTimer);
+    }
+    if (this.progressPulseTimer) {
+      window.clearTimeout(this.progressPulseTimer);
+    }
+    if (this.progressCelebrationTimer) {
+      window.clearTimeout(this.progressCelebrationTimer);
+    }
+    if (this.progressIntroTimer) {
+      window.clearTimeout(this.progressIntroTimer);
+    }
+    if (this.progressFrame) {
+      window.cancelAnimationFrame(this.progressFrame);
     }
   },
   methods: {
@@ -1963,7 +2243,7 @@ export default {
     completeFrogTodo() {
       const todo = this.frogTodo;
       if (!todo) return;
-      this.completeTodoWithFeedback(todo, true);
+      this.completeTodoWithFeedback(todo);
     },
     startFrogDrag(todo: TodoItem, event: DragEvent) {
       this.draggedFrogTodoId = todo.id;
@@ -2147,7 +2427,7 @@ export default {
     isCompleting(todo: TodoItem): boolean {
       return this.completingTodoId === todo.id;
     },
-    completeTodoWithFeedback(todo: TodoItem, keepInDayPlan = false) {
+    completeTodoWithFeedback(todo: TodoItem) {
       if (this.isCompleting(todo)) return;
       const isFrog = this.isFrogTodo(todo);
       this.completingTodoId = todo.id;
@@ -2158,10 +2438,16 @@ export default {
         this.frogTodoId = '';
         this.saveFrogTodo();
       }
-      this.playTodoCompleteSound();
+      const inPlan = this.dayPlanIds.includes(todo.id);
+      const nextTotal = this.planProgressTotal + (inPlan ? 0 : 1);
+      const clearsDay = inPlan && nextTotal - this.planProgressDone === 1;
+      this.playTodoCompleteSound(
+        progressChimeSemitones((this.planProgressDone + 1) / nextTotal),
+        clearsDay
+      );
       window.setTimeout(
         () => {
-          this.completeTodo(todo, keepInDayPlan);
+          this.completeTodo(todo);
           if (this.completingTodoId === todo.id) {
             this.completingTodoId = '';
           }
@@ -2172,7 +2458,7 @@ export default {
         isFrog ? 1250 : 220
       );
     },
-    playTodoCompleteSound() {
+    playTodoCompleteSound(semitones = 0, fanfare = false) {
       if (typeof window === 'undefined') return;
       try {
         const AudioContextClass =
@@ -2226,10 +2512,21 @@ export default {
         pop.start(now);
         pop.stop(now + 0.085);
 
-        playTone(698.46, 0.015, 0.22, 0.032);
-        playTone(1396.91, 0.015, 0.16, 0.008);
-        const finalTone = playTone(880, 0.095, 0.34, 0.045);
-        playTone(1760, 0.095, 0.22, 0.007);
+        const pitch = 2 ** (semitones / 12);
+        playTone(698.46 * pitch, 0.015, 0.22, 0.032);
+        playTone(1396.91 * pitch, 0.015, 0.16, 0.008);
+        let finalTone = playTone(880 * pitch, 0.095, 0.34, 0.045);
+        playTone(1760 * pitch, 0.095, 0.22, 0.007);
+
+        if (fanfare) {
+          // A rising F major arpeggio for clearing the whole day.
+          [698.46, 880, 1046.5, 1396.91].forEach((frequency, index) => {
+            const isLast = index === 3;
+            const tone = playTone(frequency, 0.4 + index * 0.1, isLast ? 0.9 : 0.3, 0.034);
+            playTone(frequency * 2, 0.4 + index * 0.1, isLast ? 0.5 : 0.2, 0.006);
+            if (isLast) finalTone = tone;
+          });
+        }
 
         if (audioContext.state === 'suspended') {
           void audioContext.resume();
@@ -2395,6 +2692,10 @@ export default {
               ...item,
               completed: false,
               completedAt: '',
+              // Undo the completion so it leaves today's progress and the done counters.
+              completedCount: Math.max(0, item.completedCount - 1),
+              lastCompletedAt:
+                item.lastCompletedAt === item.completedAt ? '' : item.lastCompletedAt,
               updatedAt: moment().toISOString(),
             }
           : item
@@ -2402,7 +2703,8 @@ export default {
       this.saveTodos();
       this.ensureCalendarCoversAnchor();
     },
-    completeTodo(todo: TodoItem, keepInDayPlan = false) {
+    completeTodo(todo: TodoItem) {
+      const wasComplete = this.planProgressComplete;
       const now = moment();
       if (todo.repeat !== 'none' && todo.dueDate) {
         const nextDue = this.nextDueMoment(todo, now);
@@ -2435,13 +2737,97 @@ export default {
         );
       }
       this.saveTodos();
-      if (keepInDayPlan) {
+      // Planned todos stay in the plan as done, wherever they were checked off.
+      if (this.dayPlanIds.includes(todo.id)) {
         this.saveDayPlan();
         this.syncFrogTodoToFirstPlan();
-      } else {
-        this.removeFromDayPlan(todo.id);
       }
+      this.pulseProgress(todo, !wasComplete && this.planProgressComplete);
       this.ensureCalendarCoversAnchor();
+    },
+    pulseProgress(todo: TodoItem, dayCleared = false) {
+      if (this.progressPulseTimer) {
+        window.clearTimeout(this.progressPulseTimer);
+      }
+      this.progressPulseShareId = this.projectKey(todo);
+      this.progressPulseKey += 1;
+      this.latestDoneTodoId = todo.id;
+      this.progressPulseTimer = window.setTimeout(() => {
+        this.progressPulseShareId = '';
+        this.latestDoneTodoId = '';
+        this.progressPulseTimer = 0;
+      }, PROGRESS_PULSE_MS);
+      this.bumpProgressRing(dayCleared);
+      if (dayCleared) this.celebrateDayCleared();
+    },
+    bumpProgressRing(big: boolean) {
+      const ring = this.$refs.progressRing as HTMLElement | undefined;
+      if (!ring?.animate || prefersReducedMotion()) return;
+      const peak = big ? 1.16 : 1.08;
+      ring.animate(
+        [
+          { transform: 'scale(1)' },
+          { transform: `scale(${peak})`, offset: 0.35 },
+          { transform: 'scale(0.97)', offset: 0.7 },
+          { transform: 'scale(1)' },
+        ],
+        { duration: big ? 800 : 560, easing: 'ease-out' }
+      );
+    },
+    celebrateDayCleared() {
+      if (this.progressCelebrationTimer) {
+        window.clearTimeout(this.progressCelebrationTimer);
+      }
+      if (prefersReducedMotion()) return;
+      this.progressCelebrationKey += 1;
+      this.progressCelebrationTimer = window.setTimeout(() => {
+        this.progressCelebrationKey = 0;
+        this.progressCelebrationTimer = 0;
+      }, PROGRESS_CELEBRATION_MS);
+    },
+    // Done tiles fill in one after another and the ring counts up whenever the plan opens.
+    startProgressIntro() {
+      if (this.progressIntroTimer) {
+        window.clearTimeout(this.progressIntroTimer);
+      }
+      const reduceMotion = prefersReducedMotion();
+      this.progressIntro = !reduceMotion;
+      this.displayedProgress = reduceMotion ? this.planProgressFraction : 0;
+      this.animateProgressTo(this.planProgressFraction);
+      this.progressIntroTimer = window.setTimeout(() => {
+        this.progressIntro = false;
+        this.progressIntroTimer = 0;
+      }, this.planProgressDone * PROGRESS_INTRO_STAGGER_MS + 700);
+    },
+    animateProgressTo(target: number) {
+      if (this.progressFrame) {
+        window.cancelAnimationFrame(this.progressFrame);
+        this.progressFrame = 0;
+      }
+      const from = this.displayedProgress;
+      if (from === target || prefersReducedMotion()) {
+        this.displayedProgress = target;
+        return;
+      }
+      const start = performance.now();
+      const step = (now: number) => {
+        const t = Math.min(1, (now - start) / PROGRESS_COUNT_UP_MS);
+        const eased = 1 - Math.pow(1 - t, 3);
+        this.displayedProgress = from + (target - from) * eased;
+        this.progressFrame = t < 1 ? window.requestAnimationFrame(step) : 0;
+      };
+      this.progressFrame = window.requestAnimationFrame(step);
+    },
+    achievementChipStyle(todo: TodoItem): Record<string, string> {
+      const color = this.todoAccentColor(todo);
+      return {
+        '--chip-color': color,
+        '--chip-tint': projectTint(color, 0.14),
+        '--chip-border': projectTint(color, 0.45),
+      };
+    },
+    progressCountLabel(done: number, count: number): string {
+      return done > 0 ? `${done}/${count}` : String(count);
     },
     todoDueMoment(todo: TodoItem) {
       if (!todo.dueDate) return moment('9999-12-31 23:59', 'YYYY-MM-DD HH:mm');
@@ -3012,18 +3398,471 @@ html[data-dashboard-theme='contrast'] .todo-project-pill--active {
   margin-bottom: 0.9rem;
 }
 
-.todo-plan-mix {
-  display: flex;
-  gap: 2px;
-  height: 0.5rem;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.18);
+.todo-progress-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'ring head'
+    'ring tiles';
+  align-items: center;
+  gap: 0.55rem 1.15rem;
+  padding: 0.95rem 1.15rem;
+  border: 1px solid rgba(16, 185, 129, 0.24);
+  border-radius: 14px;
+  background: linear-gradient(
+    135deg,
+    rgba(236, 253, 245, 0.95),
+    rgba(255, 255, 255, 0.9) 55%,
+    rgba(240, 249, 255, 0.92)
+  );
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+  transition: border-color 400ms ease, box-shadow 400ms ease;
 }
 
-.todo-plan-mix-segment {
-  flex-basis: 0;
-  min-width: 0.5rem;
+.todo-progress-card--complete {
+  border-color: rgba(16, 185, 129, 0.55);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12), 0 12px 32px rgba(16, 185, 129, 0.2);
+}
+
+.todo-progress-ring {
+  grid-area: ring;
+  position: relative;
+  width: 5.6rem;
+  height: 5.6rem;
+}
+
+.todo-progress-ring-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform: rotate(-90deg);
+}
+
+.todo-progress-ring-track,
+.todo-progress-ring-value {
+  fill: none;
+  stroke-width: 9;
+}
+
+.todo-progress-ring-track {
+  stroke: rgba(148, 163, 184, 0.22);
+}
+
+.todo-progress-ring-value {
+  stroke: url(#todo-progress-ring-gradient);
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.4));
+}
+
+.todo-progress-card--complete .todo-progress-ring-value {
+  animation: todo-ring-glow 2.4s ease-in-out infinite;
+}
+
+.todo-progress-ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.todo-progress-ring-percent {
+  color: #065f46;
+  font-size: 1.45rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.todo-progress-ring-sub {
+  margin-top: 0.22rem;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.todo-progress-ring-check {
+  width: 2.1rem;
+  height: 2.1rem;
+  fill: none;
+  stroke: #10b981;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 22;
+  animation: todo-check-draw 600ms ease-out 150ms backwards;
+}
+
+.todo-progress-head {
+  grid-area: head;
+  align-self: end;
+  min-width: 0;
+}
+
+.todo-progress-cheer {
+  margin-top: 0.15rem;
+  color: #0f172a;
+  font-size: 1.08rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.todo-progress-card--complete .todo-progress-cheer {
+  color: #047857;
+}
+
+.todo-cheer-enter-active,
+.todo-cheer-leave-active {
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.todo-cheer-enter {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.todo-cheer-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+.todo-progress-tiles {
+  grid-area: tiles;
+  align-self: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.7rem;
+}
+
+.todo-progress-group {
+  display: flex;
+  flex: var(--count) 1 0%;
+  min-width: calc(var(--count) * 0.95rem);
+  gap: 0.25rem;
+}
+
+/* Each tile is an empty slot; its ::before layer is the colored fill. */
+.todo-progress-tile {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0.7rem;
+  height: 1.6rem;
+  border-radius: 7px;
+  background: var(--tile-tint);
+  box-shadow: inset 0 0 0 1.5px var(--tile-ring);
+}
+
+.todo-progress-tile::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.4),
+      rgba(255, 255, 255, 0.06) 48%,
+      rgba(0, 0, 0, 0.08)
+    ),
+    var(--tile-color);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.12), 0 3px 10px var(--tile-glow);
+  opacity: 0;
+  transform: scale(0.2);
+}
+
+.todo-progress-tile--done::before {
+  opacity: 1;
+  transform: none;
+}
+
+.todo-progress-tile-check {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  width: 0.85rem;
+  height: 0.85rem;
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 15;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+  transform: translate(-50%, -50%);
+}
+
+/* A finished day keeps a gentle light wave running across the tiles. */
+.todo-progress-card--complete .todo-progress-tile--done::before {
+  animation: todo-tile-shimmer 3.6s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 70ms);
+}
+
+.todo-progress-tiles--intro .todo-progress-tile--done::before {
+  animation: todo-tile-fill 480ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation-delay: calc(var(--i) * 60ms + 150ms);
+}
+
+.todo-progress-tiles--intro .todo-progress-tile-check {
+  animation: todo-tile-check-draw 300ms ease-out backwards;
+  animation-delay: calc(var(--i) * 60ms + 350ms);
+}
+
+.todo-progress-tile--fresh {
+  z-index: 2;
+  animation: todo-tile-bounce 650ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.todo-progress-tile--fresh::before {
+  animation: todo-tile-fill 520ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.todo-progress-tile--fresh::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  animation: todo-tile-shockwave 750ms ease-out forwards;
+  pointer-events: none;
+}
+
+.todo-progress-tile--fresh .todo-progress-tile-check {
+  animation: todo-tile-check-draw 380ms ease-out 200ms backwards;
+}
+
+.todo-progress-burst {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.todo-progress-spark {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tile-color);
+  box-shadow: 0 0 6px var(--tile-glow);
+  opacity: 0;
+  animation: todo-spark 720ms cubic-bezier(0.22, 1, 0.36, 1) 60ms forwards;
+}
+
+.todo-progress-plus {
+  position: absolute;
+  top: -1.5rem;
+  left: 0;
+  color: var(--tile-color);
+  font-size: 1rem;
+  font-weight: 900;
+  white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.95), 0 0 8px rgba(255, 255, 255, 0.8);
+  opacity: 0;
+  transform: translateX(-50%);
+  animation: todo-plus-float 1000ms ease-out 80ms forwards;
+}
+
+.todo-progress-confetti {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.todo-progress-confetto {
+  position: absolute;
+  top: -14px;
+  opacity: 0;
+  animation: todo-confetti-fall 1900ms cubic-bezier(0.25, 0.6, 0.4, 1) forwards;
+}
+
+.todo-plan-achievements {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed rgba(148, 163, 184, 0.35);
+}
+
+.todo-plan-achievements-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-right: 0.15rem;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 575px) {
+  .todo-progress-card {
+    grid-template-areas:
+      'ring head'
+      'tiles tiles';
+    gap: 0.65rem 0.85rem;
+    padding: 0.8rem 0.85rem;
+  }
+
+  .todo-progress-ring {
+    width: 4.6rem;
+    height: 4.6rem;
+  }
+
+  .todo-progress-ring-percent {
+    font-size: 1.2rem;
+  }
+
+  .todo-progress-cheer {
+    font-size: 0.98rem;
+  }
+}
+
+.todo-plan-achievements-label .fa-icon {
+  color: #f59e0b;
+}
+
+.todo-achievement-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 15rem;
+  gap: 0.3rem;
+  padding: 0.14rem 0.55rem 0.14rem 0.42rem;
+  border: 1px solid var(--chip-border, rgba(16, 185, 129, 0.45));
+  border-radius: 999px;
+  background: var(--chip-tint, rgba(16, 185, 129, 0.14));
+  color: #334155;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.todo-achievement-chip .fa-icon {
+  flex: none;
+  width: 0.62rem;
+  height: 0.62rem;
+  color: var(--chip-color, #10b981);
+}
+
+.todo-achievement-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todo-achievement-chip--new {
+  animation: todo-achievement-in 650ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.todo-achievement-more {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: default;
+}
+
+html[data-dashboard-theme='flower'] .todo-achievement-chip {
+  color: #102a4c;
+}
+
+/* dark.css forces light text on every button; bright mode needs it back for these chips. */
+html[data-dashboard-theme='bright'] .todo-project-pill,
+html[data-dashboard-theme='bright'] .todo-plan-filter-chip,
+html[data-dashboard-theme='bright'] .todo-project-menu-item {
+  color: #334155 !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-project-tag--button {
+  color: #475569 !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-plan-filter-chip--idle,
+html[data-dashboard-theme='bright'] .todo-project-tag--empty {
+  color: #94a3b8 !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-project-pill--active {
+  color: #065f46 !important;
+}
+
+html[data-dashboard-theme='bright'] .todo-plan-filter-chip--active,
+html[data-dashboard-theme='bright'] .todo-project-menu-item--active,
+html[data-dashboard-theme='bright'] .todo-project-tag--button:hover,
+html[data-dashboard-theme='bright'] .todo-project-tag--button:focus-visible {
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='flower'] .todo-progress-card {
+  border-color: rgba(236, 72, 153, 0.24);
+  background: linear-gradient(135deg, rgba(255, 253, 245, 0.92), rgba(253, 242, 248, 0.86));
+  box-shadow: 0 14px 34px rgba(128, 78, 89, 0.1);
+}
+
+html[data-dashboard-theme='flower'] .todo-progress-plus {
+  color: var(--tile-color) !important;
+}
+
+html[data-dashboard-theme='contrast'] .todo-progress-card {
+  border-color: rgba(52, 211, 153, 0.26);
+  background: linear-gradient(
+    135deg,
+    rgba(6, 78, 59, 0.45),
+    rgba(15, 23, 42, 0.75) 55%,
+    rgba(30, 27, 75, 0.5)
+  );
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+}
+
+html[data-dashboard-theme='contrast'] .todo-progress-card--complete {
+  border-color: rgba(52, 211, 153, 0.6);
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.14), 0 0 36px rgba(16, 185, 129, 0.3);
+}
+
+html[data-dashboard-theme='contrast'] .todo-progress-ring-track {
+  stroke: rgba(148, 163, 184, 0.16);
+}
+
+html[data-dashboard-theme='contrast'] .todo-progress-ring-percent,
+html[data-dashboard-theme='contrast'] .todo-progress-cheer {
+  color: #f8fafc;
+}
+
+html[data-dashboard-theme='contrast'] .todo-progress-card--complete .todo-progress-cheer {
+  color: #86efac;
+}
+
+html[data-dashboard-theme='contrast'] .todo-progress-ring-check {
+  stroke: #4ade80;
+}
+
+html[data-dashboard-theme='contrast'] .todo-progress-plus {
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
+}
+
+html[data-dashboard-theme='contrast'] .todo-plan-achievements-label,
+html[data-dashboard-theme='contrast'] .todo-achievement-more,
+html[data-dashboard-theme='contrast'] .todo-progress-ring-sub {
+  color: #94a3b8;
+}
+
+html[data-dashboard-theme='contrast'] .todo-achievement-chip {
+  color: #e2e8f0;
+}
+
+html[data-dashboard-theme='contrast'] .todo-plan-achievements-label .fa-icon {
+  color: #fbbf24;
 }
 
 .todo-plan-filter {
@@ -3090,6 +3929,18 @@ html[data-dashboard-theme='contrast'] .todo-project-pill--active {
   background: rgba(148, 163, 184, 0.16);
   font-size: 0.68rem;
   line-height: 1;
+}
+
+.todo-plan-filter-count--progress {
+  padding: 0 0.35rem;
+  background: var(--chip-tint, rgba(16, 185, 129, 0.16));
+  box-shadow: inset 0 0 0 1px var(--chip-color, #10b981);
+}
+
+.todo-plan-filter-count--complete {
+  background: var(--chip-color, #10b981);
+  box-shadow: none;
+  color: #ffffff;
 }
 
 .todo-plan-hidden {
@@ -4392,8 +5243,30 @@ html[data-dashboard-theme='contrast'] .todo-project-tag--empty {
   .todo-project-pill,
   .todo-project-color,
   .todo-project-tag--button,
-  .todo-plan-filter-chip {
+  .todo-plan-filter-chip,
+  .todo-progress-card,
+  .todo-cheer-enter-active,
+  .todo-cheer-leave-active {
     transition: none;
+  }
+
+  .todo-progress-card--complete .todo-progress-ring-value,
+  .todo-progress-ring-check,
+  .todo-progress-tile,
+  .todo-progress-tile::before,
+  .todo-progress-tile-check,
+  .todo-progress-card--complete .todo-progress-tile--done::before,
+  .todo-progress-tiles--intro .todo-progress-tile--done::before,
+  .todo-progress-tiles--intro .todo-progress-tile-check,
+  .todo-progress-tile--fresh .todo-progress-tile-check,
+  .todo-achievement-chip--new {
+    animation: none;
+  }
+
+  .todo-progress-tile--fresh::after,
+  .todo-progress-burst,
+  .todo-progress-confetti {
+    display: none;
   }
 
   .todo-frog-illustration--ready .todo-frog-photo,
@@ -4416,6 +5289,157 @@ html[data-dashboard-theme='contrast'] .todo-project-tag--empty {
 
   .todo-plan-card--done .todo-plan-title::after {
     animation: none;
+  }
+}
+
+@keyframes todo-ring-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.45));
+  }
+
+  50% {
+    filter: drop-shadow(0 0 12px rgba(52, 211, 153, 0.95));
+  }
+}
+
+@keyframes todo-check-draw {
+  from {
+    stroke-dashoffset: 22;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes todo-tile-fill {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+
+  60% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes todo-tile-check-draw {
+  from {
+    stroke-dashoffset: 15;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes todo-tile-bounce {
+  0% {
+    transform: scale(1);
+  }
+
+  35% {
+    transform: scale(1.22, 1.3);
+  }
+
+  65% {
+    transform: scale(0.94);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes todo-tile-shockwave {
+  0% {
+    background: rgba(255, 255, 255, 0.75);
+    box-shadow: 0 0 0 0 var(--tile-glow);
+  }
+
+  100% {
+    background: rgba(255, 255, 255, 0);
+    box-shadow: 0 0 0 14px rgba(255, 255, 255, 0);
+  }
+}
+
+@keyframes todo-tile-shimmer {
+  0%,
+  78%,
+  100% {
+    filter: brightness(1);
+  }
+
+  86% {
+    filter: brightness(1.35) saturate(1.15);
+  }
+}
+
+@keyframes todo-spark {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--angle)) translateY(0) scale(1);
+  }
+
+  70% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateY(calc(var(--distance) * -1)) scale(0.3);
+  }
+}
+
+@keyframes todo-plus-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.6);
+  }
+
+  25% {
+    opacity: 1;
+    transform: translate(-50%, -4px) scale(1.2);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -26px) scale(1);
+  }
+}
+
+@keyframes todo-confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+
+  85% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(var(--drift), 260px) rotate(var(--spin));
+  }
+}
+
+@keyframes todo-achievement-in {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.85);
+  }
+
+  100% {
+    opacity: 1;
+    transform: none;
   }
 }
 

@@ -4,6 +4,7 @@ import {
   mergeTodoProjects,
   nextProjectColor,
   normalizeTodoProjects,
+  projectProgressShares,
   projectShares,
   projectTint,
   TodoProject,
@@ -71,6 +72,24 @@ describe('todo projects', () => {
     expect(shares).toEqual([
       { id: 'thesis', name: 'Thesis', color: '#3b82f6', count: 2 },
       { id: 'inbox', name: 'Inbox', color: '#94a3b8', count: 2 },
+    ]);
+  });
+
+  test('counts done todos per project for the progress line', () => {
+    const thesis = project({ id: 'thesis', name: 'Thesis', color: '#3b82f6' });
+    const shares = projectProgressShares(
+      [project(), thesis],
+      [
+        { projectId: 'thesis', done: true },
+        { projectId: 'thesis', done: false },
+        { projectId: 'project-focusfrog', done: false },
+        { projectId: 'deleted', done: true },
+      ]
+    );
+    expect(shares).toEqual([
+      { id: 'project-focusfrog', name: 'FocusFrog', color: '#10b981', count: 1, done: 0 },
+      { id: 'thesis', name: 'Thesis', color: '#3b82f6', count: 2, done: 1 },
+      { id: 'inbox', name: 'Inbox', color: '#94a3b8', count: 1, done: 1 },
     ]);
   });
 });
