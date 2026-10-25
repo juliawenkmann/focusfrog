@@ -45,6 +45,7 @@ const storageKeys = new Set([
   'todoFrog',
   'timeBlocks',
   'visionBoard',
+  'weeklySummaries',
   manualWorkStorageKey,
 ]);
 const visionImageMaxBytes = 8 * 1024 * 1024;

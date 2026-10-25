@@ -301,7 +301,7 @@ div.time-dashboard(:class="dashboardThemeClass")
             @click="setTimelineSelectedIndex(row.index)"
           )
       div.timeline-day-summary(v-if="timelineSelectedRow")
-        div.timeline-day-label {{ timelineSelectedRow.label }}
+        div.timeline-day-label {{ timelineSelectedRow.title || timelineSelectedRow.label }}
         div.timeline-day-metrics
           div.timeline-day-metric.timeline-day-work
             span Work
@@ -342,6 +342,7 @@ div.time-dashboard(:class="dashboardThemeClass")
 
   div.loading-cover(v-if="loading")
     b-spinner(label="Loading")
+    div.loading-progress(v-if="summaryProgress") {{ summaryProgress }}
 </template>
 
 <script lang="ts">
@@ -357,6 +358,17 @@ import {
   get_today_with_offset,
 } from '~/util/time';
 import type { CategoryDuration, WorkCategorySummary } from '~/util/workReport';
+import {
+  completedWeekStarts,
+  createWeeklySummary,
+  mergeWeeklySummaryStores,
+  normalizeWeeklySummaryStore,
+  sumWorkSummaries,
+  weeklySummaryContextKey,
+  WEEKLY_SUMMARY_SERVER_KEY,
+  WEEKLY_SUMMARY_STORAGE_KEY,
+  WeeklySummaryStore,
+} from '~/util/weeklySummaries';
 import {
   addAfkGraceToActiveEvents,
   buildWorkSummaryQuery,
@@ -385,6 +397,8 @@ import 'vue-awesome/icons/trash';
 
 interface DayRow {
   label: string;
+  // Longer name for the selected-row summary, e.g. "Week of Jun 1".
+  title?: string;
   date: string;
   activeDuration: number;
   workDuration: number;
@@ -595,6 +609,9 @@ export default {
       summary: null as WorkCategorySummary | null,
       timelineDailyRows: [] as DayRow[],
       timelineSelectedIndex: 0,
+      summaryProgress: '',
+      summaryLoadId: 0,
+      weeklySummaryJob: null as Promise<WeeklySummaryStore> | null,
       todayTimelineMode: 'cumulative' as TodayTimelineMode,
       manualWorkEntries: [] as ManualWorkEntry[],
       manualWorkDraft: blankManualWorkDraft(),
@@ -962,6 +979,9 @@ export default {
       this.bucketsStore.buckets || []
     );
     await this.loadSummary();
+    this.ensureWeeklySummaries().catch(err => {
+      console.warn('Could not summarize finished weeks:', err);
+    });
   },
   methods: {
     async setRange(range: DashboardRange) {
@@ -1330,18 +1350,30 @@ export default {
     },
 
     async loadSummary() {
+      // A newer load (e.g. after switching range) makes this one stale; stale loads must not
+      // overwrite its numbers, errors or loading state.
+      const loadId = ++this.summaryLoadId;
+      const isStale = () => loadId !== this.summaryLoadId;
       this.error = '';
       this.summary = null;
       this.timelineDailyRows = [];
 
-      if (this.supportedHosts.length === 0) return;
+      if (this.supportedHosts.length === 0) {
+        this.loading = false;
+        return;
+      }
 
       this.loading = true;
       try {
         const client = getClient();
         const query = buildWorkSummaryQuery(this.supportedHosts, '[]', []);
+        if (this.range === 'sinceRecording') {
+          await this.loadSinceRecordingSummary(client, query, isStale);
+          return;
+        }
         const timeperiods = this.getTimeperiods();
         const results = await client.query(timeperiods, [query]);
+        if (isStale()) return;
 
         const totals = results.reduce(
           (acc, result) => {
@@ -1387,6 +1419,7 @@ export default {
           JSON.stringify(timelineTimeperiods) === JSON.stringify(timeperiods)
             ? results
             : await client.query(timelineTimeperiods, [query]);
+        if (isStale()) return;
         this.timelineDailyRows =
           this.range === 'today'
             ? this.buildTodayRows(
@@ -1415,11 +1448,189 @@ export default {
               });
         this.timelineSelectedIndex = Math.max(0, this.timelineDailyRows.length - 1);
       } catch (err) {
+        if (isStale()) return;
         console.error('Error loading dashboard summary:', err);
         this.error = 'Could not load time data.';
       } finally {
-        this.loading = false;
+        if (!isStale()) this.loading = false;
       }
+    },
+
+    // Past weeks come from stored weekly sums; only the current week is queried live.
+    async loadSinceRecordingSummary(client: any, query: string[], isStale: () => boolean) {
+      const store = await this.ensureWeeklySummaries();
+      if (isStale()) return;
+      const recordingStart = this.getRecordingStartDay();
+      const today = moment(get_today_with_offset(this.settingsStore.startOfDay));
+      const currentWeekStart = this.getCurrentWeekStartDay();
+      const weeks: Array<{
+        start: moment.Moment;
+        summary: WorkCategorySummary;
+        timeperiods: string[];
+      }> = [];
+
+      // Stored sums outlive raw events and buckets, so history starts at whichever is earlier.
+      const earliestStoredWeek = Object.keys(store).sort()[0];
+      const firstDay = earliestStoredWeek
+        ? moment.min(recordingStart, moment(earliestStoredWeek, 'YYYY-MM-DD'))
+        : recordingStart;
+
+      for (const weekStart of completedWeekStarts(firstDay, currentWeekStart)) {
+        const start = moment(weekStart, 'YYYY-MM-DD');
+        const summary = store[weekStart];
+        if (!summary) {
+          // Gaps are only expected before tracking began; anything later was never summarized.
+          if (start.isBefore(recordingStart.clone().startOf('isoWeek'))) continue;
+          throw new Error(`No summary stored for the week of ${weekStart}`);
+        }
+        weeks.push({
+          start,
+          summary,
+          timeperiods: this.timeperiodsBetween(
+            moment.max(start, firstDay),
+            start.clone().add(6, 'days')
+          ),
+        });
+      }
+
+      const liveTimeperiods = this.timeperiodsBetween(
+        moment.max(currentWeekStart, recordingStart),
+        today
+      );
+      if (liveTimeperiods.length > 0) {
+        const results = await client.query(liveTimeperiods, [query]);
+        if (isStale()) return;
+        weeks.push({
+          start: currentWeekStart,
+          summary: sumWorkSummaries(results.map(result => this.summarizeQueryResult(result))),
+          timeperiods: liveTimeperiods,
+        });
+      }
+
+      this.summary = this.applyManualWorkToSummary(
+        sumWorkSummaries(weeks.map(week => week.summary)),
+        weeks.flatMap(week => week.timeperiods)
+      );
+      this.timelineDailyRows = weeks.map(week => {
+        const adjusted = this.applyManualWorkToSummary(week.summary, week.timeperiods);
+        return {
+          label: week.start.format('MMM D'),
+          title: week.start.isSame(currentWeekStart, 'day')
+            ? 'This week so far'
+            : `Week of ${week.start.format('MMM D')}`,
+          date: week.start.format('YYYY-MM-DD'),
+          activeDuration: adjusted.activeDuration,
+          workDuration: adjusted.workDuration,
+          notWorkDuration: adjusted.notWorkDuration,
+          categoryDurations: adjusted.categoryDurations,
+        };
+      });
+      this.timelineSelectedIndex = Math.max(0, this.timelineDailyRows.length - 1);
+    },
+
+    ensureWeeklySummaries(): Promise<WeeklySummaryStore> {
+      if (!this.weeklySummaryJob) {
+        this.weeklySummaryJob = this.summarizeFinishedWeeks().finally(() => {
+          this.weeklySummaryJob = null;
+          this.summaryProgress = '';
+        });
+      }
+      return this.weeklySummaryJob;
+    },
+
+    // Each finished week is queried once (one request per week) and its sums are stored.
+    async summarizeFinishedWeeks(): Promise<WeeklySummaryStore> {
+      await this.settingsStore.ensureLoaded();
+      this.categoryStore.load();
+      const store = await this.loadWeeklySummaryStore();
+      if (this.supportedHosts.length === 0) return store;
+
+      const contextKey = weeklySummaryContextKey(
+        this.supportedHosts,
+        this.categoryStore.classes_for_query || [],
+        this.settingsStore.startOfDay
+      );
+      const weeksToSummarize = completedWeekStarts(
+        this.getRecordingStartDay(),
+        this.getCurrentWeekStartDay()
+      ).filter(weekStart => store[weekStart]?.contextKey !== contextKey);
+      if (weeksToSummarize.length === 0) return store;
+
+      const client = getClient();
+      const query = buildWorkSummaryQuery(this.supportedHosts, '[]', []);
+      for (const [index, weekStart] of weeksToSummarize.entries()) {
+        this.summaryProgress = `Summarizing finished weeks (${index + 1}/${
+          weeksToSummarize.length
+        })`;
+        const results = await client.query(this.weekTimeperiods(moment(weekStart, 'YYYY-MM-DD')), [
+          query,
+        ]);
+        const fresh = createWeeklySummary(
+          weekStart,
+          contextKey,
+          sumWorkSummaries(results.map(result => this.summarizeQueryResult(result))),
+          moment().toISOString()
+        );
+        const existing = store[weekStart];
+        // Without raw events left for this week, keep the sums computed while they existed.
+        store[weekStart] =
+          existing && fresh.activeDuration === 0 && existing.activeDuration > 0
+            ? { ...existing, contextKey, keptAfterContextChange: true }
+            : fresh;
+        await this.saveWeeklySummaryStore(store);
+      }
+      return store;
+    },
+
+    async loadWeeklySummaryStore(): Promise<WeeklySummaryStore> {
+      let localStore: WeeklySummaryStore = {};
+      try {
+        const raw =
+          typeof localStorage === 'undefined'
+            ? null
+            : localStorage.getItem(WEEKLY_SUMMARY_STORAGE_KEY);
+        localStore = normalizeWeeklySummaryStore(raw ? JSON.parse(raw) : null);
+      } catch (err) {
+        console.warn('Could not read local weekly summaries:', err);
+      }
+      if (typeof fetch === 'undefined') return localStore;
+      try {
+        const response = await fetch(`/focusfrog-storage/${WEEKLY_SUMMARY_SERVER_KEY}`, {
+          cache: 'no-store',
+        });
+        if (!response.ok) return localStore;
+        const payload = await response.json();
+        return mergeWeeklySummaryStores(localStore, normalizeWeeklySummaryStore(payload?.value));
+      } catch (err) {
+        console.warn('Could not load FocusFrog weekly summaries:', err);
+        return localStore;
+      }
+    },
+
+    async saveWeeklySummaryStore(store: WeeklySummaryStore) {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(WEEKLY_SUMMARY_STORAGE_KEY, JSON.stringify(store));
+        }
+      } catch (err) {
+        console.warn('Could not save local weekly summaries:', err);
+      }
+      if (typeof fetch === 'undefined') return;
+      try {
+        const response = await fetch(`/focusfrog-storage/${WEEKLY_SUMMARY_SERVER_KEY}`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ value: store }),
+        });
+        if (!response.ok) console.warn(`Could not save weekly summaries (${response.status})`);
+      } catch (err) {
+        console.warn('Could not save FocusFrog weekly summaries:', err);
+      }
+    },
+
+    summarizeQueryResult(result: any): WorkCategorySummary {
+      const activeEvents = this.getGraceAdjustedEvents(result);
+      return this.summarizeActiveEvents(activeEvents, sumEventDurations(activeEvents));
     },
 
     categorizeEvent(event: any): string[] {
@@ -1655,10 +1866,19 @@ export default {
     },
 
     getCurrentWeekTimeperiods(): string[] {
+      return this.weekTimeperiods(this.getCurrentWeekStartDay());
+    },
+
+    weekTimeperiods(weekStart: moment.Moment): string[] {
+      return this.timeperiodsBetween(weekStart, weekStart.clone().add(6, 'days'));
+    },
+
+    // One timeperiod per day from first to last (inclusive).
+    timeperiodsBetween(first: moment.Moment, last: moment.Moment): string[] {
       const offset = this.settingsStore.startOfDay;
-      const start = this.getCurrentWeekStartDay();
-      return Array.from({ length: 7 }, (_value, index) => {
-        const date = start.clone().add(index, 'days');
+      const days = last.clone().startOf('day').diff(first.clone().startOf('day'), 'days') + 1;
+      return Array.from({ length: Math.max(0, days) }, (_value, index) => {
+        const date = first.clone().add(index, 'days');
         return (
           get_day_start_with_offset(date, offset) + '/' + get_day_end_with_offset(date, offset)
         );
@@ -3025,9 +3245,17 @@ export default {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.72);
+}
+
+.loading-progress {
+  font-size: 0.85rem;
+  font-weight: 700;
+  opacity: 0.8;
 }
 
 .theme-bright .loading-cover {
