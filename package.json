@@ -26,6 +26,7 @@
     "start:app": "node scripts/focusfrog-server.mjs",
     "package:mac": "bash scripts/package-macos-app.sh",
     "package:mac-widget": "bash scripts/package-macos-widget.sh",
+    "package:mac-tracker": "bash scripts/build-macos-tracker.sh",
     "package:windows": "node scripts/package-windows-app.mjs"
   },
   "dependencies": {
