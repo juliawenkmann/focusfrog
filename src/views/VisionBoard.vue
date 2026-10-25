@@ -44,18 +44,28 @@ div.vision-board-page(:aria-busy="loading ? 'true' : 'false'")
         :class="{ 'vision-filter--active': activeFilter === filter.value }"
         :aria-pressed="activeFilter === filter.value ? 'true' : 'false'"
         :aria-label="filter.label + ', ' + filterCount(filter.value)"
-        :disabled="loading || saving || !!draggedItemId"
+        :disabled="loading || saving || arranging || !!draggedItemId"
         @click="activeFilter = filter.value"
       )
         span {{ filter.label }}
         span.vision-filter-count {{ filterCount(filter.value) }}
     div.vision-board-toolbar-actions
       span.vision-board-hint {{ reorderHint }}
+      b-button.vision-arrange-button(
+        size="sm"
+        type="button"
+        :variant="arranging ? 'primary' : 'outline-secondary'"
+        :disabled="loading || items.length < 2"
+        :aria-pressed="arranging ? 'true' : 'false'"
+        @click="toggleArranging"
+      )
+        icon.mr-1(:name="arranging ? 'check' : 'th'")
+        | {{ arranging ? 'Done arranging' : 'Arrange' }}
       label.vision-sort-control(for="vision-board-sort")
         span Sort by
         select#vision-board-sort.vision-sort-select(
           v-model="sortMode"
-          :disabled="loading || saving || !!draggedItemId"
+          :disabled="loading || saving || arranging || !!draggedItemId"
           @change="persistSortPreference"
         )
           option(v-for="option in sortOptions" :key="option.value" :value="option.value")
@@ -91,15 +101,19 @@ div.vision-board-page(:aria-busy="loading ? 'true' : 'false'")
     v-else-if="!loading"
     tag="section"
     :value="filteredItems"
-    :class="{ 'vision-grid--dragging': draggedItemId }"
+    :class="{ 'vision-grid--dragging': draggedItemId, 'vision-grid--arranging': arranging, 'vision-grid--reorderable': canReorder }"
     :disabled="!canReorder"
-    handle=".vision-drag-handle"
+    :filter="dragFilter"
+    :prevent-on-filter="false"
     :animation="reducedMotion ? 0 : 180"
-    :delay="160"
+    :delay="200"
     :delay-on-touch-only="true"
     :touch-start-threshold="5"
     :force-fallback="true"
-    :fallback-tolerance="4"
+    :fallback-tolerance="6"
+    :scroll-sensitivity="arranging ? 48 : 110"
+    :scroll-speed="arranging ? 12 : 26"
+    :bubble-scroll="true"
     ghost-class="vision-card--drag-ghost"
     chosen-class="vision-card--drag-chosen"
     drag-class="vision-card--dragging"
@@ -108,7 +122,7 @@ div.vision-board-page(:aria-busy="loading ? 'true' : 'false'")
     @end="dropCard"
   )
     article.vision-card(
-      v-for="item in filteredItems"
+      v-for="(item, index) in filteredItems"
       :key="item.id"
       :class="[cardPaletteClass(item), { 'vision-card--achieved': item.status === 'achieved', 'vision-card--attention': needsAttention(item), 'vision-card--photo': item.imageId, 'vision-card--counter': item.counterTarget }]"
     )
@@ -120,7 +134,26 @@ div.vision-board-page(:aria-busy="loading ? 'true' : 'false'")
         decoding="async"
       )
       div.vision-card-scrim
-      div.vision-card-topline
+      template(v-if="arranging")
+        span.vision-arrange-position(aria-hidden="true") {{ index + 1 }}
+        div.vision-arrange-actions
+          button.vision-arrange-move(
+            type="button"
+            :disabled="saving || index === 0"
+            :aria-label="'Move ' + item.title + ' to the top'"
+            title="Move to top"
+            @click="moveCardToEdge(item, 'top')"
+          )
+            icon(name="angle-double-up")
+          button.vision-arrange-move(
+            type="button"
+            :disabled="saving || index === filteredItems.length - 1"
+            :aria-label="'Move ' + item.title + ' to the bottom'"
+            title="Move to bottom"
+            @click="moveCardToEdge(item, 'bottom')"
+          )
+            icon(name="angle-double-down")
+      div.vision-card-topline(v-else)
         label.vision-complete-control(
           :class="{ 'vision-complete-control--checked': item.status === 'achieved', 'vision-complete-control--disabled': saving || loading }"
         )
@@ -167,8 +200,8 @@ div.vision-board-page(:aria-busy="loading ? 'true' : 'false'")
         span.vision-card-date(v-if="item.status === 'achieved' && item.achievedAt")
           | Made real {{ formatDate(item.achievedAt) }}
         h4 {{ item.title }}
-        p(v-if="item.notes") {{ item.notes }}
-        div.vision-card-accountability
+        p(v-if="item.notes && !arranging") {{ item.notes }}
+        div.vision-card-accountability(v-if="!arranging")
           div.vision-accountability-meta(v-if="usesAccountability(item)")
             span.vision-accountability-state(
               :class="'vision-accountability-state--' + accountabilityState(item)"
@@ -357,6 +390,8 @@ div.vision-board-page(:aria-busy="loading ? 'true' : 'false'")
 
 <script lang="ts">
 import 'vue-awesome/icons/camera';
+import 'vue-awesome/icons/angle-double-down';
+import 'vue-awesome/icons/angle-double-up';
 import 'vue-awesome/icons/check';
 import 'vue-awesome/icons/heart';
 import 'vue-awesome/icons/image';
@@ -364,6 +399,7 @@ import 'vue-awesome/icons/magic';
 import 'vue-awesome/icons/pen';
 import 'vue-awesome/icons/plus';
 import 'vue-awesome/icons/star';
+import 'vue-awesome/icons/th';
 import 'vue-awesome/icons/trash';
 import draggable from 'vuedraggable';
 import {
@@ -481,6 +517,9 @@ export default {
       checkInAnnouncement: '',
       draggedItemId: '',
       dragStartOrder: [] as string[],
+      arranging: false,
+      // Cards can be dragged from anywhere except their own controls (the grip still works).
+      dragFilter: 'input, label, a, select, textarea, button:not(.vision-drag-handle)',
       reducedMotion: false,
       filters: [
         { value: 'all' as VisionFilter, label: 'All' },
@@ -517,9 +556,10 @@ export default {
     reorderHint(): string {
       if (this.saving) return 'Saving your latest board change…';
       if (this.items.length < 2) return 'Add another dream to arrange your board.';
+      if (this.arranging) return 'Drag a dream to its new place, or send it to the top or bottom.';
       return this.canReorder
-        ? 'Drag the grip to arrange your board.'
-        : 'Choose All and My order to drag.';
+        ? 'Drag any dream to move it, or use Arrange for a compact view.'
+        : 'Use Arrange to reorder your dreams.';
     },
     filteredItems(): VisionBoardItem[] {
       let visibleItems = this.items;
@@ -578,6 +618,28 @@ export default {
       } catch (error) {
         console.warn('Could not save the Vision Board sort preference:', error);
       }
+    },
+    // Compact tiles show the whole board at once, so moves stay short. Reordering
+    // always works on the full board in "My order".
+    toggleArranging() {
+      if (this.arranging) {
+        this.arranging = false;
+        return;
+      }
+      this.activeFilter = 'all';
+      if (this.sortMode !== 'board') {
+        this.sortMode = 'board';
+        this.persistSortPreference();
+      }
+      this.arranging = true;
+    },
+    async moveCardToEdge(item: VisionBoardItem, edge: 'top' | 'bottom') {
+      if (!this.canReorder) return;
+      const startOrder = this.items.map((candidate: VisionBoardItem) => candidate.id);
+      const currentIndex = startOrder.indexOf(item.id);
+      const targetIndex = edge === 'top' ? 0 : startOrder.length - 1;
+      if (currentIndex < 0 || currentIndex === targetIndex) return;
+      await this.reorderCards(item.id, currentIndex, targetIndex, startOrder);
     },
     startCardDrag(event: VisionDragEvent) {
       const oldIndex = event?.oldIndex;
@@ -1927,6 +1989,102 @@ export default {
   background-size: 0.5rem 0.5rem;
   color: #ffffff !important;
   opacity: 0.92;
+}
+
+.vision-grid--reorderable .vision-card {
+  cursor: grab;
+}
+
+.vision-grid--reorderable .vision-card :is(button, label, input) {
+  cursor: pointer;
+}
+
+.vision-arrange-button {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.vision-grid--arranging {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr));
+  gap: 0.65rem;
+}
+
+.vision-grid--arranging .vision-card {
+  min-height: 7.25rem;
+  border-radius: 14px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14);
+}
+
+.vision-grid--arranging .vision-card:hover {
+  transform: translateY(-2px);
+}
+
+.vision-grid--arranging .vision-card-copy {
+  padding: 0.55rem 0.65rem 0.6rem;
+}
+
+.vision-grid--arranging .vision-card-copy h4 {
+  font-size: 0.92rem;
+  line-height: 1.15;
+}
+
+.vision-grid--arranging .vision-card-date {
+  display: none;
+}
+
+.vision-card .vision-arrange-position {
+  position: absolute;
+  top: 0.45rem;
+  left: 0.45rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.65rem;
+  height: 1.65rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.62);
+  color: #ffffff !important;
+  font-size: 0.78rem;
+  font-weight: 850;
+  backdrop-filter: blur(6px);
+}
+
+.vision-arrange-actions {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.vision-card .vision-arrange-move {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.45);
+  color: #ffffff !important;
+  backdrop-filter: blur(6px);
+}
+
+.vision-arrange-move .fa-icon {
+  width: 0.8rem;
+  fill: #ffffff !important;
+}
+
+.vision-arrange-move:hover:not(:disabled),
+.vision-arrange-move:focus-visible {
+  border-color: rgba(255, 255, 255, 0.9);
+  background: rgba(16, 185, 129, 0.75);
+}
+
+.vision-arrange-move:disabled {
+  opacity: 0.35;
 }
 
 .vision-card--drag-ghost {
