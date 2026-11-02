@@ -103,6 +103,14 @@ set -euo pipefail
 
 APP_CONTENTS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RESOURCES_DIR="$APP_CONTENTS/Resources"
+INSTALLED_APP="$HOME/Applications/FocusFrog.app"
+
+# Only the installed copy manages FocusFrog's background services. Any other copy
+# (a backup, a build folder) hands over to it instead of replacing the running setup.
+if [[ -d "$INSTALLED_APP" && "$(cd "$APP_CONTENTS/.." && pwd -P)" != "$(cd "$INSTALLED_APP" && pwd -P)" ]]; then
+  exec /usr/bin/open "$INSTALLED_APP"
+fi
+
 PORT="${FOCUSFROG_PORT:-27180}"
 FOCUSFROG_URL="http://127.0.0.1:${PORT}/#/home"
 HEALTH_URL="http://127.0.0.1:${PORT}/focusfrog-healthz"
