@@ -22,6 +22,7 @@ div#wrapper(v-if="loaded")
 
 <script lang="ts">
 import { useSettingsStore } from '~/stores/settings';
+import { applyFlowerBackground } from '~/util/flowerBackgrounds';
 import { useServerStore } from '~/stores/server';
 import FrogReminder from '~/components/FrogReminder.vue';
 
@@ -56,6 +57,7 @@ export default {
         : settingsStore.focusFrogTheme === 'flower'
         ? 'flower'
         : 'bright';
+    applyFlowerBackground(settingsStore.focusFrogFlowerBackground);
 
     // FocusFrog's bright, contrast, and flower palettes all live in dark.css.
     // Load it independently of ActivityWatch's legacy light/dark preference.

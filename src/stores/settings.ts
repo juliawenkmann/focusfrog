@@ -11,6 +11,7 @@ import {
 import { SavedQuery } from '~/util/savedQueries';
 import { View, defaultViews } from '~/stores/views';
 import type { PrivacyFilterRule } from '~/util/privacyFilters';
+import { DEFAULT_FLOWER_BACKGROUND, normalizeFlowerBackground } from '~/util/flowerBackgrounds';
 import { isEqual } from 'lodash';
 
 function jsonEq(a: any, b: any) {
@@ -53,6 +54,8 @@ interface State {
   landingpage: string;
   theme: 'light' | 'dark' | 'auto';
   focusFrogTheme: FocusFrogTheme;
+  // Which picture the flower theme shows (see util/flowerBackgrounds).
+  focusFrogFlowerBackground: string;
 
   newReleaseCheckData: Record<string, any>;
   userSatisfactionPollData: {
@@ -100,6 +103,7 @@ export const useSettingsStore = defineStore('settings', {
 
     theme: 'auto',
     focusFrogTheme: 'bright',
+    focusFrogFlowerBackground: DEFAULT_FLOWER_BACKGROUND,
 
     newReleaseCheckData: {
       isEnabled: true,
@@ -230,6 +234,7 @@ export const useSettingsStore = defineStore('settings', {
       this.$patch({ ...storage, _loaded: true });
       this.$patch({
         focusFrogTheme: normalizeFocusFrogTheme(this.focusFrogTheme),
+        focusFrogFlowerBackground: normalizeFlowerBackground(this.focusFrogFlowerBackground),
         classes: normalizeFocusFrogCategories(this.classes || []),
         category_sets: (this.category_sets || []).map(set => ({
           ...set,
@@ -297,7 +302,8 @@ export const useSettingsStore = defineStore('settings', {
           saveToLocalStorage ||
           key == 'theme' ||
           key == 'landingpage' ||
-          key == 'focusFrogTheme'
+          key == 'focusFrogTheme' ||
+          key == 'focusFrogFlowerBackground'
         ) {
           if (typeof value === 'object') {
             localStorage.setItem(key, JSON.stringify(value));

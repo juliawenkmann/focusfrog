@@ -185,7 +185,9 @@ html[data-dashboard-theme='contrast'] .aw-navbar .app-theme-toggle .btn-primary 
 
 html[data-dashboard-theme='flower'] body {
   background: linear-gradient(rgba(255, 252, 247, 0.16), rgba(255, 247, 245, 0.26)),
-    url('/focusfrog-flower-clean-bg-v2.webp') center center / cover no-repeat fixed, #fff8f3 !important;
+    var(--focusfrog-flower-bg, url('/focusfrog-flower-clean-bg-v2.webp')) center center / cover
+      no-repeat fixed,
+    #fff8f3 !important;
 }
 
 html[data-dashboard-theme='flower'],

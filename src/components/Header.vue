@@ -79,6 +79,7 @@ import 'vue-awesome/icons/sun';
 
 import { mapState } from 'pinia';
 import { useSettingsStore } from '~/stores/settings';
+import { applyFlowerBackground, nextFlowerBackground } from '~/util/flowerBackgrounds';
 
 export default {
   name: 'Header',
@@ -89,7 +90,7 @@ export default {
     };
   },
   computed: {
-    ...mapState(useSettingsStore, ['focusFrogTheme']),
+    ...mapState(useSettingsStore, ['focusFrogTheme', 'focusFrogFlowerBackground']),
     focusFrogThemeOptions() {
       return [
         {
@@ -108,7 +109,10 @@ export default {
           value: 'flower',
           text: 'Flower',
           icon: '',
-          title: 'Use the nostalgic flower FocusFrog style',
+          title:
+            this.focusFrogTheme === 'flower'
+              ? 'Show another flower background'
+              : 'Use the nostalgic flower FocusFrog style',
         },
       ];
     },
@@ -117,9 +121,13 @@ export default {
     focusFrogTheme(theme) {
       this.applyFocusFrogTheme(theme);
     },
+    focusFrogFlowerBackground(background) {
+      applyFlowerBackground(background);
+    },
   },
   mounted() {
     this.applyFocusFrogTheme(this.focusFrogTheme);
+    applyFlowerBackground(this.focusFrogFlowerBackground);
   },
   methods: {
     applyFocusFrogTheme(theme) {
@@ -131,6 +139,16 @@ export default {
       const nextTheme =
         theme === 'contrast' ? 'contrast' : theme === 'flower' ? 'flower' : 'bright';
       this.applyFocusFrogTheme(nextTheme);
+      // Every click on the flower button brings a new background.
+      if (nextTheme === 'flower') {
+        const background = nextFlowerBackground(this.focusFrogFlowerBackground);
+        applyFlowerBackground(background);
+        await useSettingsStore().update({
+          focusFrogTheme: nextTheme,
+          focusFrogFlowerBackground: background,
+        });
+        return;
+      }
       if (this.focusFrogTheme === nextTheme) return;
       await useSettingsStore().update({ focusFrogTheme: nextTheme });
     },
@@ -384,7 +402,8 @@ html[data-dashboard-theme='bright'] .aw-navbar .brand-tagline {
 
 html[data-dashboard-theme='flower'] body {
   background: linear-gradient(rgba(255, 252, 247, 0.16), rgba(255, 247, 245, 0.26)),
-    url('~@/assets/focusfrog-flower-clean-bg-v2.webp') center center / cover no-repeat fixed,
+    var(--focusfrog-flower-bg, url('~@/assets/focusfrog-flower-clean-bg-v2.webp')) center center /
+      cover no-repeat fixed,
     #fff8f3 !important;
   color: #10213a !important;
 }
