@@ -2759,3 +2759,100 @@ html[data-dashboard-theme='flower'] .todos-page .todo-calendar-scroll::-webkit-s
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(16, 185, 129, 0.62), rgba(236, 72, 153, 0.55));
 }
+
+/* Flower glass: frosted, see-through panels (in the spirit of Apple's materials) so the
+   background picture shows through. --focusfrog-flower-veil is set per picture
+   (util/flowerBackgrounds.ts): darker pictures get more frost to keep text readable.
+   :root (instead of html) makes these win over the flower panel colors in this file and in
+   the page styles, whichever loads later. */
+:root[data-dashboard-theme='flower'] {
+  --ff-veil: var(--focusfrog-flower-veil, 0.18);
+  --ff-glass-sheet: rgba(255, 255, 255, var(--ff-veil));
+  --ff-glass-panel: rgba(255, 255, 255, calc(var(--ff-veil) + 0.26));
+  --ff-glass-item: rgba(255, 255, 255, calc(var(--ff-veil) + 0.46));
+  --ff-glass-edge: rgba(255, 255, 255, 0.62);
+  --ff-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.22);
+}
+
+:root[data-dashboard-theme='flower'] body {
+  background: linear-gradient(rgba(255, 252, 247, 0.04), rgba(255, 247, 245, 0.1)),
+    var(--focusfrog-flower-bg, url('/focusfrog-flower-clean-bg-v2.webp')) center center / cover
+      no-repeat fixed,
+    #fff8f3 !important;
+}
+
+:root[data-dashboard-theme='flower'] .aw-navbar {
+  border-color: var(--ff-glass-edge) !important;
+  background: rgba(255, 255, 255, calc(var(--ff-veil) + 0.42)) !important;
+  box-shadow: var(--ff-glass-highlight), 0 10px 30px rgba(15, 23, 42, 0.12) !important;
+  backdrop-filter: blur(24px) saturate(1.8);
+}
+
+:root[data-dashboard-theme='flower'] .aw-container,
+:root[data-dashboard-theme='flower'] .aw-container:has(.todos-page),
+:root[data-dashboard-theme='flower'] .aw-container:has(.vision-board-page) {
+  border: 1px solid var(--ff-glass-edge) !important;
+  background: var(--ff-glass-sheet) !important;
+  box-shadow: var(--ff-glass-highlight), 0 24px 60px rgba(15, 23, 42, 0.18) !important;
+  backdrop-filter: blur(18px) saturate(1.6);
+}
+
+:root[data-dashboard-theme='flower'] .aw-container::before {
+  opacity: 0.5;
+}
+
+/* Page wrappers that painted their own wash now let the sheet show. */
+:root[data-dashboard-theme='flower'] .time-dashboard.theme-flower,
+:root[data-dashboard-theme='flower'] .pomodoro-page {
+  background: transparent !important;
+  backdrop-filter: none !important;
+}
+
+:root[data-dashboard-theme='flower'] .metric-tile,
+:root[data-dashboard-theme='flower'] .balance-section,
+:root[data-dashboard-theme='flower'] .chart-section,
+:root[data-dashboard-theme='flower'] .timeline-section,
+:root[data-dashboard-theme='flower'] .todos-page .todo-section,
+:root[data-dashboard-theme='flower'] .todos-page .todo-plan-view,
+:root[data-dashboard-theme='flower'] .todos-page .todo-calendar-view,
+:root[data-dashboard-theme='flower'] .todos-page .todo-matrix-view,
+:root[data-dashboard-theme='flower'] .todos-page .todo-plan-panel:not(.todo-plan-panel--selected),
+:root[data-dashboard-theme='flower'] .todos-page .todo-matrix-quadrant:not(.todo-matrix-quadrant--delegate),
+:root[data-dashboard-theme='flower'] .pomodoro-card,
+:root[data-dashboard-theme='flower'] .pomodoro-next-card,
+:root[data-dashboard-theme='flower'] .cal-panel,
+:root[data-dashboard-theme='flower'] .cal-rail,
+:root[data-dashboard-theme='flower'] .vision-board-header,
+:root[data-dashboard-theme='flower'] .vision-filter-list,
+:root[data-dashboard-theme='flower'] .vision-empty,
+:root[data-dashboard-theme='flower'] .vision-no-results {
+  border-color: var(--ff-glass-edge) !important;
+  background: var(--ff-glass-panel) !important;
+  box-shadow: var(--ff-glass-highlight), 0 10px 26px rgba(15, 23, 42, 0.08) !important;
+  backdrop-filter: none !important;
+}
+
+:root[data-dashboard-theme='flower'] .todo-card:not(.todo-card--due):not(.todo-card--upcoming),
+:root[data-dashboard-theme='flower'] .todo-mini-card,
+:root[data-dashboard-theme='flower'] .todo-plan-card,
+:root[data-dashboard-theme='flower'] .todo-plan-choice,
+:root[data-dashboard-theme='flower'] .todo-matrix-card,
+:root[data-dashboard-theme='flower'] .todo-frog-card:not(.todo-frog-card--drop-over):not(.todo-frog-card--eaten),
+:root[data-dashboard-theme='flower'] .pomodoro-face,
+:root[data-dashboard-theme='flower'] .pomodoro-mode-button,
+:root[data-dashboard-theme='flower'] .cal-head-row {
+  border-color: rgba(255, 255, 255, 0.7) !important;
+  background: var(--ff-glass-item) !important;
+}
+
+:root[data-dashboard-theme='flower'] .app-footer {
+  display: flow-root;
+  margin-bottom: 1rem;
+  padding-top: 0.75rem;
+  border: 1px solid var(--ff-glass-edge);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, calc(var(--ff-veil) + 0.42));
+  box-shadow: var(--ff-glass-highlight), 0 12px 30px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(18px) saturate(1.6);
+}
