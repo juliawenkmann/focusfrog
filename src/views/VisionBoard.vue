@@ -10,7 +10,7 @@ div.vision-board-page(:aria-busy="loading ? 'true' : 'false'")
     div.vision-board-header-actions
       div.vision-board-progress(v-if="items.length" aria-live="polite")
         span.vision-board-progress-number {{ achievedCount }}/{{ items.length }}
-        span dreams achieved
+        span dreams done
         span.vision-board-progress-divider(v-if="attentionCount" aria-hidden="true") ·
         span.vision-board-attention-count(v-if="attentionCount") {{ attentionCount }} to review
       b-button.vision-add-button(
@@ -124,7 +124,7 @@ div.vision-board-page(:aria-busy="loading ? 'true' : 'false'")
     article.vision-card(
       v-for="(item, index) in filteredItems"
       :key="item.id"
-      :class="[cardPaletteClass(item), { 'vision-card--achieved': item.status === 'achieved', 'vision-card--attention': needsAttention(item), 'vision-card--photo': item.imageId, 'vision-card--counter': item.counterTarget }]"
+      :class="[cardPaletteClass(item), { 'vision-card--achieved': item.status === 'achieved', 'vision-card--leaving': leavingIds.includes(item.id), 'vision-card--attention': needsAttention(item), 'vision-card--photo': item.imageId, 'vision-card--counter': item.counterTarget }]"
     )
       img.vision-card-image(
         v-if="item.imageId"
@@ -503,7 +503,11 @@ export default {
     return {
       items: [] as VisionBoardItem[],
       boardUpdatedAt: '',
-      activeFilter: 'all' as VisionFilter,
+      // Done dreams step aside by default; All still shows them in their own color.
+      activeFilter: 'dreaming' as VisionFilter,
+      // Cards that no longer match the filter stay a moment so the change is visible.
+      leavingIds: [] as string[],
+      leavingTimers: {} as Record<string, ReturnType<typeof setTimeout>>,
       sortMode: 'board' as VisionBoardSort,
       loading: true,
       editingId: '',
@@ -525,7 +529,7 @@ export default {
         { value: 'all' as VisionFilter, label: 'All' },
         { value: 'dreaming' as VisionFilter, label: 'Open' },
         { value: 'attention' as VisionFilter, label: 'Review' },
-        { value: 'achieved' as VisionFilter, label: 'Achieved' },
+        { value: 'achieved' as VisionFilter, label: 'Done' },
       ],
       sortOptions: [
         { value: 'board' as VisionBoardSort, label: 'My order' },
@@ -546,7 +550,7 @@ export default {
     },
     canReorder(): boolean {
       return (
-        this.activeFilter === 'all' &&
+        (this.activeFilter === 'all' || this.activeFilter === 'dreaming') &&
         this.sortMode === 'board' &&
         !this.loading &&
         !this.saving &&
@@ -564,18 +568,21 @@ export default {
     filteredItems(): VisionBoardItem[] {
       let visibleItems = this.items;
       if (this.activeFilter === 'attention') {
-        visibleItems = this.items.filter((item: VisionBoardItem) => this.needsAttention(item));
+        visibleItems = this.items.filter(
+          (item: VisionBoardItem) => this.needsAttention(item) || this.leavingIds.includes(item.id)
+        );
       } else if (this.activeFilter !== 'all') {
         visibleItems = this.items.filter(
-          (item: VisionBoardItem) => item.status === this.activeFilter
+          (item: VisionBoardItem) =>
+            item.status === this.activeFilter || this.leavingIds.includes(item.id)
         );
       }
       return sortVisionBoardItems(visibleItems, this.sortMode);
     },
     emptyFilterMessage(): string {
       if (this.activeFilter === 'attention') return 'Nothing needs a check-in right now.';
-      if (this.activeFilter === 'achieved') return 'Your completed dreams will collect here.';
-      return 'All of your dreams are already achieved — wonderful.';
+      if (this.activeFilter === 'achieved') return 'Dreams you mark as done will collect here.';
+      return 'All of your dreams are done — wonderful.';
     },
     draftImageUrl(): string {
       if (this.pendingImageUrl) return this.pendingImageUrl;
@@ -588,6 +595,11 @@ export default {
       return visionBoardCounterProgress(this.draft.counterCurrent, this.draft.counterTarget);
     },
   },
+  watch: {
+    activeFilter() {
+      this.clearLeavingCards();
+    },
+  },
   async mounted() {
     if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
       this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -597,6 +609,7 @@ export default {
   },
   beforeDestroy() {
     this.revokePendingImageUrl();
+    this.clearLeavingCards();
   },
   methods: {
     loadSortPreference() {
@@ -619,14 +632,14 @@ export default {
         console.warn('Could not save the Vision Board sort preference:', error);
       }
     },
-    // Compact tiles show the whole board at once, so moves stay short. Reordering
-    // always works on the full board in "My order".
+    // Compact tiles show the whole list at once, so moves stay short. Reordering
+    // works in "My order" on Open or All; hidden dreams keep their places.
     toggleArranging() {
       if (this.arranging) {
         this.arranging = false;
         return;
       }
-      this.activeFilter = 'all';
+      if (this.activeFilter !== 'all') this.activeFilter = 'dreaming';
       if (this.sortMode !== 'board') {
         this.sortMode = 'board';
         this.persistSortPreference();
@@ -635,7 +648,9 @@ export default {
     },
     async moveCardToEdge(item: VisionBoardItem, edge: 'top' | 'bottom') {
       if (!this.canReorder) return;
-      const startOrder = this.items.map((candidate: VisionBoardItem) => candidate.id);
+      const startOrder = (this.filteredItems as VisionBoardItem[]).map(
+        (candidate: VisionBoardItem) => candidate.id
+      );
       const currentIndex = startOrder.indexOf(item.id);
       const targetIndex = edge === 'top' ? 0 : startOrder.length - 1;
       if (currentIndex < 0 || currentIndex === targetIndex) return;
@@ -670,16 +685,17 @@ export default {
     },
     async moveCard(item: VisionBoardItem, direction: number) {
       if (!this.canReorder || (direction !== -1 && direction !== 1)) return;
-      const currentIndex = this.items.findIndex(
-        (candidate: VisionBoardItem) => candidate.id === item.id
+      // Steps move past the visible neighbour, not a hidden done dream.
+      const startOrder = (this.filteredItems as VisionBoardItem[]).map(
+        (candidate: VisionBoardItem) => candidate.id
       );
+      const currentIndex = startOrder.indexOf(item.id);
       const nextIndex = currentIndex + direction;
       if (currentIndex < 0) return;
-      if (nextIndex < 0 || nextIndex >= this.items.length) {
+      if (nextIndex < 0 || nextIndex >= startOrder.length) {
         this.checkInAnnouncement = `${item.title} is already ${direction < 0 ? 'first' : 'last'}.`;
         return;
       }
-      const startOrder = this.items.map((candidate: VisionBoardItem) => candidate.id);
       await this.reorderCards(item.id, currentIndex, nextIndex, startOrder);
       this.focusDragHandle(item.id);
     },
@@ -843,7 +859,7 @@ export default {
         position >= 0 ? `, position ${position + 1} of ${this.filteredItems.length}` : '';
       return this.canReorder
         ? `Reorder ${item.title}${positionLabel}. Drag or use arrow keys to move it earlier or later.`
-        : `${item.title}${positionLabel}. Choose All and My order to rearrange.`;
+        : `${item.title}${positionLabel}. Choose Open or All, and My order, to rearrange.`;
     },
     focusFilter(filter: VisionFilter) {
       const filterButtons = (this.$refs.filterButtons || []) as HTMLElement[];
@@ -895,7 +911,7 @@ export default {
     },
     accountabilityLabel(item: VisionBoardItem): string {
       const labels: Record<string, string> = {
-        achieved: 'Achieved',
+        achieved: 'Done',
         optional: 'Plan when ready',
         ready: 'Ready to celebrate',
         overdue: 'Target overdue',
@@ -1286,6 +1302,33 @@ export default {
         this.saving = false;
       }
     },
+    // Shows the card's new state briefly, then lets it leave the current filter.
+    // Focus follows to the filter if it was on the card that left.
+    letCardLeave(itemId: string) {
+      this.leavingIds = [...this.leavingIds, itemId];
+      this.leavingTimers[itemId] = setTimeout(
+        () => {
+          const focused = typeof document === 'undefined' ? null : document.activeElement;
+          this.stopLeaving(itemId);
+          this.$nextTick(() => {
+            if (focused && !focused.isConnected) this.focusFilter(this.activeFilter);
+          });
+        },
+        this.reducedMotion ? 600 : 1100
+      );
+    },
+    stopLeaving(itemId: string) {
+      clearTimeout(this.leavingTimers[itemId]);
+      delete this.leavingTimers[itemId];
+      this.leavingIds = this.leavingIds.filter((id: string) => id !== itemId);
+    },
+    clearLeavingCards() {
+      Object.keys(this.leavingTimers).forEach((itemId: string) =>
+        clearTimeout(this.leavingTimers[itemId])
+      );
+      this.leavingTimers = {};
+      this.leavingIds = [];
+    },
     async toggleAchieved(item: VisionBoardItem) {
       if (this.saving || this.loading) return;
       const current = this.items.find((candidate: VisionBoardItem) => candidate.id === item.id);
@@ -1315,11 +1358,13 @@ export default {
             }
           : candidate
       );
-      if (leavesActiveFilter) this.$nextTick(() => this.focusFilter(this.activeFilter));
+      this.stopLeaving(current.id);
+      if (leavesActiveFilter) this.letCardLeave(current.id);
 
       try {
         const persistence = await this.persistBoard();
         if (!persistence.localSaved && !persistence.serverSaved) {
+          this.stopLeaving(current.id);
           this.items = previousItems;
           this.boardUpdatedAt = previousUpdatedAt;
           this.checkInAnnouncement = `Could not update ${current.title}.`;
@@ -1329,6 +1374,7 @@ export default {
             : `Marked ${current.title} as not done.`;
         }
       } catch (error) {
+        this.stopLeaving(current.id);
         this.items = previousItems;
         this.boardUpdatedAt = previousUpdatedAt;
         this.syncWarning = 'FocusFrog could not update this goal. Please try again.';
@@ -1867,17 +1913,65 @@ export default {
     linear-gradient(180deg, rgba(7, 15, 31, 0.02), rgba(7, 15, 31, 0.72));
 }
 
+/* Done dreams turn a calm green so they stand apart from the open ones in All. */
+.vision-card.vision-card--achieved {
+  background: linear-gradient(145deg, #064e3b, #047857 55%, #34d399);
+  box-shadow: inset 0 0 0 2px rgba(110, 231, 183, 0.9), 0 16px 34px rgba(15, 23, 42, 0.15);
+}
+
+.vision-card.vision-card--achieved:hover {
+  box-shadow: inset 0 0 0 2px rgba(110, 231, 183, 1), 0 22px 42px rgba(15, 23, 42, 0.21);
+}
+
 .vision-card--achieved .vision-card-image {
-  filter: saturate(0.76) brightness(0.9);
+  filter: grayscale(1) brightness(0.85) contrast(1.05);
 }
 
 .vision-card--achieved::after {
   position: absolute;
   z-index: -1;
   inset: 0;
-  background: linear-gradient(145deg, rgba(5, 150, 105, 0.22), transparent 52%);
+  background: linear-gradient(160deg, rgba(16, 185, 129, 0.52), rgba(6, 78, 59, 0.6));
   content: '';
   pointer-events: none;
+}
+
+.vision-card--leaving {
+  animation: vision-card-leave 1100ms ease-in forwards;
+}
+
+.vision-card--leaving.vision-card--achieved {
+  animation-name: vision-card-done-leave;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes vision-card-leave {
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+@keyframes vision-card-done-leave {
+  0% {
+    transform: scale(1);
+  }
+  20% {
+    box-shadow: inset 0 0 0 2px rgba(167, 243, 208, 1), 0 0 0 7px rgba(52, 211, 153, 0.38),
+      0 22px 42px rgba(15, 23, 42, 0.21);
+    transform: scale(1.035);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.01);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
 }
 
 .vision-card-topline {
@@ -3192,6 +3286,11 @@ html[data-dashboard-theme='contrast'] .vision-filter--active span {
   .vision-image-picker,
   .vision-sort-select {
     transition: none;
+  }
+
+  .vision-card--leaving,
+  .vision-card--leaving.vision-card--achieved {
+    animation: none;
   }
 }
 </style>

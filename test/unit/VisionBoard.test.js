@@ -36,6 +36,15 @@ const mountLoadedVisionBoard = items =>
   shallowMount(
     { ...VisionBoard, mounted: () => undefined },
     {
+      data: () => ({ items, loading: false, saving: false, activeFilter: 'all' }),
+      stubs: visionBoardStubs,
+    }
+  );
+
+const mountDefaultVisionBoard = items =>
+  shallowMount(
+    { ...VisionBoard, mounted: () => undefined },
+    {
       data: () => ({ items, loading: false, saving: false }),
       stubs: visionBoardStubs,
     }
@@ -346,6 +355,7 @@ describe('Vision Board persistence', () => {
       items: [existing],
       boardUpdatedAt: existing.updatedAt,
       persistBoard: jest.fn(async () => ({ localSaved: true, serverSaved: true })),
+      stopLeaving: jest.fn(),
     };
 
     await VisionBoard.methods.toggleAchieved.call(vm, existing);
@@ -378,6 +388,7 @@ describe('Vision Board persistence', () => {
       items: [current],
       boardUpdatedAt: current.updatedAt,
       persistBoard: jest.fn(async () => ({ localSaved: true, serverSaved: true })),
+      stopLeaving: jest.fn(),
     };
 
     await VisionBoard.methods.toggleAchieved.call(vm, stale);
@@ -518,6 +529,7 @@ describe('Vision Board persistence', () => {
     const vm = {
       activeFilter: 'attention',
       items: [attentionItem, currentItem, achievedItem],
+      leavingIds: [],
       needsAttention: jest.fn(item => item.id === attentionItem.id),
     };
 
@@ -690,7 +702,7 @@ describe('Vision Board persistence', () => {
     localStorage.removeItem(boardStorageKey);
   });
 
-  test('offers one accessible drag handle per card only in All and My order', async () => {
+  test('offers one accessible drag handle per card only in Open or All and My order', async () => {
     localStorage.removeItem('focusfrog.visionBoard.sort.v1');
     const wrapper = mountLoadedVisionBoard([
       dream({ id: 'first', title: 'First' }),
@@ -717,7 +729,7 @@ describe('Vision Board persistence', () => {
     expect(wrapper.vm.canReorder).toBe(false);
     expect(wrapper.findAll('.vision-drag-handle').at(0).element.disabled).toBe(true);
 
-    await wrapper.setData({ sortMode: 'board', activeFilter: 'dreaming' });
+    await wrapper.setData({ sortMode: 'board', activeFilter: 'attention' });
 
     expect(wrapper.vm.canReorder).toBe(false);
     expect(wrapper.findAll('.vision-drag-handle').at(0).element.disabled).toBe(true);
@@ -727,8 +739,8 @@ describe('Vision Board persistence', () => {
   test.each([
     ['a sorted view', { activeFilter: 'all', sortMode: 'title', loading: false, saving: false }],
     [
-      'a filtered view',
-      { activeFilter: 'dreaming', sortMode: 'board', loading: false, saving: false },
+      'the Done view',
+      { activeFilter: 'achieved', sortMode: 'board', loading: false, saving: false },
     ],
     ['the loading state', { activeFilter: 'all', sortMode: 'board', loading: true, saving: false }],
     ['the saving state', { activeFilter: 'all', sortMode: 'board', loading: false, saving: true }],
@@ -1289,5 +1301,111 @@ describe('Vision Board persistence', () => {
     expect(vm.formError).toMatch(/could not delete/i);
     expect(vm.saving).toBe(false);
     expect(vm.closeEditor).not.toHaveBeenCalled();
+  });
+  test('opens on Open so done dreams are hidden, and labels them Done', async () => {
+    const wrapper = mountDefaultVisionBoard([
+      dream({ id: 'open', title: 'Learn pottery' }),
+      dream({
+        id: 'done',
+        title: 'Visit Iceland',
+        status: 'achieved',
+        progress: 100,
+        achievedAt: '2026-08-17T08:00:00.000Z',
+      }),
+    ]);
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.vm.activeFilter).toBe('dreaming');
+    expect(renderedCardTitles(wrapper)).toEqual(['Learn pottery']);
+    expect(wrapper.find('.vision-filter--active').text()).toMatch(/^Open/);
+    const filters = wrapper.findAll('.vision-filter').wrappers;
+    expect(filters.map(button => button.find('span').text())).toEqual([
+      'All',
+      'Open',
+      'Review',
+      'Done',
+    ]);
+    expect(filters[3].find('.vision-filter-count').text()).toBe('1');
+    expect(wrapper.find('.vision-board-progress').text()).toMatch(/1\/2\s*dreams done/);
+
+    await wrapper.setData({ activeFilter: 'all' });
+    const doneCard = wrapper.findAll('.vision-card').at(1);
+    expect(doneCard.classes()).toContain('vision-card--achieved');
+    expect(doneCard.find('.vision-accountability-state').text()).toBe('Done');
+    wrapper.destroy();
+  });
+
+  test('a dream marked done in Open stays a moment, then leaves', async () => {
+    jest.useFakeTimers();
+    const wrapper = mountDefaultVisionBoard([
+      dream({ id: 'first', title: 'First' }),
+      dream({ id: 'second', title: 'Second' }),
+    ]);
+    wrapper.vm.persistBoard = jest.fn(async () => ({ localSaved: true, serverSaved: true }));
+    await wrapper.vm.$nextTick();
+
+    await wrapper.findAll('.vision-card').at(0).find('input[type="checkbox"]').setChecked(true);
+    await Promise.resolve();
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.vm.items[0].status).toBe('achieved');
+    expect(renderedCardTitles(wrapper)).toEqual(['First', 'Second']);
+    expect(wrapper.findAll('.vision-card').at(0).classes()).toEqual(
+      expect.arrayContaining(['vision-card--achieved', 'vision-card--leaving'])
+    );
+
+    jest.runOnlyPendingTimers();
+    await wrapper.vm.$nextTick();
+
+    expect(renderedCardTitles(wrapper)).toEqual(['Second']);
+    expect(wrapper.vm.leavingIds).toEqual([]);
+    wrapper.destroy();
+  });
+
+  test('a dream unchecked again before it leaves stays in Open', async () => {
+    jest.useFakeTimers();
+    const wrapper = mountDefaultVisionBoard([dream({ id: 'first', title: 'First' })]);
+    wrapper.vm.persistBoard = jest.fn(async () => ({ localSaved: true, serverSaved: true }));
+    await wrapper.vm.$nextTick();
+
+    await wrapper.find('.vision-card input[type="checkbox"]').setChecked(true);
+    await Promise.resolve();
+    await wrapper.vm.$nextTick();
+    await wrapper.find('.vision-card input[type="checkbox"]').setChecked(false);
+    await Promise.resolve();
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.vm.leavingIds).toEqual([]);
+    jest.runOnlyPendingTimers();
+    await wrapper.vm.$nextTick();
+    expect(renderedCardTitles(wrapper)).toEqual(['First']);
+    expect(wrapper.find('.vision-card').classes()).not.toContain('vision-card--leaving');
+    wrapper.destroy();
+  });
+
+  test('reorders in Open while hidden done dreams keep their places', async () => {
+    localStorage.removeItem('focusfrog.visionBoard.sort.v1');
+    const wrapper = mountDefaultVisionBoard([
+      dream({ id: 'a', title: 'A' }),
+      dream({ id: 'done', title: 'Done one', status: 'achieved', progress: 100 }),
+      dream({ id: 'b', title: 'B' }),
+      dream({ id: 'c', title: 'C' }),
+    ]);
+    const persistBoard = jest.fn(async () => ({ localSaved: true, serverSaved: true }));
+    wrapper.vm.persistBoard = persistBoard;
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.vm.canReorder).toBe(true);
+    expect(renderedCardTitles(wrapper)).toEqual(['A', 'B', 'C']);
+
+    wrapper.vm.startCardDrag({ oldIndex: 2 });
+    await wrapper.vm.dropCard({ oldIndex: 2, newIndex: 0 });
+    expect(wrapper.vm.items.map(item => item.id)).toEqual(['c', 'a', 'done', 'b']);
+
+    await wrapper.vm.moveCard(wrapper.vm.items[3], -1);
+    expect(wrapper.vm.items.map(item => item.id)).toEqual(['c', 'b', 'a', 'done']);
+    expect(renderedCardTitles(wrapper)).toEqual(['C', 'B', 'A']);
+    expect(persistBoard).toHaveBeenCalledTimes(2);
+    wrapper.destroy();
   });
 });
