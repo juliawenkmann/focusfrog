@@ -641,41 +641,52 @@ div.todos-page
                 h5.mb-0 Available todos
               span.todo-count {{ planCandidateTodos.length }}
             div.todo-empty(v-if="planCandidateTodos.length === 0") Nothing else available.
-            div.todo-plan-choice(
-              v-for="todo in planCandidateTodos"
-              :key="todo.id"
-              :class="[{ 'todo-plan-choice--dragging': draggedFrogTodoId === todo.id }, projectColorClass(todo)]"
-              :style="todoColorStyle(todo)"
-              @mousedown="startFrogMouseDrag(todo, $event)"
-              @pointerdown="startFrogPointerDrag(todo, $event)"
-              @pointermove="handleFrogPointerMove($event)"
-              @pointerup="endFrogPointerDrag($event)"
-              @pointercancel="cancelFrogPointerDrag($event)"
+            div.todo-plan-choice-group(
+              v-for="group in planCandidateGroups"
+              :key="'choice-group-' + group.id"
             )
-              div.todo-card-main
-                div.todo-card-title-row
-                  span.todo-area-dot(:style="{ background: todoAccentColor(todo) }")
-                  strong {{ todo.title }}
-                div.todo-card-meta
-                  span {{ areaLabel(todo.area) }}
-                  button.todo-project-tag.todo-project-tag--button(
-                    type="button"
-                    :class="{ 'todo-project-tag--empty': !todoProject(todo) }"
-                    :title="todoProject(todo) ? 'Change project' : 'Add to a project'"
-                    :aria-label="projectTagAriaLabel(todo)"
-                    @click.stop="openProjectMenu(todo, $event)"
-                  )
-                    span.todo-project-tag-dot(:style="{ background: projectColor(todo.projectId) }")
-                    span {{ todoProject(todo) ? projectLabel(todo.projectId) : 'Project' }}
-                  span {{ dueLabel(todo) }}
-                  span(v-if="todo.repeat !== 'none'") {{ repeatShortLabel(todo) }}
-                div.todo-card-notes(v-if="todo.notes") {{ todo.notes }}
-              div.todo-card-actions
-                b-button(size="sm" variant="primary" type="button" @click="addToDayPlan(todo)")
-                  icon.mr-1(name="plus")
-                  | Add
-                b-button(size="sm" variant="outline-secondary" title="Edit" @click="editTodo(todo)")
-                  icon(name="pen")
+              div.todo-plan-choice-group-header
+                span.todo-project-pill-dot(
+                  :class="{ 'todo-project-pill-dot--inbox': group.id === 'inbox' }"
+                  :style="group.id === 'inbox' ? {} : { background: group.color }"
+                )
+                span.todo-plan-choice-group-name {{ group.name }}
+                span.todo-plan-choice-group-count {{ group.todos.length }}
+              div.todo-plan-choice(
+                v-for="todo in group.todos"
+                :key="todo.id"
+                :class="[{ 'todo-plan-choice--dragging': draggedFrogTodoId === todo.id }, projectColorClass(todo)]"
+                :style="todoColorStyle(todo)"
+                @mousedown="startFrogMouseDrag(todo, $event)"
+                @pointerdown="startFrogPointerDrag(todo, $event)"
+                @pointermove="handleFrogPointerMove($event)"
+                @pointerup="endFrogPointerDrag($event)"
+                @pointercancel="cancelFrogPointerDrag($event)"
+              )
+                div.todo-card-main
+                  div.todo-card-title-row
+                    span.todo-area-dot(:style="{ background: todoAccentColor(todo) }")
+                    strong {{ todo.title }}
+                  div.todo-card-meta
+                    span {{ areaLabel(todo.area) }}
+                    button.todo-project-tag.todo-project-tag--button(
+                      type="button"
+                      :class="{ 'todo-project-tag--empty': !todoProject(todo) }"
+                      :title="todoProject(todo) ? 'Change project' : 'Add to a project'"
+                      :aria-label="projectTagAriaLabel(todo)"
+                      @click.stop="openProjectMenu(todo, $event)"
+                    )
+                      span.todo-project-tag-dot(:style="{ background: projectColor(todo.projectId) }")
+                      span {{ todoProject(todo) ? projectLabel(todo.projectId) : 'Project' }}
+                    span {{ dueLabel(todo) }}
+                    span(v-if="todo.repeat !== 'none'") {{ repeatShortLabel(todo) }}
+                  div.todo-card-notes(v-if="todo.notes") {{ todo.notes }}
+                div.todo-card-actions
+                  b-button(size="sm" variant="primary" type="button" @click="addToDayPlan(todo)")
+                    icon.mr-1(name="plus")
+                    | Add
+                  b-button(size="sm" variant="outline-secondary" title="Edit" @click="editTodo(todo)")
+                    icon(name="pen")
 
       div.todo-calendar-view(v-else-if="viewMode === 'calendar'")
         div.todo-calendar-toolbar
@@ -1417,6 +1428,24 @@ export default {
     planCandidateTodos(): TodoItem[] {
       const plannedIds = new Set(this.dayPlanIds);
       return this.activeTodos.filter(todo => !plannedIds.has(todo.id));
+    },
+    // Available todos grouped by project in the Projects bar's order, Inbox last;
+    // each group keeps the due-date order.
+    planCandidateGroups(): Array<{ id: string; name: string; color: string; todos: TodoItem[] }> {
+      const groups = [
+        ...this.projects.map(project => ({
+          id: project.id,
+          name: project.name,
+          color: project.color,
+          todos: [] as TodoItem[],
+        })),
+        { id: 'inbox', name: 'Inbox', color: INBOX_PROJECT_COLOR, todos: [] as TodoItem[] },
+      ];
+      const groupsById = new Map(groups.map(group => [group.id, group]));
+      for (const todo of this.planCandidateTodos) {
+        groupsById.get(this.projectKey(todo))?.todos.push(todo);
+      }
+      return groups.filter(group => group.todos.length > 0);
     },
     planProgressLabel(): string {
       const selected = this.plannedTodos.length;
@@ -4770,6 +4799,39 @@ html[data-dashboard-theme='contrast'] .todo-project-tag--empty {
 
 .todo-plan-panel--selected {
   background: linear-gradient(180deg, rgba(236, 253, 245, 0.72), #ffffff 45%);
+}
+
+.todo-plan-choice-group + .todo-plan-choice-group {
+  margin-top: 0.9rem;
+}
+
+.todo-plan-choice-group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.35rem 0 0.45rem;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.todo-plan-choice-group-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.18);
+  font-size: 0.66rem;
+  letter-spacing: 0;
+}
+
+html[data-dashboard-theme='contrast'] .todo-plan-choice-group-header {
+  color: #cbd5e1;
 }
 
 .todo-plan-panel--available {
