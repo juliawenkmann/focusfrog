@@ -2845,14 +2845,3 @@ html[data-dashboard-theme='flower'] .todos-page .todo-calendar-scroll::-webkit-s
   border-color: rgba(255, 255, 255, 0.7) !important;
   background: var(--ff-glass-item) !important;
 }
-
-:root[data-dashboard-theme='flower'] .app-footer {
-  display: flow-root;
-  margin-bottom: 1rem;
-  padding-top: 0.75rem;
-  border: 1px solid var(--ff-glass-edge);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, calc(var(--ff-veil) + 0.42));
-  box-shadow: var(--ff-glass-highlight), 0 12px 30px rgba(15, 23, 42, 0.14);
-  backdrop-filter: blur(18px) saturate(1.6);
-}

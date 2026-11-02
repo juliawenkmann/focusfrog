@@ -16,8 +16,6 @@ div#wrapper(v-if="loaded")
         user-satisfaction-poll(v-if="!chromeless")
         new-release-notification(v-if="!chromeless && isNewReleaseCheckEnabled")
         router-view
-
-  aw-footer.app-footer(v-if="!chromeless")
 </template>
 
 <script lang="ts">
