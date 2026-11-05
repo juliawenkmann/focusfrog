@@ -10,7 +10,8 @@ tabs at the bottom.
 | Topic | Decision |
 | --- | --- |
 | Backend | Firebase Auth (email + password) and Firestore, like both reference apps |
-| Firebase account | juliawenkmann@gmail.com (the user runs `npx firebase-tools login` once) |
+| Firebase project | `focusfrog-wenkmann` in the Google account wenkmannjulia2000@gmail.com (next to Tree Tracker and CampusGarten; juliawenkmann@gmail.com is blocked from Firebase by Google), Firestore in europe-west3 |
+| App sign-in | Email + password juliawenkmann@gmail.com (`OWNER_EMAILS`, `isOwner()`), separate from the project's Google account |
 | Hosting | Cloudflare Workers static assets, like CampusGarden (`focusfrog.juliawenkmann.workers.dev`) |
 | Phone pages | Todos, Vision board, Hours (summaries), Pomodoro, Time blocking |
 | Vision photos | Downscaled WebP (~1280 px) stored in Firestore — no billing plan |
@@ -102,16 +103,20 @@ mirror; the cloud is added alongside. Before the first upload, a snapshot of
   as WebP). Settings subset (theme, flower picture, start of day/week) syncs as
   `state/settings`. Hours math moved to `util/workDay.ts` (Home delegates; numbers
   verified identical against the live app).
-- Next (needs the user): `npx firebase-tools login` as juliawenkmann@gmail.com → create the
-  project, Firestore (europe-west3), web app config into `src/sync/config.ts`,
-  `npm run deploy:firebase`; user creates their account in the app; then deploy the phone
-  build (`npm run deploy:cloud`, ask first) and install the Mac app.
+- 2026-11-05 — Project live: `focusfrog-wenkmann` created, Firestore (europe-west3), web app
+  registered (config in `src/sync/config.ts`), rules + email/password sign-in deployed
+  (`npm run deploy:firebase`), data snapshotted to `FocusFrog/data-backups/before-cloud-*`, Mac app
+  installed. The user created their account on the Mac (everything uploaded: 148 todos, 28
+  dreams + photos, 22 weeks). Rules locked to that account id, sign-ups switched off
+  (`client.permissions.disabledUserSignup`; `deploy --only auth` keeps it off). Phone version
+  live at https://focusfrog.juliawenkmann.workers.dev (`npm run deploy:cloud`). Auth uses
+  `initializeAuth` without the pop-up helper, which loaded a Google script the CSP blocks.
 - Later: Pomodoro on the phone (sessions in the cloud), lock the rules to the owner uid.
 
 ## Go-live checklist
 
 1. Snapshot `storage.json` and `vision-board-images/` before the first real sign-in.
-2. After the owner's account exists: add its uid to `isOwner()` in the rules (as Tree
+2. Done 2026-11-05. After the owner's account exists: add its uid to `isOwner()` in the rules (as Tree
    Tracker does) and turn off new sign-ups in the Firebase console (Authentication →
    Settings → User actions).
 3. First real sign-in on the Mac with the browser console open: a `connect-src` CSP
