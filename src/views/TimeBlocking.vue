@@ -274,6 +274,7 @@ import 'vue-awesome/icons/plus';
 import 'vue-awesome/icons/redo';
 import 'vue-awesome/icons/trash';
 import moment from 'moment';
+import { loadStoredValue, onStoredValueChange, saveStoredValue } from '~/util/focusfrogStorage';
 import {
   BlockOccurrence,
   DAY_MINUTES,
@@ -708,6 +709,10 @@ export default {
   mounted() {
     this.loadBlocks();
     void this.loadServerBlocks();
+    this.$once(
+      'hook:beforeDestroy',
+      onStoredValueChange(TIME_BLOCK_SERVER_KEY, this.applyCloudBlocks)
+    );
     this.nowTimer = window.setInterval(() => {
       this.nowTick = Date.now();
     }, 60 * 1000);
@@ -722,30 +727,20 @@ export default {
   methods: {
     isRepeating,
     minutesToTime,
-    async loadServerValue(key: string) {
-      if (typeof fetch === 'undefined') return null;
-      try {
-        const response = await fetch(`/focusfrog-storage/${key}`, { cache: 'no-store' });
-        if (!response.ok) return null;
-        const payload = await response.json();
-        return payload?.value ?? null;
-      } catch (err) {
-        console.warn('Could not load FocusFrog server storage:', key, err);
-        return null;
-      }
-    },
-    saveServerValue(key: string, value: unknown) {
-      if (typeof fetch === 'undefined') return;
-      fetch(`/focusfrog-storage/${key}`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ value }),
-      }).catch(err => {
-        console.warn('Could not save FocusFrog server storage:', key, err);
-      });
+    // The cloud's copy replaces this page's while signed in (see focusfrogStorage).
+    applyCloudBlocks(value: unknown) {
+      const blocks = (Array.isArray(value) ? value : []).map(block => this.normalizeBlock(block));
+      if (JSON.stringify(blocks) === JSON.stringify(this.blocks)) return;
+      this.blocks = blocks;
+      this.saveBlocks();
     },
     async loadServerBlocks() {
-      const serverBlocks = await this.loadServerValue(TIME_BLOCK_SERVER_KEY);
+      const stored = await loadStoredValue(TIME_BLOCK_SERVER_KEY);
+      if (stored.fromCloud) {
+        this.applyCloudBlocks(stored.value);
+        return;
+      }
+      const serverBlocks = stored.value;
       if (Array.isArray(serverBlocks) && serverBlocks.length > 0) {
         const merged = this.mergeBlocks(
           this.blocks,
@@ -756,7 +751,7 @@ export default {
           this.saveBlocks(false);
         }
       } else if (this.blocks.length > 0) {
-        this.saveServerValue(TIME_BLOCK_SERVER_KEY, this.blocks);
+        void saveStoredValue(TIME_BLOCK_SERVER_KEY, this.blocks);
       }
     },
     loadBlocks() {
@@ -773,7 +768,7 @@ export default {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(TIME_BLOCK_STORAGE_KEY, JSON.stringify(this.blocks));
       }
-      if (syncServer) this.saveServerValue(TIME_BLOCK_SERVER_KEY, this.blocks);
+      if (syncServer) void saveStoredValue(TIME_BLOCK_SERVER_KEY, this.blocks);
     },
     normalizeBlock(block): TimeBlock {
       const date = isValidDate(block?.date) ? block.date : today();

@@ -1,0 +1,12 @@
+# Cache rules for the hosted phone build (Cloudflare). The page and the service worker
+# are checked on every visit; built files carry a content hash and never change.
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/sw.js
+  Cache-Control: no-cache
+/js/*
+  Cache-Control: public, max-age=31536000, immutable
+/css/*
+  Cache-Control: public, max-age=31536000, immutable

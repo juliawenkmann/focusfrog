@@ -1,7 +1,9 @@
 import Vue from 'vue';
 import VueRouter from 'vue-router';
+import { IS_CLOUD_BUILD } from '~/sync/config';
 
 const Home = () => import('./views/Home.vue');
+const CloudHours = () => import('./views/CloudHours.vue');
 
 // Activity views for desktop
 const Activity = () => import('./views/activity/Activity.vue');
@@ -32,74 +34,97 @@ const NotFound = () => import('./views/NotFound.vue');
 
 Vue.use(VueRouter);
 
-const router = new VueRouter({
-  routes: [
-    {
-      path: '/',
-      redirect: _to => {
-        return localStorage.landingpage || '/home';
+const macRoutes = [
+  {
+    path: '/',
+    redirect: _to => {
+      return localStorage.landingpage || '/home';
+    },
+  },
+  { path: '/home', component: Home },
+  {
+    path: '/activity/:host/:periodLength?/:date?',
+    component: Activity,
+    props: true,
+    children: [
+      {
+        path: 'view/:view_id?',
+        meta: { subview: 'view' },
+        name: 'activity-view',
+        component: ActivityView,
+        props: true,
       },
-    },
-    { path: '/home', component: Home },
-    {
-      path: '/activity/:host/:periodLength?/:date?',
-      component: Activity,
-      props: true,
-      children: [
-        {
-          path: 'view/:view_id?',
-          meta: { subview: 'view' },
-          name: 'activity-view',
-          component: ActivityView,
-          props: true,
-        },
-        // Unspecified should redirect to summary view is the summary view
-        // (needs to be last since otherwise it'll always match first)
-        {
-          path: '',
-          redirect: 'view/',
-        },
-      ],
-    },
-    { path: '/buckets', component: Buckets },
-    { path: '/buckets/:id', component: Bucket, props: true },
-    // The Timeline page was replaced by the Time Blocking calendar.
-    { path: '/timeline', redirect: '/time-blocking' },
-    { path: '/todos', component: Todos, meta: { fullContainer: true } },
-    { path: '/vision-board', component: VisionBoard, meta: { fullContainer: true } },
-    { path: '/time-blocking', component: TimeBlocking, meta: { fullContainer: true } },
-    { path: '/trends', component: Trends, meta: { fullContainer: true } },
-    { path: '/trends/:host', component: Trends, meta: { fullContainer: true } },
-    { path: '/widget', component: Widget, meta: { fullContainer: true, chromeless: true } },
-    { path: '/report', component: Report },
-    { path: '/query', component: QueryExplorer },
-    { path: '/alerts', component: Alerts },
-    { path: '/timespiral', component: TimespiralView },
-    { path: '/settings', component: Settings },
-    // Category Builder now lives embedded inside the Categorization
-    // settings panel; keep the old standalone route as a redirect so
-    // external links / bookmarks still land somewhere useful.
-    { path: '/settings/category-builder', redirect: '/settings/categorization' },
-    // :group lets the active settings panel survive reloads / be linkable.
-    // The matcher excludes 'category-builder' so the more specific route above
-    // wins; new groups added in Settings.vue should also be added here.
-    {
-      path: '/settings/:group(general|appearance|categorization|privacy|developer)',
-      component: Settings,
-      props: true,
-    },
-    { path: '/pomodoro', component: Stopwatch },
-    { path: '/stopwatch', redirect: '/pomodoro' },
-    { path: '/work-report', component: WorkReport },
-    { path: '/search', component: Search },
-    { path: '/graph', component: Graph },
-    { path: '/dev', component: Dev },
-    // NOTE: Will break with Vue 3: https://stackoverflow.com/questions/40193634/vue-router-redirect-on-page-not-found-404/64186073#64186073
-    {
-      path: '*',
-      component: NotFound,
-    },
-  ],
-});
+      // Unspecified should redirect to summary view is the summary view
+      // (needs to be last since otherwise it'll always match first)
+      {
+        path: '',
+        redirect: 'view/',
+      },
+    ],
+  },
+  { path: '/buckets', component: Buckets },
+  { path: '/buckets/:id', component: Bucket, props: true },
+  // The Timeline page was replaced by the Time Blocking calendar.
+  { path: '/timeline', redirect: '/time-blocking' },
+  { path: '/todos', component: Todos, meta: { fullContainer: true } },
+  { path: '/vision-board', component: VisionBoard, meta: { fullContainer: true } },
+  { path: '/time-blocking', component: TimeBlocking, meta: { fullContainer: true } },
+  { path: '/trends', component: Trends, meta: { fullContainer: true } },
+  { path: '/trends/:host', component: Trends, meta: { fullContainer: true } },
+  { path: '/widget', component: Widget, meta: { fullContainer: true, chromeless: true } },
+  { path: '/report', component: Report },
+  { path: '/query', component: QueryExplorer },
+  { path: '/alerts', component: Alerts },
+  { path: '/timespiral', component: TimespiralView },
+  { path: '/settings', component: Settings },
+  // Category Builder now lives embedded inside the Categorization
+  // settings panel; keep the old standalone route as a redirect so
+  // external links / bookmarks still land somewhere useful.
+  { path: '/settings/category-builder', redirect: '/settings/categorization' },
+  // :group lets the active settings panel survive reloads / be linkable.
+  // The matcher excludes 'category-builder' so the more specific route above
+  // wins; new groups added in Settings.vue should also be added here.
+  {
+    path: '/settings/:group(general|appearance|categorization|privacy|developer)',
+    component: Settings,
+    props: true,
+  },
+  { path: '/pomodoro', component: Stopwatch },
+  { path: '/stopwatch', redirect: '/pomodoro' },
+  { path: '/work-report', component: WorkReport },
+  { path: '/search', component: Search },
+  { path: '/graph', component: Graph },
+  { path: '/dev', component: Dev },
+  // NOTE: Will break with Vue 3: https://stackoverflow.com/questions/40193634/vue-router-redirect-on-page-not-found-404/64186073#64186073
+  {
+    path: '*',
+    component: NotFound,
+  },
+];
+
+// The hosted phone build: only pages that work from the cloud (no tracking server).
+// Routes with `meta.tab` appear in the phone's tab bar (Header.vue), in this order.
+const cloudRoutes = [
+  { path: '/', redirect: '/todos' },
+  { path: '/home', component: CloudHours, meta: { tab: { icon: 'clock', label: 'Hours' } } },
+  {
+    path: '/todos',
+    component: Todos,
+    meta: { fullContainer: true, tab: { icon: 'tasks', label: 'Todos' } },
+  },
+  {
+    path: '/time-blocking',
+    component: TimeBlocking,
+    meta: { fullContainer: true, tab: { icon: 'calendar-week', label: 'Plan' } },
+  },
+  {
+    path: '/vision-board',
+    component: VisionBoard,
+    meta: { fullContainer: true, tab: { icon: 'images', label: 'Vision' } },
+  },
+  { path: '*', redirect: '/todos' },
+];
+
+const router = new VueRouter({ routes: IS_CLOUD_BUILD ? cloudRoutes : macRoutes });
 
 export default router;

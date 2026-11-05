@@ -78,6 +78,7 @@ Vue.prototype.$isAndroid = process.env.VUE_APP_ON_ANDROID;
 // NOTE: needs to be created before the Vue app is created,
 //       since stores rely on it having been run.
 import { createClient, getClient, configureClient } from './util/awclient';
+import { IS_CLOUD_BUILD } from './sync/config';
 createClient();
 
 // Setup Vue app
@@ -94,3 +95,12 @@ Vue.prototype.$aw = getClient();
 
 // Must be run after vue init since it relies on the settings store
 configureClient();
+
+// The hosted phone build works offline once it has been opened (see src/sw.js).
+if (IS_CLOUD_BUILD && PRODUCTION && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(error => {
+      console.warn('FocusFrog offline support is not available:', error);
+    });
+  });
+}

@@ -7,36 +7,47 @@ div#wrapper(v-if="loaded")
       :class="`flower-petal-fall--${petal}`"
     )
 
-  aw-header(v-if="!chromeless")
-  frog-reminder(v-if="!chromeless")
+  cloud-gate(v-if="showCloudGate")
+  template(v-else)
+    aw-header(v-if="!chromeless")
+    frog-reminder(v-if="!chromeless")
 
-  div(:class="{'container': !fullContainer, 'container-fluid': fullContainer}").px-0.px-md-2
-    div.aw-container.my-sm-3.p-3(:class="{ 'aw-container-widget': chromeless }")
-      error-boundary
-        user-satisfaction-poll(v-if="!chromeless")
-        new-release-notification(v-if="!chromeless && isNewReleaseCheckEnabled")
-        router-view
+    div.app-content(:class="{'container': !fullContainer, 'container-fluid': fullContainer}").px-0.px-md-2
+      div.aw-container.my-sm-3.p-3(:class="{ 'aw-container-widget': chromeless }")
+        error-boundary
+          user-satisfaction-poll(v-if="!chromeless && !isCloudBuild")
+          new-release-notification(v-if="!chromeless && isNewReleaseCheckEnabled && !isCloudBuild")
+          router-view
 </template>
 
 <script lang="ts">
-import { useSettingsStore } from '~/stores/settings';
-import { applyFlowerBackground } from '~/util/flowerBackgrounds';
+import { useCloudStore } from '~/stores/cloud';
 import { useServerStore } from '~/stores/server';
+import { useSettingsStore } from '~/stores/settings';
+import { IS_CLOUD_BUILD } from '~/sync/config';
+import { applyFlowerBackground } from '~/util/flowerBackgrounds';
+import CloudGate from '~/components/CloudGate.vue';
 import FrogReminder from '~/components/FrogReminder.vue';
 
 export default {
   components: {
+    CloudGate,
     FrogReminder,
   },
   data: function () {
     return {
       activityViews: [],
       isNewReleaseCheckEnabled: !process.env.VUE_APP_ON_ANDROID,
+      isCloudBuild: IS_CLOUD_BUILD,
       loaded: false,
     };
   },
 
   computed: {
+    // On the phone nothing shows until the owner is signed in.
+    showCloudGate(): boolean {
+      return IS_CLOUD_BUILD && !useCloudStore().canUse;
+    },
     fullContainer() {
       return this.$route.meta.fullContainer;
     },
@@ -46,6 +57,10 @@ export default {
   },
 
   async beforeCreate() {
+    // Phone sync (does nothing until FocusFrog has a cloud project).
+    useCloudStore().start();
+    if (IS_CLOUD_BUILD) document.documentElement.classList.add('ff-cloud');
+
     // Get Theme From LocalStorage
     const settingsStore = useSettingsStore();
     await settingsStore.ensureLoaded();
@@ -77,6 +92,7 @@ export default {
   },
 
   mounted: async function () {
+    if (IS_CLOUD_BUILD) return;
     const serverStore = useServerStore();
     await serverStore.getInfo();
   },
@@ -98,9 +114,17 @@ html[data-dashboard-theme='flower'] .flower-petal-field {
   display: block;
 }
 
-html[data-dashboard-theme='flower'] #wrapper > :not(.flower-petal-field):not(.frog-reminder) {
+// The page sits above the falling petals; the top bar has its own layer (Header.vue).
+html[data-dashboard-theme='flower'] #wrapper > .app-content {
   position: relative;
   z-index: 1;
+}
+
+// Room for the phone build's tab bar at the bottom of the screen.
+@media (max-width: 767.98px) {
+  html.ff-cloud body {
+    padding-bottom: calc(4.8rem + env(safe-area-inset-bottom));
+  }
 }
 
 .flower-petal-fall {

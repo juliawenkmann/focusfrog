@@ -347,6 +347,7 @@ div.time-dashboard(:class="dashboardThemeClass")
 
 <script lang="ts">
 import moment from 'moment';
+import { loadStoredValue, onStoredValueChange, saveStoredValue } from '~/util/focusfrogStorage';
 import { getClient } from '~/util/awclient';
 import { useBucketsStore } from '~/stores/buckets';
 import { useCategoryStore } from '~/stores/categories';
@@ -937,8 +938,11 @@ export default {
   async mounted() {
     this.categoryStore.load();
     this.loadManualWorkEntries();
-    await this.loadServerManualWorkEntries();
-    await this.bucketsStore.ensureLoaded();
+    this.$once(
+      'hook:beforeDestroy',
+      onStoredValueChange(MANUAL_WORK_SERVER_KEY, this.applyCloudManualWork)
+    );
+    await Promise.all([this.loadServerManualWorkEntries(), this.bucketsStore.ensureLoaded()]);
     this.supportedHosts = enabledWorkReportHosts(this.bucketsStore.buckets || []);
     await this.loadSummary();
     this.ensureWeeklySummaries().catch(err => {
@@ -996,14 +1000,7 @@ export default {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(MANUAL_WORK_STORAGE_KEY, JSON.stringify(this.manualWorkEntries));
       }
-      if (!syncServer || typeof fetch === 'undefined') return;
-      fetch(`/focusfrog-storage/${MANUAL_WORK_SERVER_KEY}`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ value: this.manualWorkEntries }),
-      }).catch(err => {
-        console.warn('Could not save FocusFrog manual work entries:', err);
-      });
+      if (syncServer) void saveStoredValue(MANUAL_WORK_SERVER_KEY, this.manualWorkEntries);
     },
 
     sortedManualWorkEntries(entries: ManualWorkEntry[]): ManualWorkEntry[] {
@@ -1012,18 +1009,22 @@ export default {
       );
     },
 
+    // The cloud's copy replaces this page's while signed in (see focusfrogStorage).
+    applyCloudManualWork(value: unknown) {
+      const entries = this.sortedManualWorkEntries(normalizeManualWorkEntries(value));
+      if (JSON.stringify(entries) === JSON.stringify(this.manualWorkEntries)) return;
+      this.manualWorkEntries = entries;
+      this.saveManualWorkEntries();
+    },
+
     async loadServerManualWorkEntries() {
-      if (typeof fetch === 'undefined') return;
       try {
-        const response = await fetch(`/focusfrog-storage/${MANUAL_WORK_SERVER_KEY}`, {
-          cache: 'no-store',
-        });
-        if (!response.ok) {
-          if (this.manualWorkEntries.length > 0) this.saveManualWorkEntries();
+        const stored = await loadStoredValue(MANUAL_WORK_SERVER_KEY);
+        if (stored.fromCloud) {
+          this.applyCloudManualWork(stored.value);
           return;
         }
-        const payload = await response.json();
-        const serverEntries = normalizeManualWorkEntries(payload?.value);
+        const serverEntries = normalizeManualWorkEntries(stored.value);
         if (serverEntries.length === 0) {
           if (this.manualWorkEntries.length > 0) this.saveManualWorkEntries();
           return;
@@ -1340,14 +1341,9 @@ export default {
       } catch (err) {
         console.warn('Could not read local weekly summaries:', err);
       }
-      if (typeof fetch === 'undefined') return localStore;
       try {
-        const response = await fetch(`/focusfrog-storage/${WEEKLY_SUMMARY_SERVER_KEY}`, {
-          cache: 'no-store',
-        });
-        if (!response.ok) return localStore;
-        const payload = await response.json();
-        return mergeWeeklySummaryStores(localStore, normalizeWeeklySummaryStore(payload?.value));
+        const stored = await loadStoredValue(WEEKLY_SUMMARY_SERVER_KEY);
+        return mergeWeeklySummaryStores(localStore, normalizeWeeklySummaryStore(stored.value));
       } catch (err) {
         console.warn('Could not load FocusFrog weekly summaries:', err);
         return localStore;
@@ -1362,16 +1358,8 @@ export default {
       } catch (err) {
         console.warn('Could not save local weekly summaries:', err);
       }
-      if (typeof fetch === 'undefined') return;
-      try {
-        const response = await fetch(`/focusfrog-storage/${WEEKLY_SUMMARY_SERVER_KEY}`, {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ value: store }),
-        });
-        if (!response.ok) console.warn(`Could not save weekly summaries (${response.status})`);
-      } catch (err) {
-        console.warn('Could not save FocusFrog weekly summaries:', err);
+      if (!(await saveStoredValue(WEEKLY_SUMMARY_SERVER_KEY, store))) {
+        console.warn('Could not save FocusFrog weekly summaries.');
       }
     },
 

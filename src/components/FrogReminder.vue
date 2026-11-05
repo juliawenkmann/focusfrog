@@ -33,6 +33,7 @@ import {
   frogPlanDate,
   FrogReminderHistory,
 } from '~/util/frogReminders';
+import { peekStoredValue } from '~/util/focusfrogStorage';
 
 interface FrogPlanRecord {
   date?: string;
@@ -107,21 +108,14 @@ export default {
       if (typeof localStorage === 'undefined') return;
       localStorage.setItem(REMINDER_STORAGE_KEY, JSON.stringify(reminderHistory));
     },
-    async loadServerValue(key: string) {
-      if (typeof fetch === 'undefined') return null;
-      try {
-        const response = await fetch(`/focusfrog-storage/${key}`, { cache: 'no-store' });
-        if (!response.ok) return null;
-        const payload = await response.json();
-        return payload?.value ?? null;
-      } catch {
-        return null;
-      }
-    },
     async activeFrog(now: Date): Promise<{ id: string; title: string } | null> {
       const planDate = frogPlanDate(now);
       const localFrog = readStoredValue<FrogPlanRecord>(TODO_FROG_STORAGE_KEY);
-      const serverFrog = (await this.loadServerValue('todoFrog')) as FrogPlanRecord | null;
+      const [frogValue, todosValue] = await Promise.all([
+        peekStoredValue('todoFrog'),
+        peekStoredValue('todos'),
+      ]);
+      const serverFrog = frogValue.value as FrogPlanRecord | null;
       const frog =
         serverFrog?.date === planDate
           ? serverFrog
@@ -132,7 +126,7 @@ export default {
       if (!frog?.todoId || frog.eatenToday) return null;
 
       const localTodos = readStoredValue<TodoRecord[]>(TODO_STORAGE_KEY);
-      const serverTodos = (await this.loadServerValue('todos')) as TodoRecord[] | null;
+      const serverTodos = todosValue.value as TodoRecord[] | null;
       const todos = Array.isArray(serverTodos)
         ? [...serverTodos, ...(Array.isArray(localTodos) ? localTodos : [])]
         : Array.isArray(localTodos)
@@ -212,7 +206,7 @@ export default {
 <style lang="scss" scoped>
 .frog-reminder {
   position: fixed;
-  z-index: 1080;
+  z-index: 1034;
   top: 5rem;
   right: 1.25rem;
   display: grid;

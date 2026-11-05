@@ -17,6 +17,8 @@
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
+    "build:cloud": "VUE_APP_FOCUSFROG_TARGET=cloud vue-cli-service build --dest dist-cloud && printf '*.map\\n' > dist-cloud/.assetsignore",
+    "deploy:cloud": "npm run build:cloud && npx -y wrangler@4 deploy",
     "deploy:firebase": "npx -y firebase-tools@15.34.0 deploy --only firestore,auth",
     "test": "jest",
     "test:unit": "jest --selectProjects jsdom",

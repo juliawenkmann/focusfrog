@@ -4,11 +4,11 @@
     <meta charset="utf-8" />
     <title>FocusFrog</title>
     <link rel="icon" type="image/svg+xml" href="/focusfrog-logo.svg" />
-    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
     <!-- Verify with https://csp-evaluator.withgoogle.com/ -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self' <%= htmlWebpackPlugin.options.templateParameters.cspDefaultSrc %> https://api.github.com/repos/ActivityWatch/activitywatch/releases/latest; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; script-src 'self' 'unsafe-eval'"
+      content="default-src 'self' <%= htmlWebpackPlugin.options.templateParameters.cspDefaultSrc %> https://api.github.com/repos/ActivityWatch/activitywatch/releases/latest; connect-src 'self' <%= htmlWebpackPlugin.options.templateParameters.cspDefaultSrc %> https://api.github.com/repos/ActivityWatch/activitywatch/releases/latest https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com http://127.0.0.1:9099 http://127.0.0.1:8080; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; script-src 'self' 'unsafe-eval'"
     />
   </head>
   <body>

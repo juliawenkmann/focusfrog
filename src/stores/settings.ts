@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { watch } from 'vue';
 import moment, { Moment } from 'moment';
 import { getClient } from '~/util/awclient';
 import {
@@ -12,6 +13,9 @@ import { SavedQuery } from '~/util/savedQueries';
 import { View, defaultViews } from '~/stores/views';
 import type { PrivacyFilterRule } from '~/util/privacyFilters';
 import { DEFAULT_FLOWER_BACKGROUND, normalizeFlowerBackground } from '~/util/flowerBackgrounds';
+import { onOwnerSignIn } from '~/sync/cloud';
+import { IS_CLOUD_BUILD } from '~/sync/config';
+import { loadStoredValue, onStoredValueChange, saveStoredValue } from '~/util/focusfrogStorage';
 import { isEqual } from 'lodash';
 
 function jsonEq(a: any, b: any) {
@@ -32,6 +36,39 @@ const LEGACY_THEME_KEYS = ['timetracker.dashboardTheme', 'dayBloomTheme'];
 // Settings of removed pages (the Timeline view used `durationDefault`).
 const OBSOLETE_SETTING_KEYS = ['durationDefault'];
 const LANDING_PAGE_REDIRECTS: Record<string, string> = { '/timeline': '/time-blocking' };
+
+// Settings every device shares through the cloud: the look and where a day starts.
+const CLOUD_SETTING_KEYS = [
+  'focusFrogTheme',
+  'focusFrogFlowerBackground',
+  'startOfDay',
+  'startOfWeek',
+] as const;
+
+function cloudSettingsValue(
+  state: Pick<State, (typeof CLOUD_SETTING_KEYS)[number]>
+): Record<string, unknown> {
+  return Object.fromEntries(CLOUD_SETTING_KEYS.map(key => [key, state[key]]));
+}
+
+function normalizeCloudSettings(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object') return {};
+  const raw = value as Record<string, unknown>;
+  const settings: Record<string, unknown> = {};
+  if (raw.focusFrogTheme !== undefined) {
+    settings.focusFrogTheme = normalizeFocusFrogTheme(raw.focusFrogTheme);
+  }
+  if (raw.focusFrogFlowerBackground !== undefined) {
+    settings.focusFrogFlowerBackground = normalizeFlowerBackground(raw.focusFrogFlowerBackground);
+  }
+  if (typeof raw.startOfDay === 'string' && /^\d{2}:\d{2}$/.test(raw.startOfDay)) {
+    settings.startOfDay = raw.startOfDay;
+  }
+  if (typeof raw.startOfWeek === 'string' && raw.startOfWeek) {
+    settings.startOfWeek = raw.startOfWeek;
+  }
+  return settings;
+}
 
 function normalizeLegacySettingsKey(key: string): string {
   return LEGACY_THEME_KEYS.includes(key) ? 'focusFrogTheme' : key;
@@ -167,8 +204,8 @@ export const useSettingsStore = defineStore('settings', {
       }
       const client = getClient();
 
-      // Fetch from server, fall back to localStorage
-      const server_settings = await client.get_settings();
+      // Fetch from server, fall back to localStorage (the phone build has no server)
+      const server_settings = IS_CLOUD_BUILD ? {} : await client.get_settings();
 
       // Build a unified map: server value wins, localStorage is fallback.
       // Skip keys that are missing from BOTH sources — otherwise `null` from
@@ -278,14 +315,15 @@ export const useSettingsStore = defineStore('settings', {
       }
       // We want to avoid saving to localStorage to not accidentally mess up pre-migration data
       // For example, if the user is using several browsers, and opened in their non-main browser on first run after upgrade.
-      const saveToLocalStorage = false;
+      // The phone build has no server, so it keeps its settings on the device.
+      const saveToLocalStorage = IS_CLOUD_BUILD;
 
       // Save to localStorage and backend
       // NOTE: localStorage deprecated, will be removed in future
       const client = getClient();
 
-      // Fetch current settings from server
-      const server_settings = await client.get_settings();
+      // Fetch current settings from server (the phone build keeps them on the device)
+      const server_settings = IS_CLOUD_BUILD ? null : await client.get_settings();
 
       // Save settings
       for (const key of Object.keys(this.$state)) {
@@ -313,6 +351,7 @@ export const useSettingsStore = defineStore('settings', {
         }
 
         // Save changed settings to backend
+        if (!server_settings) continue;
         if (server_settings[key] === undefined || !jsonEq(server_settings[key], value)) {
           if (server_settings[key] === undefined && value === false) {
             // Skip saving settings that are set to false and not already saved on the server
@@ -332,6 +371,16 @@ export const useSettingsStore = defineStore('settings', {
       // After save, reload
       await this.load({ save: false });
     },
+    // Settings changed on another device (the theme picked on the phone, ...).
+    async applyCloudSettings(value: unknown) {
+      const changes = Object.fromEntries(
+        Object.entries(normalizeCloudSettings(value)).filter(
+          ([key, setting]) => !jsonEq(this.$state[key], setting)
+        )
+      );
+      if (!Object.keys(changes).length) return;
+      await this.update(changes);
+    },
     async update(new_state: Record<string, any>) {
       console.log('Updating state', new_state);
       await this.ensureLoaded();
@@ -340,3 +389,20 @@ export const useSettingsStore = defineStore('settings', {
     },
   },
 });
+
+// Keeps the shared settings in step with the cloud while the owner is signed in: changes
+// on this device go up (only when they differ), changes from another device come down.
+export function connectCloudSettings(): void {
+  const store = useSettingsStore();
+  watch(
+    () => cloudSettingsValue(store.$state),
+    value => void saveStoredValue('settings', value)
+  );
+  onStoredValueChange('settings', value => void store.applyCloudSettings(value));
+  onOwnerSignIn(async () => {
+    await store.ensureLoaded();
+    const { value } = await loadStoredValue('settings');
+    if (value) await store.applyCloudSettings(value);
+    else void saveStoredValue('settings', cloudSettingsValue(store.$state));
+  });
+}

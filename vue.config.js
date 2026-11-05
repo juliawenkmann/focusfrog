@@ -76,22 +76,40 @@ export default {
   },
   pwa: {
     name: 'FocusFrog',
+    themeColor: '#f0fdf4',
+    msTileColor: '#f0fdf4',
+    // Opens full screen when added to the phone's home screen.
+    appleMobileWebAppCapable: 'yes',
     iconPaths: {
       faviconSVG: 'focusfrog-logo.svg',
       favicon32: 'logo.png',
       favicon16: 'logo.png',
-      appleTouchIcon: 'logo.png',
-      //maskIcon: 'logo.png',
+      appleTouchIcon: 'icons/apple-touch-icon.png',
       msTileImage: 'logo.png',
     },
     manifestOptions: {
+      description: 'Todos, dreams and hours — eat the frog first.',
+      start_url: './#/todos',
+      background_color: '#f0fdf4',
       icons: [
+        { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+        { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
         {
-          src: 'logo.png',
+          src: 'icons/icon-maskable-512.png',
           sizes: '512x512',
           type: 'image/png',
+          purpose: 'maskable',
         },
       ],
+    },
+    // The phone build's offline support (src/sw.js) with the exact list of built files.
+    // Pictures are cached once shown instead (several MB).
+    workboxPluginMode: 'InjectManifest',
+    workboxOptions: {
+      swSrc: './src/sw.js',
+      swDest: 'sw.js',
+      exclude: [/\.map$/, /\.(?:png|jpe?g|webp)$/, /^_headers$/],
+      maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
     },
   },
   pluginOptions: {},

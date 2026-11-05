@@ -918,6 +918,7 @@ import {
   TodoProject,
   TODO_PROJECT_COLORS,
 } from '~/util/todoProjects';
+import { loadStoredValue, onStoredValueChange, saveStoredValue } from '~/util/focusfrogStorage';
 
 type RepeatRule = 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'custom';
 type TodoArea = 'work' | 'personal' | 'health' | 'home' | 'admin';
@@ -994,7 +995,7 @@ const TODO_SERVER_STORAGE_KEYS = {
   projects: 'todoProjects',
   dayPlan: 'todoDayPlan',
   frog: 'todoFrog',
-};
+} as const;
 const TODO_EDITOR_MODAL_ID = 'todo-editor-modal';
 const CALENDAR_PAST_BUFFER_DAYS = 14;
 const CALENDAR_FUTURE_DAYS = 28;
@@ -1555,6 +1556,17 @@ export default {
     this.startProgressIntro();
     this.planRolloverTimer = window.setInterval(this.handlePlanDayRollover, 60 * 1000);
     void this.loadServerTodoState();
+    // Edits made on another device (the phone) while this page is open.
+    [
+      onStoredValueChange(TODO_SERVER_STORAGE_KEYS.todos, this.applyCloudTodos),
+      onStoredValueChange(TODO_SERVER_STORAGE_KEYS.projects, this.applyCloudProjects),
+      onStoredValueChange(TODO_SERVER_STORAGE_KEYS.dayPlan, value => {
+        this.applyCloudDayPlan(value);
+        this.pruneDayPlan();
+        this.syncFrogTodoToFirstPlan();
+      }),
+      onStoredValueChange(TODO_SERVER_STORAGE_KEYS.frog, this.applyCloudFrog),
+    ].forEach(stop => this.$once('hook:beforeDestroy', stop));
   },
   beforeDestroy() {
     this.closeProjectMenu();
@@ -1848,27 +1860,68 @@ export default {
       if (!project || !todoId) return;
       this.assignTodoProject(todoId, project.id);
     },
-    async loadServerValue(key: string) {
-      if (typeof fetch === 'undefined') return null;
-      try {
-        const response = await fetch(`/focusfrog-storage/${key}`, { cache: 'no-store' });
-        if (!response.ok) return null;
-        const payload = await response.json();
-        return payload?.value ?? null;
-      } catch (err) {
-        console.warn('Could not load FocusFrog server storage:', key, err);
-        return null;
-      }
+    // While signed in to the cloud, its copy replaces this page's: merging would bring
+    // back todos that were deleted on another device.
+    applyCloudTodos(value: unknown) {
+      const todos = (Array.isArray(value) ? value : [])
+        .map(this.normalizeTodo)
+        .sort((a, b) => this.todoDueMoment(a).valueOf() - this.todoDueMoment(b).valueOf());
+      if (JSON.stringify(todos) === JSON.stringify(this.todos)) return;
+      this.todos = todos;
+      this.saveTodos();
+      this.ensureCalendarCoversAnchor();
     },
-    saveServerValue(key: string, value: unknown) {
-      if (typeof fetch === 'undefined') return;
-      fetch(`/focusfrog-storage/${key}`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ value }),
-      }).catch(err => {
-        console.warn('Could not save FocusFrog server storage:', key, err);
-      });
+    applyCloudProjects(value: unknown) {
+      const projects = normalizeTodoProjects(Array.isArray(value) ? value : []).sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+      if (JSON.stringify(projects) === JSON.stringify(this.projects)) return;
+      this.projects = projects;
+      this.saveProjects();
+    },
+    applyCloudDayPlan(value: unknown) {
+      const plan = value as Partial<DayPlanRecord> | null;
+      if (!plan || !Array.isArray(plan.todoIds)) {
+        // Nothing in the cloud yet: this device's plan becomes the shared one.
+        this.saveDayPlan();
+        return;
+      }
+      const today = currentPlanDate();
+      const ids = plan.todoIds.filter(id => typeof id === 'string');
+      const nextIds =
+        plan.date === today
+          ? ids
+          : this.rollOverDayPlanIds(ids, typeof plan.date === 'string' ? plan.date : today);
+      this.planDayDate = today;
+      if (plan.date === today && JSON.stringify(nextIds) === JSON.stringify(this.dayPlanIds)) {
+        return;
+      }
+      this.dayPlanIds = nextIds;
+      this.saveDayPlan();
+    },
+    applyCloudFrog(value: unknown) {
+      const frog = value as Partial<FrogPlanRecord> | null;
+      if (!frog || typeof frog !== 'object') {
+        this.saveFrogTodo();
+        return;
+      }
+      const isToday = frog.date === currentPlanDate();
+      const todoId = isToday && typeof frog.todoId === 'string' ? frog.todoId : '';
+      const eatenToday = Boolean(isToday && frog.eatenToday);
+      const eatenTitle =
+        isToday && typeof frog.eatenTodoTitle === 'string' ? frog.eatenTodoTitle : '';
+      if (
+        isToday &&
+        todoId === this.frogTodoId &&
+        eatenToday === this.frogEatenToday &&
+        eatenTitle === this.frogEatenTitle
+      ) {
+        return;
+      }
+      this.frogTodoId = todoId;
+      this.frogEatenToday = eatenToday;
+      this.frogEatenTitle = eatenTitle;
+      this.saveFrogTodo();
     },
     mergeTodos(localTodos: TodoItem[], serverTodos: TodoItem[]): TodoItem[] {
       const byId = new Map<string, TodoItem>();
@@ -1888,12 +1941,27 @@ export default {
       );
     },
     async loadServerTodoState() {
-      const [serverTodos, serverProjects, serverDayPlan, serverFrog] = await Promise.all([
-        this.loadServerValue(TODO_SERVER_STORAGE_KEYS.todos),
-        this.loadServerValue(TODO_SERVER_STORAGE_KEYS.projects),
-        this.loadServerValue(TODO_SERVER_STORAGE_KEYS.dayPlan),
-        this.loadServerValue(TODO_SERVER_STORAGE_KEYS.frog),
+      const [todos, projects, dayPlan, frog] = await Promise.all([
+        loadStoredValue(TODO_SERVER_STORAGE_KEYS.todos),
+        loadStoredValue(TODO_SERVER_STORAGE_KEYS.projects),
+        loadStoredValue(TODO_SERVER_STORAGE_KEYS.dayPlan),
+        loadStoredValue(TODO_SERVER_STORAGE_KEYS.frog),
       ]);
+      if (todos.fromCloud) {
+        this.applyCloudProjects(projects.value);
+        this.applyCloudTodos(todos.value);
+        this.applyCloudDayPlan(dayPlan.value);
+        this.applyCloudFrog(frog.value);
+        this.pruneDayPlan();
+        this.syncFrogTodoToFirstPlan();
+        return;
+      }
+      const [serverTodos, serverProjects, serverDayPlan, serverFrog]: any[] = [
+        todos.value,
+        projects.value,
+        dayPlan.value,
+        frog.value,
+      ];
 
       if (Array.isArray(serverProjects) && serverProjects.length > 0) {
         const mergedProjects = mergeTodoProjects(
@@ -1905,7 +1973,7 @@ export default {
           this.saveProjects(false);
         }
       } else if (this.projects.length > 0) {
-        this.saveServerValue(TODO_SERVER_STORAGE_KEYS.projects, this.projects);
+        void saveStoredValue(TODO_SERVER_STORAGE_KEYS.projects, this.projects);
       }
 
       if (Array.isArray(serverTodos) && serverTodos.length > 0) {
@@ -1916,7 +1984,7 @@ export default {
           this.ensureCalendarCoversAnchor();
         }
       } else if (this.todos.length > 0) {
-        this.saveServerValue(TODO_SERVER_STORAGE_KEYS.todos, this.todos);
+        void saveStoredValue(TODO_SERVER_STORAGE_KEYS.todos, this.todos);
       }
 
       const today = currentPlanDate();
@@ -1981,7 +2049,7 @@ export default {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(this.todos));
       }
-      if (syncServer) this.saveServerValue(TODO_SERVER_STORAGE_KEYS.todos, this.todos);
+      if (syncServer) void saveStoredValue(TODO_SERVER_STORAGE_KEYS.todos, this.todos);
     },
     loadProjects() {
       if (typeof localStorage === 'undefined') return;
@@ -1999,7 +2067,7 @@ export default {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(TODO_PROJECT_STORAGE_KEY, JSON.stringify(this.projects));
       }
-      if (syncServer) this.saveServerValue(TODO_SERVER_STORAGE_KEYS.projects, this.projects);
+      if (syncServer) void saveStoredValue(TODO_SERVER_STORAGE_KEYS.projects, this.projects);
     },
     loadDayPlan() {
       if (typeof localStorage === 'undefined') return;
@@ -2032,7 +2100,7 @@ export default {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(TODO_DAY_PLAN_STORAGE_KEY, JSON.stringify(record));
       }
-      if (syncServer) this.saveServerValue(TODO_SERVER_STORAGE_KEYS.dayPlan, record);
+      if (syncServer) void saveStoredValue(TODO_SERVER_STORAGE_KEYS.dayPlan, record);
     },
     loadFrogTodo() {
       if (typeof localStorage === 'undefined') return;
@@ -2069,7 +2137,7 @@ export default {
           })
         );
       }
-      if (syncServer) this.saveServerValue(TODO_SERVER_STORAGE_KEYS.frog, record);
+      if (syncServer) void saveStoredValue(TODO_SERVER_STORAGE_KEYS.frog, record);
     },
     isTodoDoneForPlanDate(todo: TodoItem, planDate: string): boolean {
       if (todo.completed) return true;

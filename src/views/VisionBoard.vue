@@ -127,11 +127,12 @@ div.vision-board-page(:aria-busy="loading ? 'true' : 'false'")
       :class="[cardPaletteClass(item), { 'vision-card--achieved': item.status === 'achieved', 'vision-card--leaving': leavingIds.includes(item.id), 'vision-card--attention': needsAttention(item), 'vision-card--photo': item.imageId, 'vision-card--counter': item.counterTarget }]"
     )
       img.vision-card-image(
-        v-if="item.imageId"
-        :src="itemImageUrl(item)"
+        v-if="photoUrl(item.imageId)"
+        :src="photoUrl(item.imageId)"
         :alt="'Vision board background for ' + item.title"
         loading="lazy"
         decoding="async"
+        @error="photoMissingLocally(item.imageId)"
       )
       div.vision-card-scrim
       template(v-if="arranging")
@@ -353,7 +354,12 @@ div.vision-board-page(:aria-busy="loading ? 'true' : 'false'")
               @click="resetFileInputValue"
               @change="handleImageChange"
             )
-            img(v-if="draftImageUrl" :src="draftImageUrl" alt="Selected background preview")
+            img(
+              v-if="draftImageUrl"
+              :src="draftImageUrl"
+              alt="Selected background preview"
+              @error="photoMissingLocally(draft.imageId)"
+            )
             div.vision-image-picker-copy(v-else)
               span.vision-image-picker-icon
                 icon(name="camera")
@@ -413,7 +419,6 @@ import {
   visionBoardCounterProgress,
   visionBoardItemNeedsAttention,
   visionBoardItemUsesAccountability,
-  visionImageUrl,
   VisionBoardDocument,
   VisionBoardItem,
   VisionBoardSort,
@@ -422,6 +427,13 @@ import {
   VISION_BOARD_STORAGE_KEY,
   VISION_COUNTER_MAX,
 } from '~/util/visionBoard';
+import { loadStoredValue, onStoredValueChange, saveStoredValue } from '~/util/focusfrogStorage';
+import {
+  deleteVisionPhoto,
+  storeVisionPhoto,
+  visionPhotoMissingLocally,
+  visionPhotoUrl,
+} from '~/sync/visionImages';
 
 type VisionFilter = 'all' | 'attention' | 'dreaming' | 'achieved';
 
@@ -435,13 +447,6 @@ interface VisionDraft {
   counterTarget: number;
   counterUnit: string;
   imageId: string;
-}
-
-interface VisionImageUpload {
-  id: string;
-  url: string;
-  mimeType: string;
-  size: number;
 }
 
 interface VisionBoardPersistenceResult {
@@ -525,6 +530,8 @@ export default {
       // Cards can be dragged from anywhere except their own controls (the grip still works).
       dragFilter: 'input, label, a, select, textarea, button:not(.vision-drag-handle)',
       reducedMotion: false,
+      // True while the board comes from the cloud (signed in to phone sync).
+      cloudActive: false,
       filters: [
         { value: 'all' as VisionFilter, label: 'All' },
         { value: 'dreaming' as VisionFilter, label: 'Open' },
@@ -587,7 +594,7 @@ export default {
     draftImageUrl(): string {
       if (this.pendingImageUrl) return this.pendingImageUrl;
       if (!this.removeExistingImage && this.draft.imageId) {
-        return visionImageUrl(this.draft.imageId);
+        return visionPhotoUrl(this.draft.imageId);
       }
       return '';
     },
@@ -605,6 +612,11 @@ export default {
       this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     }
     this.loadSortPreference();
+    // Dreams changed on another device (the phone) while the board is open.
+    this.$once(
+      'hook:beforeDestroy',
+      onStoredValueChange(VISION_BOARD_SERVER_KEY, this.applyCloudDocument)
+    );
     await this.loadBoard();
   },
   beforeDestroy() {
@@ -942,9 +954,8 @@ export default {
         ? `Goal reached for ${item.title}: ${progress}`
         : `Add one to ${item.title}; currently ${progress}`;
     },
-    itemImageUrl(item: VisionBoardItem): string {
-      return visionImageUrl(item.imageId);
-    },
+    photoUrl: visionPhotoUrl,
+    photoMissingLocally: visionPhotoMissingLocally,
     cardPaletteClass(item: VisionBoardItem): string {
       const seed = Array.from(item.id).reduce((sum, character) => sum + character.charCodeAt(0), 0);
       return `vision-card--palette-${seed % 5}`;
@@ -1103,40 +1114,38 @@ export default {
       }
     },
     async loadServerDocument(): Promise<VisionBoardDocument | null> {
-      if (typeof fetch === 'undefined') return null;
       try {
-        const response = await fetch(`/focusfrog-storage/${VISION_BOARD_SERVER_KEY}`, {
-          cache: 'no-store',
-        });
-        if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) {
-          return null;
-        }
-        const payload = await response.json();
-        return payload?.value === null || payload?.value === undefined
+        const stored = await loadStoredValue(VISION_BOARD_SERVER_KEY);
+        this.cloudActive = stored.fromCloud;
+        return stored.value === null || stored.value === undefined
           ? null
-          : normalizeVisionBoardDocument(payload.value);
+          : normalizeVisionBoardDocument(stored.value);
       } catch (error) {
         console.warn('Could not load FocusFrog vision board storage:', error);
         return null;
       }
     },
-    async saveServerDocument(boardDocument: VisionBoardDocument): Promise<boolean> {
-      if (typeof fetch === 'undefined') return false;
-      try {
-        const response = await fetch(`/focusfrog-storage/${VISION_BOARD_SERVER_KEY}`, {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ value: boardDocument }),
-        });
-        return response.ok && response.headers.get('content-type')?.includes('application/json');
-      } catch (error) {
-        console.warn('Could not save FocusFrog vision board storage:', error);
-        return false;
-      }
+    saveServerDocument(boardDocument: VisionBoardDocument): Promise<boolean> {
+      return saveStoredValue(VISION_BOARD_SERVER_KEY, boardDocument);
+    },
+    // While signed in, the cloud's board replaces this page's: choosing the newer of two
+    // whole boards would drop dreams added on another device.
+    applyCloudDocument(value: unknown) {
+      const cloudDocument = normalizeVisionBoardDocument(value);
+      if (JSON.stringify(cloudDocument.items) === JSON.stringify(this.items)) return;
+      this.items = cloudDocument.items;
+      this.boardUpdatedAt = cloudDocument.updatedAt;
+      this.writeLocalDocument(cloudDocument);
+      void this.saveServerDocument(cloudDocument);
     },
     async loadBoard() {
       const localDocument = this.readLocalDocument();
       const serverDocument = await this.loadServerDocument();
+      if (this.cloudActive) {
+        this.applyCloudDocument(serverDocument);
+        this.loading = false;
+        return;
+      }
       const selectedDocument = chooseNewestVisionBoardDocument(localDocument, serverDocument);
       this.items = selectedDocument.items;
       this.boardUpdatedAt = selectedDocument.updatedAt;
@@ -1179,28 +1188,7 @@ export default {
       }
       return { localSaved, serverSaved };
     },
-    async uploadImage(file: File): Promise<VisionImageUpload> {
-      const response = await fetch('/focusfrog-vision-images', {
-        method: 'POST',
-        headers: { 'content-type': file.type },
-        body: file,
-      });
-      const payload = response.headers.get('content-type')?.includes('application/json')
-        ? await response.json()
-        : null;
-      if (!response.ok || !payload?.id) {
-        throw new Error(payload?.error || 'FocusFrog could not store this photo.');
-      }
-      return payload as VisionImageUpload;
-    },
-    async deleteImage(imageId: string) {
-      if (!imageId || typeof fetch === 'undefined') return;
-      try {
-        await fetch(visionImageUrl(imageId), { method: 'DELETE' });
-      } catch (error) {
-        console.warn('Could not remove an unused vision board image:', error);
-      }
-    },
+    deleteImage: deleteVisionPhoto,
     async saveItem() {
       const title = this.draft.title.trim();
       if (!title || this.saving || this.loading) return;
@@ -1254,9 +1242,8 @@ export default {
 
       try {
         if (this.pendingImage) {
-          const upload = await this.uploadImage(this.pendingImage);
-          nextImageId = upload.id;
-          uploadedImageId = upload.id;
+          uploadedImageId = await storeVisionPhoto(this.pendingImage);
+          nextImageId = uploadedImageId;
         }
 
         const now = new Date().toISOString();

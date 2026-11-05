@@ -1,12 +1,35 @@
 <template lang="pug">
-div(:class="{'fixed-top-padding': fixedTopMenu}")
-  b-navbar.aw-navbar(toggleable="lg" :fixed="fixedTopMenu ? 'top' : null")
+div.app-header(:class="{'fixed-top-padding': fixedTopMenu}")
+  b-navbar.aw-navbar(:toggleable="isCloudBuild ? 'md' : 'lg'" :fixed="fixedTopMenu ? 'top' : null")
     b-navbar-brand.app-brand(to="/home" aria-label="FocusFrog home")
       span.brand-logo(aria-hidden="true")
         img.brand-logo-img(src="/focusfrog-logo.svg" alt="" draggable="false")
       span.brand-copy
         span.brand-name FocusFrog
         span.brand-tagline eat the frog first
+
+    //- Sync and theme stay in the bar on every screen size (not behind the menu button).
+    div.app-header-tools
+      cloud-account
+      b-button-group.app-theme-toggle(size="sm" aria-label="FocusFrog theme")
+        b-button(
+          v-for="option in focusFrogThemeOptions"
+          :key="option.value"
+          :variant="focusFrogTheme === option.value ? 'primary' : 'outline-secondary'"
+          :title="option.title"
+          :aria-label="option.title"
+          @click="setFocusFrogTheme(option.value)"
+        )
+          span.theme-flower-symbol(v-if="option.value === 'flower'" aria-hidden="true")
+            span.theme-flower-petal.theme-flower-petal--1
+            span.theme-flower-petal.theme-flower-petal--2
+            span.theme-flower-petal.theme-flower-petal--3
+            span.theme-flower-petal.theme-flower-petal--4
+            span.theme-flower-petal.theme-flower-petal--5
+            span.theme-flower-petal.theme-flower-petal--6
+            span.theme-flower-center
+          icon(v-else :name="option.icon")
+
     b-navbar-toggle(target="nav-collapse")
 
     b-collapse#nav-collapse(is-nav)
@@ -21,7 +44,7 @@ div(:class="{'fixed-top-padding': fixedTopMenu}")
             icon(name="calendar-week")
             | Time Blocking
 
-        b-nav-item(to="/pomodoro")
+        b-nav-item(v-if="!isCloudBuild" to="/pomodoro")
           div.px-2.px-lg-1
             icon(name="clock")
             | Pomodoro
@@ -34,31 +57,17 @@ div(:class="{'fixed-top-padding': fixedTopMenu}")
             icon(name="images")
             | Vision
 
-      b-navbar-nav.ml-auto
-        b-nav-form.app-theme-toggle-form
-          b-button-group.app-theme-toggle(size="sm" aria-label="FocusFrog theme")
-            b-button(
-              v-for="option in focusFrogThemeOptions"
-              :key="option.value"
-              :variant="focusFrogTheme === option.value ? 'primary' : 'outline-secondary'"
-              :title="option.title"
-              :aria-label="option.title"
-              @click="setFocusFrogTheme(option.value)"
-            )
-              span.theme-flower-symbol(v-if="option.value === 'flower'" aria-hidden="true")
-                span.theme-flower-petal.theme-flower-petal--1
-                span.theme-flower-petal.theme-flower-petal--2
-                span.theme-flower-petal.theme-flower-petal--3
-                span.theme-flower-petal.theme-flower-petal--4
-                span.theme-flower-petal.theme-flower-petal--5
-                span.theme-flower-petal.theme-flower-petal--6
-                span.theme-flower-center
-              icon(v-else :name="option.icon")
-
+      b-navbar-nav.ml-auto(v-if="!isCloudBuild")
         b-nav-item(to="/settings")
           div.px-2.px-lg-1
             icon(name="cog")
             | Settings
+
+  //- On phones the pages sit in a tab bar at the bottom, within thumb reach.
+  nav.app-tabbar(v-if="isCloudBuild" aria-label="FocusFrog pages")
+    router-link.app-tabbar-item(v-for="tab in tabs" :key="tab.to" :to="tab.to")
+      icon(:name="tab.icon")
+      span {{ tab.label }}
 </template>
 
 <style lang="scss" scoped>
@@ -78,18 +87,28 @@ import 'vue-awesome/icons/moon';
 import 'vue-awesome/icons/sun';
 
 import { mapState } from 'pinia';
+import CloudAccount from '~/components/CloudAccount.vue';
+import { IS_CLOUD_BUILD } from '~/sync/config';
 import { useSettingsStore } from '~/stores/settings';
 import { applyFlowerBackground, nextFlowerBackground } from '~/util/flowerBackgrounds';
 
 export default {
   name: 'Header',
+  components: { CloudAccount },
   data() {
     return {
       // Make configurable?
       fixedTopMenu: this.$isAndroid,
+      isCloudBuild: IS_CLOUD_BUILD,
     };
   },
   computed: {
+    // The phone's tab bar: the routes that name a tab (route.js).
+    tabs() {
+      return this.$router.options.routes
+        .filter(route => route.meta?.tab)
+        .map(route => ({ to: route.path, ...route.meta.tab }));
+    },
     ...mapState(useSettingsStore, ['focusFrogTheme', 'focusFrogFlowerBackground']),
     focusFrogThemeOptions() {
       return [
@@ -159,11 +178,26 @@ export default {
 <style lang="scss" scoped>
 @use '../style/globals' as *;
 
+// Above the page and the frog reminder (so the sync panel opens over them), below
+// dialogs (Bootstrap's backdrop starts at 1040).
+.app-header {
+  position: relative;
+  z-index: 1035;
+}
+
 .aw-navbar {
   background-color: white;
   border: solid $lightBorderColor;
   border-width: 0 0 1px 0;
   min-height: 3.6rem;
+}
+
+.app-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  order: 3;
+  margin-left: 0.5rem;
 }
 
 .aw-navbar .navbar-brand:not(.app-brand),
@@ -238,11 +272,6 @@ export default {
   &:hover {
     background-color: #ddd;
   }
-}
-
-.app-theme-toggle-form {
-  align-items: center;
-  margin: 0.25rem 0.55rem 0.25rem 0;
 }
 
 .app-theme-toggle {
@@ -338,9 +367,69 @@ export default {
     display: none;
   }
 
-  .app-theme-toggle-form {
-    margin-left: 0.2rem;
+  // Next to the menu button, which collapses the page links on small screens.
+  html:not(.ff-cloud) .app-header-tools {
+    order: 0;
+    margin-left: 0;
   }
+}
+
+.app-tabbar {
+  display: none;
+}
+
+// The phone build: tools stay in the bar, the pages move to the tab bar at the bottom.
+@media (max-width: 767.98px) {
+  html.ff-cloud .app-header-tools {
+    order: 0;
+    margin-left: 0;
+  }
+
+  html.ff-cloud .navbar-toggler,
+  html.ff-cloud #nav-collapse {
+    display: none !important;
+  }
+
+  .app-tabbar {
+    position: fixed;
+    z-index: 1030;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.25rem;
+    padding: 0.4rem 0.6rem calc(0.4rem + env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(15, 23, 42, 0.1);
+    background: rgba(255, 255, 255, 0.82);
+    box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.1);
+    backdrop-filter: blur(20px) saturate(1.8);
+  }
+}
+
+.app-tabbar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  min-height: 3.2rem;
+  border-radius: 14px;
+  color: #334155 !important;
+  font-size: 0.72rem;
+  font-weight: 750;
+  text-decoration: none !important;
+}
+
+.app-tabbar-item .fa-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: currentColor;
+}
+
+.app-tabbar-item.router-link-active {
+  background: rgba(16, 185, 129, 0.16);
+  color: #047857 !important;
 }
 </style>
 
