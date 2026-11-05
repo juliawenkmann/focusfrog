@@ -682,9 +682,15 @@ div.todos-page
                     span(v-if="todo.repeat !== 'none'") {{ repeatShortLabel(todo) }}
                   div.todo-card-notes(v-if="todo.notes") {{ todo.notes }}
                 div.todo-card-actions
-                  b-button(size="sm" variant="primary" type="button" @click="addToDayPlan(todo)")
-                    icon.mr-1(name="plus")
-                    | Add
+                  b-button(
+                    size="sm"
+                    variant="primary"
+                    type="button"
+                    title="Add to today's plan"
+                    @click="addToDayPlan(todo)"
+                  )
+                    icon.todo-add-icon(name="plus")
+                    span.todo-add-label Add
                   b-button(size="sm" variant="outline-secondary" title="Edit" @click="editTodo(todo)")
                     icon(name="pen")
 
@@ -5344,6 +5350,255 @@ html[data-dashboard-theme='contrast'] .todo-plan-choice-group-header {
   .todo-plan-actions {
     display: flex;
     flex-wrap: wrap;
+  }
+}
+
+.todo-add-icon {
+  margin-right: 0.25rem;
+}
+
+/* The phone: compact rows, so a screen shows many todos instead of a few. Only the
+   phone build sets html.ff-cloud; the Mac keeps its layout at every width. */
+@media (max-width: 700px) {
+  html.ff-cloud .todos-header {
+    gap: 0.55rem;
+  }
+
+  html.ff-cloud .todos-header h3 {
+    margin-bottom: 0.15rem !important;
+    font-size: 1.45rem;
+  }
+
+  html.ff-cloud .todos-header-actions {
+    width: 100%;
+    gap: 0.35rem;
+  }
+
+  html.ff-cloud .todos-header-actions .btn-group {
+    flex: 1 1 auto;
+  }
+
+  html.ff-cloud .todos-header-actions .btn {
+    padding: 0.28rem 0.4rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  html.ff-cloud .todos-header-actions .btn-group .fa-icon {
+    display: none;
+  }
+
+  /* Projects: one row that scrolls sideways. */
+  html.ff-cloud .todo-project-browser {
+    padding: 0.55rem 0.7rem;
+  }
+
+  html.ff-cloud .todo-project-browser-header {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  html.ff-cloud .todo-project-help {
+    display: none;
+  }
+
+  html.ff-cloud .todo-project-browser-actions .btn {
+    padding: 0.2rem 0.45rem;
+    font-size: 0.78rem;
+  }
+
+  html.ff-cloud .todo-project-list,
+  html.ff-cloud .todo-plan-filter,
+  html.ff-cloud .todo-frog-picker {
+    flex-wrap: nowrap;
+    margin-top: 0.5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  html.ff-cloud .todo-project-list::-webkit-scrollbar,
+  html.ff-cloud .todo-plan-filter::-webkit-scrollbar,
+  html.ff-cloud .todo-frog-picker::-webkit-scrollbar {
+    display: none;
+  }
+
+  html.ff-cloud .todo-project-pill,
+  html.ff-cloud .todo-plan-filter-chip,
+  html.ff-cloud .todo-frog-pill {
+    flex: 0 0 auto;
+    min-height: 1.85rem;
+    padding: 0.22rem 0.6rem;
+    white-space: nowrap;
+  }
+
+  html.ff-cloud .todo-plan-filter-label {
+    flex: 0 0 auto;
+  }
+
+  /* Day plan: header in one row, a smaller frog and progress card. */
+  html.ff-cloud .todo-plan-header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 0.6rem;
+    padding-bottom: 0.6rem;
+  }
+
+  html.ff-cloud .todo-plan-toolbar .btn {
+    padding: 0.2rem 0.45rem;
+    font-size: 0.78rem;
+  }
+
+  html.ff-cloud .todo-progress-card {
+    padding: 0.6rem 0.7rem;
+  }
+
+  html.ff-cloud .todo-progress-ring {
+    width: 3.6rem;
+    height: 3.6rem;
+  }
+
+  html.ff-cloud .todo-plan-panel {
+    padding: 0.65rem;
+  }
+
+  html.ff-cloud .todo-frog-card {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.7rem;
+    margin-top: 0.7rem;
+    padding: 0.65rem;
+  }
+
+  html.ff-cloud .todo-frog-illustration {
+    width: 5.2rem;
+    height: 4rem;
+    justify-self: auto;
+  }
+
+  html.ff-cloud .todo-frog-content h5 {
+    font-size: 1rem;
+  }
+
+  html.ff-cloud .todo-frog-copy {
+    font-size: 0.9rem;
+  }
+
+  /* Todos: one compact row each (title, then one line of details). */
+  html.ff-cloud .todo-plan-list {
+    gap: 0.35rem;
+    margin-top: 0.55rem;
+  }
+
+  html.ff-cloud .todo-plan-card,
+  html.ff-cloud .todo-plan-choice {
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.42rem 0.5rem;
+    border-left-width: 4px;
+  }
+
+  html.ff-cloud .todo-plan-card {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  html.ff-cloud .todo-plan-choice {
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin-top: 0.35rem;
+  }
+
+  html.ff-cloud .todo-plan-index {
+    width: 1.45rem;
+    height: 1.45rem;
+    font-size: 0.75rem;
+  }
+
+  html.ff-cloud .todo-card-title-row {
+    gap: 0.35rem;
+    font-size: 0.92rem;
+    line-height: 1.25;
+  }
+
+  /* A long title wraps once instead of being cut short. */
+  html.ff-cloud .todo-card-title-row strong {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  html.ff-cloud .todo-card-meta {
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+    margin-top: 0.1rem;
+    overflow: hidden;
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+
+  html.ff-cloud .todo-card-meta > * {
+    flex: 0 0 auto;
+  }
+
+  html.ff-cloud .todo-card-meta .todo-project-tag {
+    flex: 0 1 auto;
+    min-width: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+  }
+
+  html.ff-cloud .todo-card-meta .todo-project-tag span:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  html.ff-cloud .todo-add-label {
+    display: none;
+  }
+
+  html.ff-cloud .todo-add-icon {
+    margin-right: 0;
+  }
+
+  html.ff-cloud .todo-card-notes {
+    margin-top: 0.1rem;
+    overflow: hidden;
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  html.ff-cloud .todo-drag-handle {
+    display: none;
+  }
+
+  html.ff-cloud .todo-plan-actions,
+  html.ff-cloud .todo-card-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.3rem;
+  }
+
+  html.ff-cloud .todo-plan-actions .btn,
+  html.ff-cloud .todo-card-actions .btn {
+    padding: 0.2rem 0.45rem;
+    font-size: 0.78rem;
+  }
+
+  html.ff-cloud .todo-plan-choice-group-header {
+    margin: 0.55rem 0 0.1rem;
+  }
+
+  /* The list view's cards: the same compact row. */
+  html.ff-cloud .todo-card {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+    padding: 0.42rem 0.5rem;
+    border-left-width: 4px;
   }
 }
 
