@@ -5,9 +5,11 @@ rules_version = '2';
 // get nothing, even if they bypass the app.
 service cloud.firestore {
   match /databases/{database}/documents {
+    // The owner's account id and email (sign-ups are switched off in Firebase Auth).
     function isOwner(uid) {
       return request.auth != null &&
         request.auth.uid == uid &&
+        request.auth.uid in ['lAsGU1pK6AX2CHl408knqFYtLYq2'] &&
         request.auth.token.email in ['juliawenkmann@gmail.com'];
     }
 

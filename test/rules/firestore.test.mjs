@@ -8,7 +8,8 @@ import {
 } from '@firebase/rules-unit-testing';
 import { collection, deleteDoc, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
 
-const OWNER_UID = 'owner-uid';
+// Must match isOwner() in firebase/firestore.rules.
+const OWNER_UID = 'lAsGU1pK6AX2CHl408knqFYtLYq2';
 const OWNER_EMAIL = 'juliawenkmann@gmail.com';
 let env;
 
@@ -91,6 +92,14 @@ describe('only the owner sees FocusFrog data', () => {
       .firestore();
     await seed(['users', OWNER_UID, 'todos', 'todo-1'], todoDoc());
     await assertFails(getDoc(doc(impostor, 'users', OWNER_UID, 'todos', 'todo-1')));
+  });
+
+  test('a new account with the owner email gets no space of its own', async () => {
+    const impostor = env
+      .authenticatedContext('impostor-uid', { email: OWNER_EMAIL })
+      .firestore();
+    await assertFails(setDoc(doc(impostor, 'users', 'impostor-uid', 'todos', 't'), todoDoc('t')));
+    await assertFails(getDocs(collection(impostor, 'users', 'impostor-uid', 'todos')));
   });
 
   test('collections outside the allowed list are refused', async () => {
