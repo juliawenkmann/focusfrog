@@ -59,6 +59,7 @@ import { useBucketsStore } from '~/stores/buckets';
 import { useCategoryStore } from '~/stores/categories';
 import { useSettingsStore } from '~/stores/settings';
 import {
+  formatHoursMinutes,
   get_day_end_with_offset,
   get_day_start_with_offset,
   get_today_with_offset,
@@ -67,8 +68,7 @@ import type { CategoryDuration, WorkCategorySummary } from '~/util/workReport';
 import {
   addAfkGraceToActiveEvents,
   buildWorkSummaryQuery,
-  getSupportedWorkReportHosts,
-  getWorkReportHostOptions,
+  enabledWorkReportHosts,
   sumEventDurations,
 } from '~/util/workReport';
 import {
@@ -197,12 +197,7 @@ export default {
       await this.settingsStore.ensureLoaded();
       this.categoryStore.load();
       await this.bucketsStore.ensureLoaded();
-      this.supportedHosts = getSupportedWorkReportHosts(
-        getWorkReportHostOptions(this.bucketsStore.buckets || [])
-          .filter(option => !option.disabled)
-          .map(option => option.value),
-        this.bucketsStore.buckets || []
-      );
+      this.supportedHosts = enabledWorkReportHosts(this.bucketsStore.buckets || []);
     },
 
     getTodayTimeperiod(): string {
@@ -306,13 +301,7 @@ export default {
       };
     },
 
-    formatHours(seconds: number): string {
-      const totalMinutes = Math.round(seconds / 60);
-      const hours = Math.floor(totalMinutes / 60);
-      const minutes = totalMinutes % 60;
-      if (hours === 0) return `${minutes}m`;
-      return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
-    },
+    formatHours: formatHoursMinutes,
   },
 };
 </script>

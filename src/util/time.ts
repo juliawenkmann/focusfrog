@@ -28,6 +28,14 @@ export function seconds_to_duration(seconds: number) {
   return l.join(' ');
 }
 
+// 2h 05m, or 45m below an hour.
+export function formatHoursMinutes(seconds: number): string {
+  const totalMinutes = Math.round(Math.max(0, seconds) / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours ? `${hours}h ${String(minutes).padStart(2, '0')}m` : `${minutes}m`;
+}
+
 export function friendlydate(timestamp: string | Moment) {
   const now = moment();
   const m = moment.parseZone(timestamp);

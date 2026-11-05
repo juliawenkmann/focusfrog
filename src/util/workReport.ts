@@ -179,6 +179,16 @@ export function getSupportedWorkReportHosts(selectedHosts: string[], buckets: IB
   return selectedHosts.filter(host => !unsupportedHosts.has(host));
 }
 
+// The hosts the Hours numbers come from: every enabled, supported one.
+export function enabledWorkReportHosts(buckets: IBucket[]): string[] {
+  return getSupportedWorkReportHosts(
+    getWorkReportHostOptions(buckets)
+      .filter(option => !option.disabled)
+      .map(option => option.value),
+    buckets
+  );
+}
+
 export function expandSelectedCategories(
   allCategories: string[][],
   selectedCategories: string[][]

@@ -359,6 +359,24 @@ import {
 } from '~/util/time';
 import type { CategoryDuration, WorkCategorySummary } from '~/util/workReport';
 import {
+  addCategoryDuration,
+  applyManualWork,
+  dailyMeetingEntry,
+  DAILY_MEETING_WORK_CATEGORY,
+  ManualWorkEntry,
+  manualWorkEntryStart,
+  manualWorkSecondsInRange,
+  manualWorkSecondsInTimeperiods,
+  MANUAL_WORK_CATEGORY_OPTIONS,
+  MANUAL_WORK_SERVER_KEY,
+  normalizeManualWorkCategory,
+  normalizeManualWorkEntries,
+  normalizeManualWorkEntry,
+  sumManualWorkSeconds,
+  sumMeetingSeconds,
+  summarizeWorkQueryResult,
+} from '~/util/workDay';
+import {
   completedWeekStarts,
   createWeeklySummary,
   mergeWeeklySummaryStores,
@@ -372,14 +390,11 @@ import {
 import {
   addAfkGraceToActiveEvents,
   buildWorkSummaryQuery,
-  getSupportedWorkReportHosts,
-  getWorkReportHostOptions,
-  sumEventDurations,
+  enabledWorkReportHosts,
 } from '~/util/workReport';
 import {
   WORK_COLOR,
   NOT_WORK_COLOR,
-  MESSAGE_CALLS_CATEGORY,
   categorizeFocusFrogEvent,
   categoryColor,
   categoryKey,
@@ -413,17 +428,6 @@ interface ManualWorkDraft {
   minutes: number;
   categoryKey: string;
   note: string;
-}
-
-interface ManualWorkEntry {
-  id: string;
-  date: string;
-  startTime: string;
-  minutes: number;
-  category: string[];
-  note: string;
-  createdAt: string;
-  updatedAt: string;
 }
 
 interface PieRow {
@@ -488,26 +492,7 @@ const LIFE_BALANCE_FACTOR =
   WEEKLY_WORK_TARGET_SECONDS / (WEEK_SECONDS - WEEKLY_WORK_TARGET_SECONDS);
 const BALANCE_TOLERANCE = 0.08;
 const MANUAL_WORK_STORAGE_KEY = 'timetracker.manualWork.v1';
-const MANUAL_WORK_SERVER_KEY = 'manualWork';
 const MANUAL_WORK_MODAL_ID = 'manual-work-modal';
-const DAILY_MEETING_WORK_CATEGORY = ['Work', 'Meetings'];
-const MANUAL_WORK_DEFAULT_CATEGORY = DAILY_MEETING_WORK_CATEGORY;
-const MANUAL_WORK_CATEGORY_OPTIONS = [
-  { category: DAILY_MEETING_WORK_CATEGORY, text: 'Meetings' },
-  { category: ['Work', 'Planning'], text: 'Planning' },
-  { category: ['Work', 'Writing'], text: 'Writing' },
-  { category: ['Work', 'Programming'], text: 'Programming' },
-  { category: ['Work', 'Email'], text: 'Email' },
-  { category: ['Work', MESSAGE_CALLS_CATEGORY], text: MESSAGE_CALLS_CATEGORY },
-  { category: ['Work', 'AI Chats'], text: 'AI Chats' },
-  { category: ['Work', 'Manual time'], text: 'Manual time' },
-  { category: ['Work'], text: 'Uncategorized work' },
-].map(option => ({
-  ...option,
-  value: categoryKey(option.category),
-}));
-const DAILY_MEETING_WORK_MINUTES = 60;
-const DAILY_MEETING_WORK_START_TIME = '12:00';
 
 const WORK_SPLIT_COLORS = {
   work: WORK_COLOR,
@@ -556,24 +541,7 @@ function getTimelineMinuteTickStep(maxMinutes: number): number {
 
 function manualWorkCategoryFromKey(value: string): string[] {
   const matchingOption = MANUAL_WORK_CATEGORY_OPTIONS.find(option => option.value === value);
-  return [...(matchingOption?.category || MANUAL_WORK_DEFAULT_CATEGORY)];
-}
-
-function normalizeManualWorkCategory(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    const category = value.filter(item => typeof item === 'string') as string[];
-    if (category.length > 0 && category[0] === 'Work') return [...category];
-  }
-  if (typeof value === 'string' && value) {
-    const matchingOption = MANUAL_WORK_CATEGORY_OPTIONS.find(option => option.value === value);
-    if (matchingOption) return [...matchingOption.category];
-    try {
-      return normalizeManualWorkCategory(JSON.parse(value));
-    } catch {
-      return [...MANUAL_WORK_DEFAULT_CATEGORY];
-    }
-  }
-  return [...MANUAL_WORK_DEFAULT_CATEGORY];
+  return [...(matchingOption?.category || DAILY_MEETING_WORK_CATEGORY)];
 }
 
 function blankManualWorkDraft(): ManualWorkDraft {
@@ -589,7 +557,7 @@ function blankManualWorkDraft(): ManualWorkDraft {
     startTime: rounded.format('HH:mm'),
     hours: 1,
     minutes: 0,
-    categoryKey: categoryKey(MANUAL_WORK_DEFAULT_CATEGORY),
+    categoryKey: categoryKey(DAILY_MEETING_WORK_CATEGORY),
     note: 'Meeting',
   };
 }
@@ -657,8 +625,9 @@ export default {
       return this.activeSeconds > 0 ? Math.round((this.workSeconds / this.activeSeconds) * 100) : 0;
     },
     workMetricNote(): string {
-      const manualSeconds = this.manualWorkSecondsForTimeperiods(this.getTimeperiods());
-      const meetingSeconds = this.dailyMeetingWorkSecondsForTimeperiods(this.getTimeperiods());
+      const timeperiods = this.getTimeperiods();
+      const manualSeconds = sumManualWorkSeconds(this.manualWorkEntries, timeperiods);
+      const meetingSeconds = sumMeetingSeconds(timeperiods, this.todayKey());
       const additions = [];
       if (meetingSeconds > 0) additions.push(`meetings +${this.formatHours(meetingSeconds)}`);
       if (manualSeconds > 0) additions.push(`manual +${this.formatHours(manualSeconds)}`);
@@ -677,13 +646,11 @@ export default {
     },
     manualWorkEntriesForRange(): ManualWorkEntry[] {
       const timeperiods = this.getTimeperiods();
-      return this.manualWorkEntries
-        .filter(entry => this.manualWorkSecondsForEntryInTimeperiods(entry, timeperiods) > 0)
-        .sort(
-          (a, b) =>
-            this.manualWorkEntryStartMoment(b).valueOf() -
-            this.manualWorkEntryStartMoment(a).valueOf()
-        );
+      return this.sortedManualWorkEntries(
+        this.manualWorkEntries.filter(
+          entry => manualWorkSecondsInTimeperiods(entry, timeperiods) > 0
+        )
+      );
     },
     balancePeriodSeconds(): number {
       const now = moment();
@@ -972,12 +939,7 @@ export default {
     this.loadManualWorkEntries();
     await this.loadServerManualWorkEntries();
     await this.bucketsStore.ensureLoaded();
-    this.supportedHosts = getSupportedWorkReportHosts(
-      getWorkReportHostOptions(this.bucketsStore.buckets || [])
-        .filter(option => !option.disabled)
-        .map(option => option.value),
-      this.bucketsStore.buckets || []
-    );
+    this.supportedHosts = enabledWorkReportHosts(this.bucketsStore.buckets || []);
     await this.loadSummary();
     this.ensureWeeklySummaries().catch(err => {
       console.warn('Could not summarize finished weeks:', err);
@@ -1019,43 +981,11 @@ export default {
       this.manualWorkDraft = blankManualWorkDraft();
     },
 
-    normalizeManualWorkEntry(entry: any): ManualWorkEntry | null {
-      if (!entry || typeof entry !== 'object') return null;
-      const date = typeof entry.date === 'string' ? entry.date : '';
-      if (!moment(date, 'YYYY-MM-DD', true).isValid()) return null;
-      const minutes = Math.max(0, Math.round(Number(entry.minutes || 0)));
-      if (minutes <= 0) return null;
-      const startTime =
-        typeof entry.startTime === 'string' && /^\d{2}:\d{2}$/.test(entry.startTime)
-          ? entry.startTime
-          : '';
-      const category = normalizeManualWorkCategory(entry.category || entry.categoryKey);
-      const now = moment().toISOString();
-      return {
-        id:
-          typeof entry.id === 'string' && entry.id
-            ? entry.id
-            : `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        date,
-        startTime,
-        minutes,
-        category,
-        note: typeof entry.note === 'string' ? entry.note : '',
-        createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : now,
-        updatedAt: typeof entry.updatedAt === 'string' ? entry.updatedAt : now,
-      };
-    },
-
     loadManualWorkEntries() {
       if (typeof localStorage === 'undefined') return;
       try {
         const raw = localStorage.getItem(MANUAL_WORK_STORAGE_KEY);
-        const parsed = raw ? JSON.parse(raw) : [];
-        this.manualWorkEntries = Array.isArray(parsed)
-          ? parsed
-              .map(entry => this.normalizeManualWorkEntry(entry))
-              .filter((entry): entry is ManualWorkEntry => Boolean(entry))
-          : [];
+        this.manualWorkEntries = normalizeManualWorkEntries(raw ? JSON.parse(raw) : []);
       } catch (err) {
         console.error('Could not load manual work entries:', err);
         this.manualWorkEntries = [];
@@ -1076,6 +1006,12 @@ export default {
       });
     },
 
+    sortedManualWorkEntries(entries: ManualWorkEntry[]): ManualWorkEntry[] {
+      return entries.sort(
+        (a, b) => manualWorkEntryStart(b).valueOf() - manualWorkEntryStart(a).valueOf()
+      );
+    },
+
     async loadServerManualWorkEntries() {
       if (typeof fetch === 'undefined') return;
       try {
@@ -1087,11 +1023,7 @@ export default {
           return;
         }
         const payload = await response.json();
-        const serverEntries = Array.isArray(payload?.value)
-          ? payload.value
-              .map(entry => this.normalizeManualWorkEntry(entry))
-              .filter((entry): entry is ManualWorkEntry => Boolean(entry))
-          : [];
+        const serverEntries = normalizeManualWorkEntries(payload?.value);
         if (serverEntries.length === 0) {
           if (this.manualWorkEntries.length > 0) this.saveManualWorkEntries();
           return;
@@ -1107,11 +1039,7 @@ export default {
             byId.set(entry.id, entry);
           }
         });
-        this.manualWorkEntries = Array.from(byId.values()).sort(
-          (a, b) =>
-            this.manualWorkEntryStartMoment(b).valueOf() -
-            this.manualWorkEntryStartMoment(a).valueOf()
-        );
+        this.manualWorkEntries = this.sortedManualWorkEntries(Array.from(byId.values()));
         this.saveManualWorkEntries(false);
       } catch (err) {
         console.warn('Could not load FocusFrog manual work entries:', err);
@@ -1122,7 +1050,7 @@ export default {
       const minutes = this.manualWorkDraftTotalMinutes;
       if (minutes <= 0 || !this.manualWorkDraft.date) return;
       const now = moment().toISOString();
-      const entry = this.normalizeManualWorkEntry({
+      const entry = normalizeManualWorkEntry({
         id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         date: this.manualWorkDraft.date,
         startTime: this.manualWorkDraft.startTime,
@@ -1147,91 +1075,13 @@ export default {
       await this.loadSummary();
     },
 
-    manualWorkEntryStartMoment(entry: ManualWorkEntry): moment.Moment {
-      const startTime = entry.startTime || '12:00';
-      const start = moment(`${entry.date} ${startTime}`, 'YYYY-MM-DD HH:mm', true);
-      return start.isValid() ? start : moment(entry.date, 'YYYY-MM-DD').startOf('day');
-    },
-
-    manualWorkSecondsForEntryInRange(
-      entry: ManualWorkEntry,
-      rangeStart: moment.Moment,
-      rangeEnd: moment.Moment
-    ): number {
-      if (!rangeStart.isValid() || !rangeEnd.isValid() || !rangeEnd.isAfter(rangeStart)) return 0;
-      if (!entry.startTime) {
-        const entryDay = moment(entry.date, 'YYYY-MM-DD');
-        if (!entryDay.isValid()) return 0;
-        return entryDay.isSameOrAfter(rangeStart.clone().startOf('day')) &&
-          entryDay.isSameOrBefore(rangeEnd.clone().subtract(1, 'millisecond').startOf('day'))
-          ? entry.minutes * 60
-          : 0;
-      }
-      const entryStart = this.manualWorkEntryStartMoment(entry);
-      const entryEnd = entryStart.clone().add(entry.minutes, 'minutes');
-      const clippedStart = moment.max(entryStart, rangeStart);
-      const clippedEnd = moment.min(entryEnd, rangeEnd);
-      return Math.max(0, clippedEnd.diff(clippedStart, 'seconds', true));
-    },
-
-    manualWorkSecondsForEntryInTimeperiods(entry: ManualWorkEntry, timeperiods: string[]): number {
-      return timeperiods.reduce((total, timeperiod) => {
-        const [startIso, endIso] = timeperiod.split('/');
-        return (
-          total + this.manualWorkSecondsForEntryInRange(entry, moment(startIso), moment(endIso))
-        );
-      }, 0);
-    },
-
-    manualWorkSecondsForTimeperiods(timeperiods: string[]): number {
-      return this.manualWorkEntries.reduce(
-        (total, entry) => total + this.manualWorkSecondsForEntryInTimeperiods(entry, timeperiods),
-        0
-      );
-    },
-
-    dailyMeetingWorkEntryForDate(date: string): ManualWorkEntry {
-      return {
-        id: `daily-meeting-credit-${date}`,
-        date,
-        startTime: DAILY_MEETING_WORK_START_TIME,
-        minutes: DAILY_MEETING_WORK_MINUTES,
-        category: [...DAILY_MEETING_WORK_CATEGORY],
-        note: 'Meetings',
-        createdAt: date,
-        updatedAt: date,
-      };
-    },
-
-    dailyMeetingWorkEntriesForTimeperiods(timeperiods: string[]): ManualWorkEntry[] {
-      const todayKey = moment(get_today_with_offset(this.settingsStore.startOfDay)).format(
-        'YYYY-MM-DD'
-      );
-      const dates = new Set<string>();
-      timeperiods.forEach(timeperiod => {
-        const [startIso] = timeperiod.split('/');
-        const start = moment(startIso);
-        if (!start.isValid()) return;
-        const dateKey = start.format('YYYY-MM-DD');
-        if (dateKey <= todayKey) dates.add(dateKey);
-      });
-      return Array.from(dates)
-        .sort()
-        .map(date => this.dailyMeetingWorkEntryForDate(date));
-    },
-
-    dailyMeetingWorkSecondsForTimeperiods(timeperiods: string[]): number {
-      return this.dailyMeetingWorkEntriesForTimeperiods(timeperiods).reduce(
-        (total, entry) => total + this.manualWorkSecondsForEntryInTimeperiods(entry, timeperiods),
-        0
-      );
+    todayKey(): string {
+      return get_today_with_offset(this.settingsStore.startOfDay);
     },
 
     dailyMeetingWorkSecondsForRange(rangeStart: moment.Moment, rangeEnd: moment.Moment): number {
       if (!rangeStart.isValid() || !rangeEnd.isValid() || !rangeEnd.isAfter(rangeStart)) return 0;
-      const todayKey = moment(get_today_with_offset(this.settingsStore.startOfDay)).format(
-        'YYYY-MM-DD'
-      );
+      const todayKey = this.todayKey();
       const dates = new Set<string>();
       const lastDay = rangeEnd.clone().subtract(1, 'millisecond').startOf('day');
       for (
@@ -1242,47 +1092,11 @@ export default {
         const dateKey = cursor.format('YYYY-MM-DD');
         if (dateKey <= todayKey) dates.add(dateKey);
       }
-      return Array.from(dates).reduce((total, date) => {
-        const entry = this.dailyMeetingWorkEntryForDate(date);
-        return total + this.manualWorkSecondsForEntryInRange(entry, rangeStart, rangeEnd);
-      }, 0);
-    },
-
-    addWorkCategoryDuration(
-      categoryDurations: CategoryDuration[],
-      category: string[],
-      seconds: number
-    ): CategoryDuration[] {
-      if (seconds <= 0) return categoryDurations;
-      const key = categoryKey(category);
-      const categoryMap: Record<string, CategoryDuration> = {};
-      categoryDurations.forEach(row => {
-        categoryMap[categoryKey(row.category)] = { category: row.category, duration: row.duration };
-      });
-      categoryMap[key] = categoryMap[key] || {
-        category,
-        duration: 0,
-      };
-      categoryMap[key].duration += seconds;
-      return Object.values(categoryMap).sort((a, b) => b.duration - a.duration);
-    },
-
-    manualWorkCategoryForEntry(entry: ManualWorkEntry): string[] {
-      return normalizeManualWorkCategory(entry.category);
-    },
-
-    addManualWorkCategoryDurationsForTimeperiods(
-      categoryDurations: CategoryDuration[],
-      timeperiods: string[]
-    ): CategoryDuration[] {
-      return this.manualWorkEntries.reduce((nextDurations, entry) => {
-        const seconds = this.manualWorkSecondsForEntryInTimeperiods(entry, timeperiods);
-        return this.addWorkCategoryDuration(
-          nextDurations,
-          this.manualWorkCategoryForEntry(entry),
-          seconds
-        );
-      }, categoryDurations);
+      return Array.from(dates).reduce(
+        (total, date) =>
+          total + manualWorkSecondsInRange(dailyMeetingEntry(date), rangeStart, rangeEnd),
+        0
+      );
     },
 
     addManualWorkCategoryDurationsForRange(
@@ -1290,24 +1104,14 @@ export default {
       rangeStart: moment.Moment,
       rangeEnd: moment.Moment
     ): CategoryDuration[] {
-      return this.manualWorkEntries.reduce((nextDurations, entry) => {
-        const seconds = this.manualWorkSecondsForEntryInRange(entry, rangeStart, rangeEnd);
-        return this.addWorkCategoryDuration(
-          nextDurations,
-          this.manualWorkCategoryForEntry(entry),
-          seconds
-        );
-      }, categoryDurations);
-    },
-
-    addDailyMeetingWorkCategoryDuration(
-      categoryDurations: CategoryDuration[],
-      meetingSeconds: number
-    ): CategoryDuration[] {
-      return this.addWorkCategoryDuration(
-        categoryDurations,
-        DAILY_MEETING_WORK_CATEGORY,
-        meetingSeconds
+      return this.manualWorkEntries.reduce(
+        (nextDurations, entry) =>
+          addCategoryDuration(
+            nextDurations,
+            normalizeManualWorkCategory(entry.category),
+            manualWorkSecondsInRange(entry, rangeStart, rangeEnd)
+          ),
+        categoryDurations
       );
     },
 
@@ -1315,25 +1119,7 @@ export default {
       summary: WorkCategorySummary,
       timeperiods: string[]
     ): WorkCategorySummary {
-      const manualSeconds = this.manualWorkSecondsForTimeperiods(timeperiods);
-      const meetingSeconds = this.dailyMeetingWorkSecondsForTimeperiods(timeperiods);
-      const extraWorkSeconds = manualSeconds + meetingSeconds;
-      if (extraWorkSeconds <= 0) return summary;
-      let categoryDurations = summary.categoryDurations;
-      categoryDurations = this.addManualWorkCategoryDurationsForTimeperiods(
-        categoryDurations,
-        timeperiods
-      );
-      categoryDurations = this.addDailyMeetingWorkCategoryDuration(
-        categoryDurations,
-        meetingSeconds
-      );
-      return {
-        activeDuration: summary.activeDuration + extraWorkSeconds,
-        workDuration: summary.workDuration + extraWorkSeconds,
-        notWorkDuration: summary.notWorkDuration,
-        categoryDurations,
-      };
+      return applyManualWork(summary, this.manualWorkEntries, timeperiods, this.todayKey());
     },
 
     formatManualWorkEntryDuration(entry: ManualWorkEntry): string {
@@ -1346,7 +1132,7 @@ export default {
     },
 
     formatManualWorkEntryCategory(entry: ManualWorkEntry): string {
-      return workSubcategoryLabel(this.manualWorkCategoryForEntry(entry));
+      return workSubcategoryLabel(normalizeManualWorkCategory(entry.category));
     },
 
     async loadSummary() {
@@ -1375,43 +1161,8 @@ export default {
         const results = await client.query(timeperiods, [query]);
         if (isStale()) return;
 
-        const totals = results.reduce(
-          (acc, result) => {
-            const activeEvents = this.getGraceAdjustedEvents(result);
-            const summary = this.summarizeActiveEvents(
-              activeEvents,
-              sumEventDurations(activeEvents)
-            );
-            acc.activeDuration += summary.activeDuration;
-            acc.workDuration += summary.workDuration;
-            acc.notWorkDuration += summary.notWorkDuration;
-            for (const row of summary.categoryDurations) {
-              const key = categoryKey(row.category);
-              acc.categoryMap[key] = acc.categoryMap[key] || {
-                category: row.category,
-                duration: 0,
-              };
-              acc.categoryMap[key].duration += row.duration;
-            }
-            return acc;
-          },
-          {
-            activeDuration: 0,
-            workDuration: 0,
-            notWorkDuration: 0,
-            categoryMap: {} as Record<string, CategoryDuration>,
-          }
-        );
-
         this.summary = this.applyManualWorkToSummary(
-          {
-            activeDuration: totals.activeDuration,
-            workDuration: totals.workDuration,
-            notWorkDuration: totals.notWorkDuration,
-            categoryDurations: (Object.values(totals.categoryMap) as CategoryDuration[]).sort(
-              (a, b) => b.duration - a.duration
-            ),
-          },
+          sumWorkSummaries(results.map(result => this.summarizeQueryResult(result))),
           timeperiods
         );
         const timelineTimeperiods = this.getTimelineTimeperiods();
@@ -1427,14 +1178,10 @@ export default {
                 timelineTimeperiods[0]
               )
             : timelineResults.map((result, index) => {
-                const activeEvents = this.getGraceAdjustedEvents(result);
-                const summary = this.summarizeActiveEvents(
-                  activeEvents,
-                  sumEventDurations(activeEvents)
+                const adjustedSummary = this.applyManualWorkToSummary(
+                  this.summarizeQueryResult(result),
+                  [timelineTimeperiods[index]]
                 );
-                const adjustedSummary = this.applyManualWorkToSummary(summary, [
-                  timelineTimeperiods[index],
-                ]);
                 const date = timelineTimeperiods[index].split('/')[0];
                 const dateKey = moment(date).format('YYYY-MM-DD');
                 return {
@@ -1629,8 +1376,7 @@ export default {
     },
 
     summarizeQueryResult(result: any): WorkCategorySummary {
-      const activeEvents = this.getGraceAdjustedEvents(result);
-      return this.summarizeActiveEvents(activeEvents, sumEventDurations(activeEvents));
+      return summarizeWorkQueryResult(result, this.categoryStore.classes_for_query || []);
     },
 
     categorizeEvent(event: any): string[] {
@@ -1655,31 +1401,6 @@ export default {
         return;
       }
       this.timelineSelectedIndex = Math.min(this.timelineDailyRows.length - 1, Math.max(0, index));
-    },
-
-    summarizeActiveEvents(events: any[], activeDuration: number): WorkCategorySummary {
-      const categoryMap: Record<string, CategoryDuration> = {};
-      let notWorkDuration = 0;
-
-      for (const event of events) {
-        const duration = Math.max(0, Number(event.duration || 0));
-        const category = this.categorizeEvent(event);
-        const key = categoryKey(category);
-        categoryMap[key] = categoryMap[key] || { category, duration: 0 };
-        categoryMap[key].duration += duration;
-        if (this.isNotWorkCategory(category)) {
-          notWorkDuration += duration;
-        }
-      }
-
-      const activeSeconds = Math.max(0, activeDuration);
-      const boundedNotWork = Math.min(activeSeconds, notWorkDuration);
-      return {
-        activeDuration: activeSeconds,
-        workDuration: Math.max(0, activeSeconds - boundedNotWork),
-        notWorkDuration: boundedNotWork,
-        categoryDurations: Object.values(categoryMap).sort((a, b) => b.duration - a.duration),
-      };
     },
 
     summarizeActiveEventsUntil(
@@ -1714,8 +1435,7 @@ export default {
 
       const boundedNotWork = Math.min(activeSeconds, notWorkDuration);
       const manualSeconds = this.manualWorkEntries.reduce(
-        (total, entry) =>
-          total + this.manualWorkSecondsForEntryInRange(entry, rangeStart, rangeEnd),
+        (total, entry) => total + manualWorkSecondsInRange(entry, rangeStart, rangeEnd),
         0
       );
       const meetingSeconds = this.dailyMeetingWorkSecondsForRange(rangeStart, rangeEnd);
@@ -1726,8 +1446,9 @@ export default {
         rangeStart,
         rangeEnd
       );
-      categoryDurations = this.addDailyMeetingWorkCategoryDuration(
+      categoryDurations = addCategoryDuration(
         categoryDurations,
+        DAILY_MEETING_WORK_CATEGORY,
         meetingSeconds
       );
       return {
