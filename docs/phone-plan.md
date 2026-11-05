@@ -13,7 +13,7 @@ tabs at the bottom.
 | Firebase project | `focusfrog-wenkmann` in the Google account wenkmannjulia2000@gmail.com (next to Tree Tracker and CampusGarten; juliawenkmann@gmail.com is blocked from Firebase by Google), Firestore in europe-west3 |
 | App sign-in | Email + password juliawenkmann@gmail.com (`OWNER_EMAILS`, `isOwner()`), separate from the project's Google account |
 | Hosting | Cloudflare Workers static assets, like CampusGarden (`focusfrog.juliawenkmann.workers.dev`) |
-| Phone pages | Todos, Vision board, Hours (summaries), Pomodoro, Time blocking |
+| Phone pages | The Mac's own pages: Hours, Time blocking, Pomodoro, Todos, Vision board |
 | Vision photos | Downscaled WebP (~1280 px) stored in Firestore — no billing plan |
 | Privacy | Only the owner can read or write; enforced by `firebase/firestore.rules` |
 
@@ -111,6 +111,23 @@ mirror; the cloud is added alongside. Before the first upload, a snapshot of
   (`client.permissions.disabledUserSignup`; `deploy --only auth` keeps it off). Phone version
   live at https://focusfrog.juliawenkmann.workers.dev (`npm run deploy:cloud`). Auth uses
   `initializeAuth` without the pop-up helper, which loaded a Google script the CSP blocks.
+- 2026-11-05 — The web key in `src/sync/config.ts` is public by design (every visitor's browser
+  gets it), but it is restricted in Google Cloud (APIs & Services → Credentials): websites
+  `https://focusfrog.juliawenkmann.workers.dev/*`, `http://127.0.0.1:27180/*`,
+  `http://localhost:27180/*`; services Identity Toolkit, Token Service, Firestore. A new address
+  (another port, a custom domain) must be added there first. Sandboxes on other ports cannot
+  reach the real project, by design.
+- 2026-11-05 — The phone shows the Mac's own pages, in the Mac's order: Hours (`Home.vue`;
+  `CloudHours.vue` is gone), Plan, Pomodoro, Todos, Vision. Day docs v2 (`util/daySums.ts`):
+  tracked sums only (each device adds manual work and the meeting hour itself), `hosts`,
+  `recordingStart`, and today's `hours` for the timeline; the phone skips v1 docs. Pomodoro
+  sessions sync as items (`pomodoroSessions`, storage.json + cloud); the Mac server serves the
+  old aw-stopwatch events under that key until the page saves its own list. The distraction
+  check stays Mac-only (it needs window titles). Verified on the emulators: phone Hours equals
+  Mac Hours number for number; Mac Hours unchanged against the previous build; a timer
+  started on the phone runs on the Mac and back.
+- After installing a new Mac app, the open FocusFrog tab must be reloaded: it keeps running
+  the old code (and the old uploader's writes are refused by newer rules).
 - Later: Pomodoro on the phone (sessions in the cloud), lock the rules to the owner uid.
 
 ## Go-live checklist
