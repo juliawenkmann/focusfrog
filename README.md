@@ -270,9 +270,43 @@ If you are developing against a local ActivityWatch server, the dev server proxi
 
 Static `aw-server-rust` hosting does not expose FocusFrog's photo-storage endpoint. Use the packaged app or `npm run build && npm run start:app` for Vision Board photo uploads.
 
+## FocusFrog On Your Phone
+
+FocusFrog also runs as a hosted web app for the phone, like Tree Tracker and CampusGarden: sign in once per device and your data stays in sync between the Mac and the phone through Firebase.
+
+- **What syncs:** todos, projects, the day plan and frog, time blocks, manual work, the vision board (with downscaled photos), the theme, and your daily and weekly work sums.
+- **Hours on the phone** shows the sums the Mac sends while FocusFrog is open there (every few minutes). The phone does no tracking of its own.
+- **Works offline:** the phone keeps a copy and uploads changes once it is back online. When two devices change the same todo, the newer change wins.
+- **Install it:** iPhone: Safari → Share → *Add to Home Screen*. Android: Chrome menu → *Install app*.
+- **On the Mac:** click the lock in the top bar and sign in. The first sign-in uploads what is in `storage.json`; FocusFrog keeps writing `storage.json` too, as a local backup.
+
+Only the owner account can read or write anything (`firebase/firestore.rules`). Window titles, URLs and app names never leave the Mac: the cloud only accepts time sums.
+
+| Collection (under `users/{uid}`) | Contents | Written by |
+| --- | --- | --- |
+| `todos`, `todoProjects`, `timeBlocks`, `manualWork` | One document per item; deletes kept as tombstones | Mac and phone |
+| `visionItems`, `visionImages` | Dreams with their order; photos at most 1280 px | Mac and phone |
+| `state` | Day plan, frog, shared settings | Mac and phone |
+| `days`, `weeks` | Daily and weekly work sums | Mac |
+
+Commands:
+
+```bash
+npm run build:cloud       # phone build into dist-cloud/
+npm run deploy:cloud      # build and publish to Cloudflare (needs `npx wrangler login`)
+npm run deploy:firebase   # publish the security rules and sign-in settings
+npm run emulators         # local Firebase emulators for testing
+npm run seed:emulator     # test account for the emulators
+npm run test:rules        # security-rule tests
+```
+
+To test without touching real data, start the emulators, run `npm run seed:emulator`, and open the app with `?firebase-emulator=1` (only on `127.0.0.1` or `localhost`). The Firebase project's public web configuration lives in `src/sync/config.ts`; until it is set, FocusFrog runs without the cloud, exactly as before. Design notes and status: `docs/phone-plan.md`.
+
 ## Privacy
 
 FocusFrog is local-first. It reads from your local ActivityWatch server and does not require an account. Your time data, todos, planning state, vision-board entries, and uploaded photos stay on your machine unless you choose to export or publish them yourself.
+
+If you sign in to phone sync, your todos, plans, dreams (with downscaled photos), time blocks and daily work sums are stored in your own Firebase project, readable only by your account. Raw tracking data — window titles, URLs, app names — never leaves the Mac.
 
 ## Development
 
