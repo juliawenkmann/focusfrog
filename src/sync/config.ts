@@ -3,8 +3,16 @@ import type { FirebaseOptions } from 'firebase/app';
 // Public web configuration of the FocusFrog Firebase project. Firebase web keys only
 // identify the project; firebase/firestore.rules decide who may read and write.
 // Never put a service-account key or any other secret here.
-// Stays null until the project exists; FocusFrog then runs exactly as before (no cloud).
-const PROJECT_CONFIG: FirebaseOptions | null = null;
+// Lives in the Google account wenkmannjulia2000@gmail.com, next to Tree Tracker and
+// CampusGarten. The app's own sign-in (OWNER_EMAILS) is a separate email + password.
+const PROJECT_CONFIG: FirebaseOptions | null = {
+  apiKey: 'AIzaSyCtfR0DgFeqd7UD8NzHCxaT11p9oi9x0gU',
+  authDomain: 'focusfrog-wenkmann.firebaseapp.com',
+  projectId: 'focusfrog-wenkmann',
+  storageBucket: 'focusfrog-wenkmann.firebasestorage.app',
+  messagingSenderId: '170113711931',
+  appId: '1:170113711931:web:805e36f7f8357550e8811e',
+};
 
 // The accounts allowed to use FocusFrog. Must match isOwner() in firebase/firestore.rules.
 export const OWNER_EMAILS = ['juliawenkmann@gmail.com'];
