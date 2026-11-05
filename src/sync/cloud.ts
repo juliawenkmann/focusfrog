@@ -163,7 +163,15 @@ async function loadFirebase(): Promise<Firebase | null> {
       tabManager: firestoreApi.persistentMultipleTabManager(),
     }),
   });
-  const auth = authApi.getAuth(app);
+  // getAuth() without its pop-up sign-in helper, which loads a Google script that
+  // FocusFrog's content security policy blocks (and email sign-in never needs).
+  const auth = authApi.initializeAuth(app, {
+    persistence: [
+      authApi.indexedDBLocalPersistence,
+      authApi.browserLocalPersistence,
+      authApi.browserSessionPersistence,
+    ],
+  });
   if (config.emulators) {
     authApi.connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
     firestoreApi.connectFirestoreEmulator(db, '127.0.0.1', 8080);
