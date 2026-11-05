@@ -8,6 +8,7 @@ import {
   isNotWorkCategory,
   MESSAGE_CALLS_CATEGORY,
 } from '~/util/focusfrogCategories';
+import { get_offset_duration, get_today_with_offset } from '~/util/time';
 import type { CategoryDuration, WorkCategorySummary } from '~/util/workReport';
 import { addAfkGraceToActiveEvents, sumEventDurations } from '~/util/workReport';
 
@@ -227,6 +228,40 @@ export function summarizeActiveEvents(
   };
 }
 
+// Tracked sums of the part of each event that falls inside [start, end).
+export function summarizeEventsInRange(
+  events: any[],
+  categoryRules: any[],
+  start: moment.Moment,
+  end: moment.Moment
+): WorkCategorySummary {
+  const clipped = events.flatMap(event => {
+    const duration = Math.max(0, Number(event.duration || 0));
+    const eventStart = moment(event.timestamp);
+    if (!eventStart.isValid() || duration <= 0) return [];
+    const eventEnd = eventStart.clone().add(duration, 'seconds');
+    const seconds = moment.min(eventEnd, end).diff(moment.max(eventStart, start), 'seconds', true);
+    return seconds > 0 ? [{ ...event, duration: seconds }] : [];
+  });
+  const active = clipped.reduce((total, event) => total + event.duration, 0);
+  return summarizeActiveEvents(clipped, active, categoryRules);
+}
+
+// Tracked sums per hour from the start of the day up to `end` (the last hour may be partial).
+export function summarizeHours(
+  events: any[],
+  categoryRules: any[],
+  dayStart: moment.Moment,
+  end: moment.Moment
+): WorkCategorySummary[] {
+  const hours: WorkCategorySummary[] = [];
+  for (let cursor = dayStart.clone(); cursor.isBefore(end); cursor = cursor.add(1, 'hour')) {
+    const hourEnd = moment.min(cursor.clone().add(1, 'hour'), end);
+    hours.push(summarizeEventsInRange(events, categoryRules, cursor, hourEnd));
+  }
+  return hours;
+}
+
 // One result of buildWorkSummaryQuery -> tracked sums.
 export function summarizeWorkQueryResult(result: any, categoryRules: any[]): WorkCategorySummary {
   const activeEvents = addAfkGraceToActiveEvents(
@@ -244,4 +279,25 @@ export function currentWeekDates(todayKey: string): string[] {
     dates.push(day.format('YYYY-MM-DD'));
   }
   return dates;
+}
+
+// The day tracking began on these hosts (today if nothing was tracked yet).
+export function recordingStartDay(
+  buckets: any[],
+  hosts: string[],
+  startOfDay: string
+): moment.Moment {
+  const supportedHosts = new Set(hosts);
+  const candidates = buckets
+    .filter(bucket => {
+      const host = bucket.hostname || bucket.data?.hostname;
+      return supportedHosts.has(host) && ['currentwindow', 'afkstatus'].includes(bucket.type);
+    })
+    .flatMap(bucket => [bucket.metadata?.start, bucket.first_seen, bucket.created])
+    .filter(value => Boolean(value))
+    .map(value => moment(value))
+    .filter(value => value.isValid());
+
+  if (candidates.length === 0) return moment(get_today_with_offset(startOfDay));
+  return moment.min(candidates).clone().subtract(get_offset_duration(startOfDay)).startOf('day');
 }

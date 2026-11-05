@@ -3,7 +3,6 @@ import VueRouter from 'vue-router';
 import { IS_CLOUD_BUILD } from '~/sync/config';
 
 const Home = () => import('./views/Home.vue');
-const CloudHours = () => import('./views/CloudHours.vue');
 
 // Activity views for desktop
 const Activity = () => import('./views/activity/Activity.vue');
@@ -106,7 +105,7 @@ const macRoutes = [
 // Routes with `meta.tab` appear in the phone's tab bar (Header.vue), in this order.
 const cloudRoutes = [
   { path: '/', redirect: '/todos' },
-  { path: '/home', component: CloudHours, meta: { tab: { icon: 'clock', label: 'Hours' } } },
+  { path: '/home', component: Home, meta: { tab: { icon: 'clock', label: 'Hours' } } },
   {
     path: '/todos',
     component: Todos,

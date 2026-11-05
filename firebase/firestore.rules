@@ -84,16 +84,23 @@ service cloud.firestore {
         optionalShortString(data, 'device', 80);
     }
 
+    // One day's tracked sums; today's also per hour (each hour: the same four sums).
     function validDay(date) {
       let data = request.resource.data;
       return date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
-        data.keys().hasAll(['date', 'activeDuration', 'workDuration', 'notWorkDuration',
-          'categoryDurations', 'computedAt']) &&
-        data.keys().hasOnly(['date', 'activeDuration', 'workDuration', 'notWorkDuration',
-          'manualWorkDuration', 'categoryDurations', 'computedAt', 'contextKey', 'device']) &&
+        data.keys().hasAll(['version', 'date', 'hosts', 'activeDuration', 'workDuration',
+          'notWorkDuration', 'categoryDurations', 'computedAt']) &&
+        data.keys().hasOnly(['version', 'date', 'hosts', 'recordingStart', 'hours',
+          'activeDuration', 'workDuration', 'notWorkDuration', 'categoryDurations',
+          'computedAt', 'contextKey', 'device']) &&
+        data.version is int &&
         data.date == date &&
-        validSums(data) &&
-        (!('manualWorkDuration' in data) || validDuration(data.manualWorkDuration));
+        data.hosts is int && data.hosts >= 0 && data.hosts <= 100 &&
+        (!('recordingStart' in data) ||
+          (data.recordingStart is string &&
+            data.recordingStart.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'))) &&
+        (!('hours' in data) || (data.hours is list && data.hours.size() <= 25)) &&
+        validSums(data);
     }
 
     function validWeek(weekStart) {

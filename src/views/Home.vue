@@ -220,86 +220,87 @@ div.time-dashboard(:class="dashboardThemeClass")
     div.timeline-empty(v-if="!loading && timelineChart.rows.length === 0")
       | No timeline data found for this range.
     div.timeline-chart(v-else)
-      svg.timeline-svg(
-        :style="{ minWidth: timelineChartMinWidth }"
-        :viewBox="timelineViewBox"
-        preserveAspectRatio="xMidYMid meet"
-      )
-        g.timeline-gridlines
-          g(v-for="tick in timelineChart.yTicks" :key="'tick-' + tick.label")
-            line.timeline-grid(
-              :x1="timelineChart.left"
-              :x2="timelineChart.right"
-              :y1="tick.y"
-              :y2="tick.y"
+      div.timeline-scroll(ref="timelineChart")
+        svg.timeline-svg(
+          :style="{ minWidth: timelineChartMinWidth }"
+          :viewBox="timelineViewBox"
+          preserveAspectRatio="xMidYMid meet"
+        )
+          g.timeline-gridlines
+            g(v-for="tick in timelineChart.yTicks" :key="'tick-' + tick.label")
+              line.timeline-grid(
+                :x1="timelineChart.left"
+                :x2="timelineChart.right"
+                :y1="tick.y"
+                :y2="tick.y"
+              )
+              text.timeline-y-label(:x="timelineChart.left - 10" :y="tick.y + 4" text-anchor="end") {{ tick.label }}
+          line.timeline-axis(
+            :x1="timelineChart.left"
+            :x2="timelineChart.left"
+            :y1="timelineChart.top"
+            :y2="timelineChart.bottom"
+          )
+          line.timeline-axis(
+            :x1="timelineChart.left"
+            :x2="timelineChart.right"
+            :y1="timelineChart.bottom"
+            :y2="timelineChart.bottom"
+          )
+          line.timeline-focus-line(
+            v-if="timelineChart.selectedX !== null"
+            :x1="timelineChart.selectedX"
+            :x2="timelineChart.selectedX"
+            :y1="timelineChart.top"
+            :y2="timelineChart.bottom"
+          )
+          polyline.timeline-line.timeline-line-total(:points="timelineChart.totalPolyline")
+          polyline.timeline-line.timeline-line-work(:points="timelineChart.workPolyline")
+          polyline.timeline-line.timeline-line-not-work(:points="timelineChart.notWorkPolyline")
+          g(v-for="point in timelineChart.totalPoints" :key="'total-' + point.label")
+            circle.timeline-point.timeline-point-total(
+              :class="{ 'timeline-point-selected': point.selected }"
+              :cx="point.x"
+              :cy="point.y"
+              :r="point.selected ? timelineChart.selectedPointRadius : timelineChart.pointRadius"
             )
-            text.timeline-y-label(:x="timelineChart.left - 10" :y="tick.y + 4" text-anchor="end") {{ tick.label }}
-        line.timeline-axis(
-          :x1="timelineChart.left"
-          :x2="timelineChart.left"
-          :y1="timelineChart.top"
-          :y2="timelineChart.bottom"
-        )
-        line.timeline-axis(
-          :x1="timelineChart.left"
-          :x2="timelineChart.right"
-          :y1="timelineChart.bottom"
-          :y2="timelineChart.bottom"
-        )
-        line.timeline-focus-line(
-          v-if="timelineChart.selectedX !== null"
-          :x1="timelineChart.selectedX"
-          :x2="timelineChart.selectedX"
-          :y1="timelineChart.top"
-          :y2="timelineChart.bottom"
-        )
-        polyline.timeline-line.timeline-line-total(:points="timelineChart.totalPolyline")
-        polyline.timeline-line.timeline-line-work(:points="timelineChart.workPolyline")
-        polyline.timeline-line.timeline-line-not-work(:points="timelineChart.notWorkPolyline")
-        g(v-for="point in timelineChart.totalPoints" :key="'total-' + point.label")
-          circle.timeline-point.timeline-point-total(
-            :class="{ 'timeline-point-selected': point.selected }"
-            :cx="point.x"
-            :cy="point.y"
-            :r="point.selected ? timelineChart.selectedPointRadius : timelineChart.pointRadius"
-          )
-            title {{ point.title }}
-        g(v-for="point in timelineChart.workPoints" :key="'work-' + point.label")
-          circle.timeline-point.timeline-point-work(
-            :class="{ 'timeline-point-selected': point.selected }"
-            :cx="point.x"
-            :cy="point.y"
-            :r="point.selected ? timelineChart.selectedPointRadius : timelineChart.pointRadius"
-          )
-            title {{ point.title }}
-        g(v-for="point in timelineChart.notWorkPoints" :key="'not-work-' + point.label")
-          circle.timeline-point.timeline-point-not-work(
-            :class="{ 'timeline-point-selected': point.selected }"
-            :cx="point.x"
-            :cy="point.y"
-            :r="point.selected ? timelineChart.selectedPointRadius : timelineChart.pointRadius"
-          )
-            title {{ point.title }}
-        g(v-for="row in timelineChart.rows" :key="'label-' + row.label")
-          text.timeline-x-label(
-            v-if="row.labelVisible"
-            :class="{ 'timeline-x-label-selected': row.selected }"
-            :x="row.x"
-            :y="timelineChart.bottom + 24"
-            text-anchor="middle"
-          ) {{ row.label }}
-        text.timeline-axis-title(:x="timelineChart.left" :y="timelineChart.top - 12") {{ timelineChart.axisTitle }}
-        g(v-for="row in timelineChart.rows" :key="'hit-' + row.label")
-          rect.timeline-hit-zone(
-            :x="row.hitX"
-            :y="timelineChart.top"
-            :width="row.hitWidth"
-            :height="timelineChart.bottom - timelineChart.top"
-            tabindex="0"
-            @focus="setTimelineSelectedIndex(row.index)"
-            @mouseenter="setTimelineSelectedIndex(row.index)"
-            @click="setTimelineSelectedIndex(row.index)"
-          )
+              title {{ point.title }}
+          g(v-for="point in timelineChart.workPoints" :key="'work-' + point.label")
+            circle.timeline-point.timeline-point-work(
+              :class="{ 'timeline-point-selected': point.selected }"
+              :cx="point.x"
+              :cy="point.y"
+              :r="point.selected ? timelineChart.selectedPointRadius : timelineChart.pointRadius"
+            )
+              title {{ point.title }}
+          g(v-for="point in timelineChart.notWorkPoints" :key="'not-work-' + point.label")
+            circle.timeline-point.timeline-point-not-work(
+              :class="{ 'timeline-point-selected': point.selected }"
+              :cx="point.x"
+              :cy="point.y"
+              :r="point.selected ? timelineChart.selectedPointRadius : timelineChart.pointRadius"
+            )
+              title {{ point.title }}
+          g(v-for="row in timelineChart.rows" :key="'label-' + row.label")
+            text.timeline-x-label(
+              v-if="row.labelVisible"
+              :class="{ 'timeline-x-label-selected': row.selected }"
+              :x="row.x"
+              :y="timelineChart.bottom + 24"
+              text-anchor="middle"
+            ) {{ row.label }}
+          text.timeline-axis-title(:x="timelineChart.left" :y="timelineChart.top - 12") {{ timelineChart.axisTitle }}
+          g(v-for="row in timelineChart.rows" :key="'hit-' + row.label")
+            rect.timeline-hit-zone(
+              :x="row.hitX"
+              :y="timelineChart.top"
+              :width="row.hitWidth"
+              :height="timelineChart.bottom - timelineChart.top"
+              tabindex="0"
+              @focus="setTimelineSelectedIndex(row.index)"
+              @mouseenter="setTimelineSelectedIndex(row.index)"
+              @click="setTimelineSelectedIndex(row.index)"
+            )
       div.timeline-day-summary(v-if="timelineSelectedRow")
         div.timeline-day-label {{ timelineSelectedRow.title || timelineSelectedRow.label }}
         div.timeline-day-metrics
@@ -326,7 +327,7 @@ div.time-dashboard(:class="dashboardThemeClass")
   div.empty-state.mt-4(v-if="!loading && summary && activeSeconds === 0")
     | No active laptop time found for this range.
 
-  div.dashboard-footer.mt-4
+  div.dashboard-footer.mt-4(v-if="!isCloudBuild")
     b-button(to="/work-report" variant="outline-primary" size="sm")
       icon(name="briefcase")
       span Detailed report
@@ -347,7 +348,15 @@ div.time-dashboard(:class="dashboardThemeClass")
 
 <script lang="ts">
 import moment from 'moment';
-import { loadStoredValue, onStoredValueChange, saveStoredValue } from '~/util/focusfrogStorage';
+import {
+  loadStoredValue,
+  onStoredValueChange,
+  peekStoredValue,
+  saveStoredValue,
+} from '~/util/focusfrogStorage';
+import { IS_CLOUD_BUILD } from '~/sync/config';
+import { currentDaySums, DAY_SUMS_KEY, daySummary, hoursInRange } from '~/util/daySums';
+import type { DaySum } from '~/util/daySums';
 import { getClient } from '~/util/awclient';
 import { useBucketsStore } from '~/stores/buckets';
 import { useCategoryStore } from '~/stores/categories';
@@ -355,7 +364,6 @@ import { useSettingsStore } from '~/stores/settings';
 import {
   get_day_start_with_offset,
   get_day_end_with_offset,
-  get_offset_duration,
   get_today_with_offset,
 } from '~/util/time';
 import type { CategoryDuration, WorkCategorySummary } from '~/util/workReport';
@@ -375,6 +383,8 @@ import {
   normalizeManualWorkEntry,
   sumManualWorkSeconds,
   sumMeetingSeconds,
+  recordingStartDay,
+  summarizeEventsInRange,
   summarizeWorkQueryResult,
 } from '~/util/workDay';
 import {
@@ -396,7 +406,6 @@ import {
 import {
   WORK_COLOR,
   NOT_WORK_COLOR,
-  categorizeFocusFrogEvent,
   categoryColor,
   categoryKey,
   isNotWorkCategory as isFocusFrogNotWorkCategory,
@@ -410,6 +419,17 @@ import 'vue-awesome/icons/database';
 import 'vue-awesome/icons/plus';
 import 'vue-awesome/icons/sync';
 import 'vue-awesome/icons/trash';
+
+// Tracked time (without manual work) inside a range of today.
+type TrackedInRange = (start: moment.Moment, end: moment.Moment) => WorkCategorySummary;
+
+// Tracked sums per day of a range, plus what the today timeline needs.
+interface TrackedDays {
+  summaries: WorkCategorySummary[];
+  trackedInRange: TrackedInRange;
+  // The timeline of today runs until here.
+  end: moment.Moment;
+}
 
 interface DayRow {
   label: string;
@@ -575,6 +595,11 @@ export default {
       loading: false,
       error: '',
       supportedHosts: [] as string[],
+      // The phone shows the sums the Mac sends; these say how many devices and when.
+      isCloudBuild: IS_CLOUD_BUILD,
+      cloudHosts: 0,
+      cloudComputedAt: '',
+      cloudRecordingStart: '',
       summary: null as WorkCategorySummary | null,
       timelineDailyRows: [] as DayRow[],
       timelineSelectedIndex: 0,
@@ -611,7 +636,7 @@ export default {
       return `theme-${theme === 'contrast' || theme === 'flower' ? theme : 'bright'}`;
     },
     noSupportedHosts(): boolean {
-      return this.supportedHosts.length === 0;
+      return !IS_CLOUD_BUILD && this.supportedHosts.length === 0;
     },
     activeSeconds(): number {
       return Math.max(0, this.summary?.activeDuration || 0);
@@ -707,11 +732,18 @@ export default {
       return this.balanceTiltRatio < 0 ? 'balance-work-heavy' : 'balance-life-heavy';
     },
     hostSummary(): string {
-      if (this.supportedHosts.length === 0) return 'No active host';
-      if (this.supportedHosts.length === 1) return this.supportedHosts[0];
-      return `${this.supportedHosts.length} devices`;
+      const count = IS_CLOUD_BUILD ? this.cloudHosts : this.supportedHosts.length;
+      if (count === 0) return 'No active host';
+      if (count === 1) return IS_CLOUD_BUILD ? '1 device' : this.supportedHosts[0];
+      return `${count} devices`;
     },
     rangeSubtitle(): string {
+      const sentAt = moment(this.cloudComputedAt);
+      const when = sentAt.isSame(moment(), 'day') ? 'HH:mm' : 'MMM D, HH:mm';
+      const sent = this.cloudComputedAt ? ` · from your Mac at ${sentAt.format(when)}` : '';
+      return this.rangeTitle + sent;
+    },
+    rangeTitle(): string {
       if (this.range === 'today') {
         return moment(get_today_with_offset(this.settingsStore.startOfDay)).format('dddd, MMM D');
       }
@@ -935,6 +967,15 @@ export default {
       };
     },
   },
+  watch: {
+    // Newest point in view: on a narrow screen the chart scrolls sideways.
+    timelineDailyRows() {
+      this.$nextTick(() => {
+        const chart = this.$refs.timelineChart as HTMLElement | undefined;
+        if (chart) chart.scrollLeft = chart.scrollWidth;
+      });
+    },
+  },
   async mounted() {
     this.categoryStore.load();
     this.loadManualWorkEntries();
@@ -942,6 +983,18 @@ export default {
       'hook:beforeDestroy',
       onStoredValueChange(MANUAL_WORK_SERVER_KEY, this.applyCloudManualWork)
     );
+    if (IS_CLOUD_BUILD) {
+      // New sums from the Mac show as they arrive.
+      for (const key of [DAY_SUMS_KEY, WEEKLY_SUMMARY_SERVER_KEY] as const) {
+        this.$once(
+          'hook:beforeDestroy',
+          onStoredValueChange(key, () => void this.loadSummary(true))
+        );
+      }
+      await this.loadServerManualWorkEntries();
+      await this.loadSummary();
+      return;
+    }
     await Promise.all([this.loadServerManualWorkEntries(), this.bucketsStore.ensureLoaded()]);
     this.supportedHosts = enabledWorkReportHosts(this.bucketsStore.buckets || []);
     await this.loadSummary();
@@ -1136,58 +1189,45 @@ export default {
       return workSubcategoryLabel(normalizeManualWorkCategory(entry.category));
     },
 
-    async loadSummary() {
+    // `quiet`: new sums arrived from the Mac; keep showing the old ones until they are ready.
+    async loadSummary(quiet?: boolean) {
       // A newer load (e.g. after switching range) makes this one stale; stale loads must not
       // overwrite its numbers, errors or loading state.
       const loadId = ++this.summaryLoadId;
       const isStale = () => loadId !== this.summaryLoadId;
       this.error = '';
-      this.summary = null;
-      this.timelineDailyRows = [];
+      if (quiet !== true) {
+        this.summary = null;
+        this.timelineDailyRows = [];
+      }
 
-      if (this.supportedHosts.length === 0) {
+      if (this.noSupportedHosts) {
         this.loading = false;
         return;
       }
 
-      this.loading = true;
+      this.loading = quiet !== true;
       try {
-        const client = getClient();
-        const query = buildWorkSummaryQuery(this.supportedHosts, '[]', []);
         if (this.range === 'sinceRecording') {
-          await this.loadSinceRecordingSummary(client, query, isStale);
+          await this.loadSinceRecordingSummary(isStale);
           return;
         }
         const timeperiods = this.getTimeperiods();
-        const results = await client.query(timeperiods, [query]);
+        const days = await this.loadTrackedDays(timeperiods);
         if (isStale()) return;
 
-        this.summary = this.applyManualWorkToSummary(
-          sumWorkSummaries(results.map(result => this.summarizeQueryResult(result))),
-          timeperiods
-        );
-        const timelineTimeperiods = this.getTimelineTimeperiods();
-        const timelineResults =
-          JSON.stringify(timelineTimeperiods) === JSON.stringify(timeperiods)
-            ? results
-            : await client.query(timelineTimeperiods, [query]);
-        if (isStale()) return;
+        this.summary = this.applyManualWorkToSummary(sumWorkSummaries(days.summaries), timeperiods);
         this.timelineDailyRows =
           this.range === 'today'
-            ? this.buildTodayRows(
-                this.getGraceAdjustedEvents(timelineResults[0] || {}),
-                timelineTimeperiods[0]
-              )
-            : timelineResults.map((result, index) => {
-                const adjustedSummary = this.applyManualWorkToSummary(
-                  this.summarizeQueryResult(result),
-                  [timelineTimeperiods[index]]
-                );
-                const date = timelineTimeperiods[index].split('/')[0];
-                const dateKey = moment(date).format('YYYY-MM-DD');
+            ? this.buildTodayRows(days.trackedInRange, timeperiods[0], days.end)
+            : days.summaries.map((summary, index) => {
+                const adjustedSummary = this.applyManualWorkToSummary(summary, [
+                  timeperiods[index],
+                ]);
+                const date = timeperiods[index].split('/')[0];
                 return {
-                  label: this.getDayLabel(date, this.range === 'sinceRecording'),
-                  date: dateKey,
+                  label: this.getDayLabel(date, false),
+                  date: moment(date).format('YYYY-MM-DD'),
                   activeDuration: adjustedSummary.activeDuration,
                   workDuration: adjustedSummary.workDuration,
                   notWorkDuration: adjustedSummary.notWorkDuration,
@@ -1204,13 +1244,54 @@ export default {
       }
     },
 
+    // The sums the Mac sent, and from its latest day: devices, time sent, start of recording.
+    async loadCloudDays(): Promise<Record<string, DaySum>> {
+      const days = currentDaySums((await peekStoredValue(DAY_SUMS_KEY)).value);
+      const latest = Object.values(days).sort((a, b) => b.date.localeCompare(a.date))[0];
+      this.cloudHosts = latest?.hosts || 0;
+      this.cloudComputedAt = latest?.computedAt || '';
+      this.cloudRecordingStart = latest?.recordingStart || '';
+      return days;
+    },
+
+    // Tracked sums per day: queried from this Mac's tracking, or on the phone taken from
+    // the sums the Mac sends (sync/daySums.ts).
+    async loadTrackedDays(timeperiods: string[]): Promise<TrackedDays> {
+      if (IS_CLOUD_BUILD) {
+        const days = await this.loadCloudDays();
+        const dayOf = (timeperiod: string) =>
+          days[moment(timeperiod.split('/')[0]).format('YYYY-MM-DD')];
+        const first = dayOf(timeperiods[0]);
+        const dayStart = moment(timeperiods[0].split('/')[0]);
+        return {
+          summaries: timeperiods.map(timeperiod => daySummary(dayOf(timeperiod))),
+          trackedInRange: (start, end) => hoursInRange(first, dayStart, start, end),
+          end: first ? moment(first.computedAt) : dayStart,
+        };
+      }
+      const query = buildWorkSummaryQuery(this.supportedHosts, '[]', []);
+      const results = await getClient().query(timeperiods, [query]);
+      const events = this.getGraceAdjustedEvents(results[0] || {});
+      const rules = this.categoryStore.classes_for_query || [];
+      return {
+        summaries: results.map(result => this.summarizeQueryResult(result)),
+        trackedInRange: (start, end) => summarizeEventsInRange(events, rules, start, end),
+        end: moment(),
+      };
+    },
+
     // Past weeks come from stored weekly sums; only the current week is queried live.
-    async loadSinceRecordingSummary(client: any, query: string[], isStale: () => boolean) {
-      const store = await this.ensureWeeklySummaries();
+    async loadSinceRecordingSummary(isStale: () => boolean) {
+      // The phone reads the weeks the Mac stored; only the Mac sums up finished weeks.
+      const store = IS_CLOUD_BUILD
+        ? await this.loadWeeklySummaryStore()
+        : await this.ensureWeeklySummaries();
+      if (IS_CLOUD_BUILD) await this.loadCloudDays();
       if (isStale()) return;
       const recordingStart = this.getRecordingStartDay();
       const today = moment(get_today_with_offset(this.settingsStore.startOfDay));
       const currentWeekStart = this.getCurrentWeekStartDay();
+      const firstStoredWeek = Object.keys(store).sort()[0];
       const weeks: Array<{
         start: moment.Moment;
         summary: WorkCategorySummary;
@@ -1218,18 +1299,21 @@ export default {
       }> = [];
 
       // Stored sums outlive raw events and buckets, so history starts at whichever is earlier.
-      const earliestStoredWeek = Object.keys(store).sort()[0];
-      const firstDay = earliestStoredWeek
-        ? moment.min(recordingStart, moment(earliestStoredWeek, 'YYYY-MM-DD'))
+      const firstDay = firstStoredWeek
+        ? moment.min(recordingStart, moment(firstStoredWeek, 'YYYY-MM-DD'))
         : recordingStart;
 
       for (const weekStart of completedWeekStarts(firstDay, currentWeekStart)) {
         const start = moment(weekStart, 'YYYY-MM-DD');
-        const summary = store[weekStart];
+        let summary = store[weekStart];
         if (!summary) {
           // Gaps are only expected before tracking began; anything later was never summarized.
           if (start.isBefore(recordingStart.clone().startOf('isoWeek'))) continue;
-          throw new Error(`No summary stored for the week of ${weekStart}`);
+          if (!IS_CLOUD_BUILD) throw new Error(`No summary stored for the week of ${weekStart}`);
+          // The Mac has not summed up this week yet: add up the days it sent.
+          const days = await this.loadTrackedDays(this.weekTimeperiods(start));
+          if (isStale()) return;
+          summary = sumWorkSummaries(days.summaries);
         }
         weeks.push({
           start,
@@ -1246,11 +1330,11 @@ export default {
         today
       );
       if (liveTimeperiods.length > 0) {
-        const results = await client.query(liveTimeperiods, [query]);
+        const days = await this.loadTrackedDays(liveTimeperiods);
         if (isStale()) return;
         weeks.push({
           start: currentWeekStart,
-          summary: sumWorkSummaries(results.map(result => this.summarizeQueryResult(result))),
+          summary: sumWorkSummaries(days.summaries),
           timeperiods: liveTimeperiods,
         });
       }
@@ -1367,10 +1451,6 @@ export default {
       return summarizeWorkQueryResult(result, this.categoryStore.classes_for_query || []);
     },
 
-    categorizeEvent(event: any): string[] {
-      return categorizeFocusFrogEvent(event, this.categoryStore.classes_for_query || []);
-    },
-
     getGraceAdjustedEvents(result: any): any[] {
       return addAfkGraceToActiveEvents(result.activeEvents || [], result.rawActiveEvents || []);
     },
@@ -1391,46 +1471,21 @@ export default {
       this.timelineSelectedIndex = Math.min(this.timelineDailyRows.length - 1, Math.max(0, index));
     },
 
-    summarizeActiveEventsUntil(
-      events: any[],
+    // Tracked time in the range plus the manual work and meeting credit inside it.
+    summarizeRange(
+      trackedInRange: TrackedInRange,
       rangeStart: moment.Moment,
       rangeEnd: moment.Moment
     ): WorkCategorySummary {
-      const categoryMap: Record<string, CategoryDuration> = {};
-      let activeSeconds = 0;
-      let notWorkDuration = 0;
-
-      for (const event of events) {
-        const eventDuration = Math.max(0, Number(event.duration || 0));
-        const eventStart = moment(event.timestamp);
-        if (!eventStart.isValid() || eventDuration <= 0) continue;
-
-        const eventEnd = eventStart.clone().add(eventDuration, 'seconds');
-        const clippedStart = moment.max(eventStart, rangeStart);
-        const clippedEnd = moment.min(eventEnd, rangeEnd);
-        const duration = Math.max(0, clippedEnd.diff(clippedStart, 'seconds', true));
-        if (duration <= 0) continue;
-
-        const category = this.categorizeEvent(event);
-        const key = categoryKey(category);
-        categoryMap[key] = categoryMap[key] || { category, duration: 0 };
-        categoryMap[key].duration += duration;
-        activeSeconds += duration;
-        if (this.isNotWorkCategory(category)) {
-          notWorkDuration += duration;
-        }
-      }
-
-      const boundedNotWork = Math.min(activeSeconds, notWorkDuration);
+      const tracked = trackedInRange(rangeStart, rangeEnd);
       const manualSeconds = this.manualWorkEntries.reduce(
         (total, entry) => total + manualWorkSecondsInRange(entry, rangeStart, rangeEnd),
         0
       );
       const meetingSeconds = this.dailyMeetingWorkSecondsForRange(rangeStart, rangeEnd);
       const extraWorkSeconds = manualSeconds + meetingSeconds;
-      let categoryDurations = Object.values(categoryMap);
-      categoryDurations = this.addManualWorkCategoryDurationsForRange(
-        categoryDurations,
+      let categoryDurations = this.addManualWorkCategoryDurationsForRange(
+        tracked.categoryDurations,
         rangeStart,
         rangeEnd
       );
@@ -1440,26 +1495,33 @@ export default {
         meetingSeconds
       );
       return {
-        activeDuration: activeSeconds + extraWorkSeconds,
-        workDuration: Math.max(0, activeSeconds - boundedNotWork) + extraWorkSeconds,
-        notWorkDuration: boundedNotWork,
+        activeDuration: tracked.activeDuration + extraWorkSeconds,
+        workDuration: tracked.workDuration + extraWorkSeconds,
+        notWorkDuration: tracked.notWorkDuration,
         categoryDurations,
       };
     },
 
-    buildTodayRows(events: any[], timeperiod: string): DayRow[] {
+    buildTodayRows(
+      trackedInRange: TrackedInRange,
+      timeperiod: string,
+      now: moment.Moment
+    ): DayRow[] {
       return this.todayTimelineMode === 'hourly'
-        ? this.buildTodayHourlyRows(events, timeperiod)
-        : this.buildTodayCumulativeRows(events, timeperiod);
+        ? this.buildTodayHourlyRows(trackedInRange, timeperiod, now)
+        : this.buildTodayCumulativeRows(trackedInRange, timeperiod, now);
     },
 
-    buildTodayCumulativeRows(events: any[], timeperiod: string): DayRow[] {
+    buildTodayCumulativeRows(
+      trackedInRange: TrackedInRange,
+      timeperiod: string,
+      now: moment.Moment
+    ): DayRow[] {
       const [startIso, endIso] = timeperiod.split('/');
       const dayStart = moment(startIso);
       const dayEnd = moment(endIso);
       if (!dayStart.isValid() || !dayEnd.isValid()) return [];
 
-      const now = moment();
       let visibleEnd = now.clone();
       if (visibleEnd.isBefore(dayStart)) visibleEnd = dayStart.clone();
       if (visibleEnd.isAfter(dayEnd)) visibleEnd = dayEnd.clone();
@@ -1477,7 +1539,7 @@ export default {
       }
 
       return anchors.map((anchor, index) => {
-        const summary = this.summarizeActiveEventsUntil(events, dayStart, anchor);
+        const summary = this.summarizeRange(trackedInRange, dayStart, anchor);
         const isCurrentPoint = index === anchors.length - 1 && anchor.isSame(visibleEnd);
         return {
           label:
@@ -1491,13 +1553,16 @@ export default {
       });
     },
 
-    buildTodayHourlyRows(events: any[], timeperiod: string): DayRow[] {
+    buildTodayHourlyRows(
+      trackedInRange: TrackedInRange,
+      timeperiod: string,
+      now: moment.Moment
+    ): DayRow[] {
       const [startIso, endIso] = timeperiod.split('/');
       const dayStart = moment(startIso);
       const dayEnd = moment(endIso);
       if (!dayStart.isValid() || !dayEnd.isValid()) return [];
 
-      const now = moment();
       let visibleEnd = now.clone();
       if (visibleEnd.isBefore(dayStart)) visibleEnd = dayStart.clone();
       if (visibleEnd.isAfter(dayEnd)) visibleEnd = dayEnd.clone();
@@ -1510,7 +1575,7 @@ export default {
       ) {
         const hourStart = cursor.clone();
         const hourEnd = moment.min(cursor.clone().add(1, 'hour'), visibleEnd);
-        const summary = this.summarizeActiveEventsUntil(events, hourStart, hourEnd);
+        const summary = this.summarizeRange(trackedInRange, hourStart, hourEnd);
         rows.push({
           label: hourStart.format('HH:mm'),
           date: dayStart.format('YYYY-MM-DD'),
@@ -1564,12 +1629,6 @@ export default {
       return (seconds / 3600).toFixed(1);
     },
 
-    getTimelineTimeperiods(): string[] {
-      if (this.range === 'sinceRecording') return this.getTimeperiods();
-      if (this.range === 'week') return this.getCurrentWeekTimeperiods();
-      return this.getTimeperiods();
-    },
-
     getCurrentWeekStartDay(): moment.Moment {
       return moment(get_today_with_offset(this.settingsStore.startOfDay)).startOf('isoWeek');
     },
@@ -1594,23 +1653,15 @@ export default {
       });
     },
 
+    // On the phone: the day the Mac says its tracking began.
     getRecordingStartDay(): moment.Moment {
       const offset = this.settingsStore.startOfDay;
-      const today = moment(get_today_with_offset(offset));
-      const supportedHosts = new Set(this.supportedHosts);
-      const candidates = (this.bucketsStore.buckets || [])
-        .filter(bucket => {
-          const host = bucket.hostname || bucket.data?.hostname;
-          return supportedHosts.has(host) && ['currentwindow', 'afkstatus'].includes(bucket.type);
-        })
-        .flatMap(bucket => [bucket.metadata?.start, bucket.first_seen, bucket.created])
-        .filter(value => Boolean(value))
-        .map(value => moment(value))
-        .filter(value => value.isValid());
-
-      if (candidates.length === 0) return today;
-
-      return moment.min(candidates).clone().subtract(get_offset_duration(offset)).startOf('day');
+      if (IS_CLOUD_BUILD) {
+        return this.cloudRecordingStart
+          ? moment(this.cloudRecordingStart, 'YYYY-MM-DD')
+          : moment(get_today_with_offset(offset));
+      }
+      return recordingStartDay(this.bucketsStore.buckets || [], this.supportedHosts, offset);
     },
   },
 };
@@ -2600,6 +2651,9 @@ export default {
 
 .timeline-chart {
   margin-top: 0.85rem;
+}
+
+.timeline-scroll {
   overflow-x: auto;
 }
 

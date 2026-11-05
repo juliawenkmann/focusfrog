@@ -1,71 +1,50 @@
-// Sends the Mac's daily work sums to the cloud so the phone can show Hours.
-// Only sums leave the Mac (work, not work, time per category) — never window titles,
-// URLs or app names; firebase/firestore.rules refuse anything else in `days/`.
-// Runs while FocusFrog is open on the Mac and the owner is signed in.
+// The Mac's daily work sums, sent to the cloud so the phone can show the same Hours page.
+// Only sums leave the Mac (work, not work, time per category, per day and for today per
+// hour) — never window titles, URLs or app names; firebase/firestore.rules refuse anything
+// else in `days/`. Manual work is not included: every device adds it itself, exactly as
+// the Hours page does. Runs while FocusFrog is open on the Mac and the owner is signed in.
+import moment from 'moment';
 import { useBucketsStore } from '~/stores/buckets';
 import { useCategoryStore } from '~/stores/categories';
 import { useSettingsStore } from '~/stores/settings';
 import { keySync, onOwnerSignIn } from '~/sync/cloud';
 import { getClient } from '~/util/awclient';
-import { peekStoredValue } from '~/util/focusfrogStorage';
 import { get_day_period, get_today_with_offset } from '~/util/time';
+import { DAY_SUM_VERSION, DAY_SUMS_KEY } from '~/util/daySums';
+import type { DaySum } from '~/util/daySums';
 import { weeklySummaryContextKey } from '~/util/weeklySummaries';
 import {
-  applyManualWork,
   currentWeekDates,
-  MANUAL_WORK_SERVER_KEY,
-  normalizeManualWorkEntries,
+  recordingStartDay,
+  summarizeHours,
   summarizeWorkQueryResult,
 } from '~/util/workDay';
-import { buildWorkSummaryQuery, enabledWorkReportHosts } from '~/util/workReport';
-import type { WorkCategorySummary } from '~/util/workReport';
+import {
+  addAfkGraceToActiveEvents,
+  buildWorkSummaryQuery,
+  enabledWorkReportHosts,
+} from '~/util/workReport';
 
 const INTERVAL_MS = 5 * 60 * 1000;
 const MIN_GAP_MS = 60 * 1000;
 
-export interface DaySum extends WorkCategorySummary {
-  date: string;
-  manualWorkDuration: number;
-  computedAt: string;
-  contextKey: string;
-}
-
-const round = (seconds: number) => Math.round(Math.max(0, seconds) * 10) / 10;
-
-function daySum(
-  date: string,
-  tracked: WorkCategorySummary,
-  withManual: WorkCategorySummary,
-  contextKey: string,
-  computedAt: string
-): DaySum {
-  return {
-    date,
-    activeDuration: round(withManual.activeDuration),
-    workDuration: round(withManual.workDuration),
-    notWorkDuration: round(withManual.notWorkDuration),
-    manualWorkDuration: round(withManual.workDuration - tracked.workDuration),
-    categoryDurations: withManual.categoryDurations
-      .map(row => ({ category: row.category, duration: round(row.duration) }))
-      .filter(row => row.duration > 0),
-    computedAt,
-    contextKey,
-  };
-}
-
 // The sums without the time they were computed, to tell whether anything changed.
 const sums = (day: Partial<DaySum> = {}) => JSON.stringify({ ...day, computedAt: '' });
+
+// A day is final once it was summed after it ended.
+const isFinal = (day: DaySum | undefined, period: string) =>
+  day !== undefined && !moment(day.computedAt).isBefore(moment(period.split('/')[1]));
 
 let running = false;
 let lastRun = 0;
 
-// Today, plus the days of this week the cloud does not have for the current rules.
-// Only days whose sums changed are written.
+// Today, plus the days of this week the cloud does not have in final form for the current
+// rules. Only days whose sums changed are written.
 async function uploadDaySums(): Promise<void> {
   if (running) return;
   running = true;
   try {
-    const sync = await keySync('daySums');
+    const sync = await keySync(DAY_SUMS_KEY);
     if (!sync || Date.now() - lastRun < MIN_GAP_MS) return;
     lastRun = Date.now();
     const settings = useSettingsStore();
@@ -79,21 +58,38 @@ async function uploadDaySums(): Promise<void> {
     const contextKey = weeklySummaryContextKey(hosts, rules, settings.startOfDay);
     const todayKey = get_today_with_offset(settings.startOfDay);
     const current = (sync.value() || {}) as Record<string, DaySum>;
-    const dates = currentWeekDates(todayKey).filter(
-      date => date === todayKey || current[date]?.contextKey !== contextKey
-    );
+    const dates = currentWeekDates(todayKey).filter(date => {
+      const day = current[date];
+      return (
+        day?.version !== DAY_SUM_VERSION ||
+        day.contextKey !== contextKey ||
+        !isFinal(day, get_day_period(date, settings.startOfDay))
+      );
+    });
     const timeperiods = dates.map(date => get_day_period(date, settings.startOfDay));
-    const [results, manual] = await Promise.all([
-      getClient().query(timeperiods, [buildWorkSummaryQuery(hosts, '[]', [])]),
-      peekStoredValue(MANUAL_WORK_SERVER_KEY),
-    ]);
-    const entries = normalizeManualWorkEntries(manual.value);
-    const computedAt = new Date().toISOString();
+    const results = await getClient().query(timeperiods, [buildWorkSummaryQuery(hosts, '[]', [])]);
+    const now = moment();
+    const recordingStart = recordingStartDay(buckets.buckets || [], hosts, settings.startOfDay);
     const changed: Record<string, DaySum> = {};
     dates.forEach((date, index) => {
-      const tracked = summarizeWorkQueryResult(results[index], rules);
-      const withManual = applyManualWork(tracked, entries, [timeperiods[index]], todayKey);
-      const day = daySum(date, tracked, withManual, contextKey, computedAt);
+      const result = results[index] || {};
+      const day: DaySum = {
+        version: DAY_SUM_VERSION,
+        date,
+        hosts: hosts.length,
+        recordingStart: recordingStart.format('YYYY-MM-DD'),
+        computedAt: now.toISOString(),
+        contextKey,
+        ...summarizeWorkQueryResult(result, rules),
+      };
+      if (date === todayKey) {
+        const [start, end] = timeperiods[index].split('/').map(time => moment(time));
+        const events = addAfkGraceToActiveEvents(
+          result.activeEvents || [],
+          result.rawActiveEvents || []
+        );
+        day.hours = summarizeHours(events, rules, start, moment.min(now, end));
+      }
       if (sums(day) !== sums(current[date])) changed[date] = day;
     });
     if (Object.keys(changed).length) sync.save({ ...current, ...changed });

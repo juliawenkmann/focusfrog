@@ -148,20 +148,49 @@ describe('item documents', () => {
 });
 
 describe('time sums never carry window titles or URLs', () => {
-  test('a day with only sums is accepted', async () => {
-    await assertSucceeds(setDoc(ownerDoc('days', '2026-11-05'), { date: '2026-11-05', ...sums }));
+  const day = (overrides = {}) => ({
+    version: 2,
+    date: '2026-11-05',
+    hosts: 2,
+    ...sums,
+    ...overrides,
+  });
+  const hour = {
+    activeDuration: 3000,
+    workDuration: 2800,
+    notWorkDuration: 200,
+    categoryDurations: [],
+  };
+
+  test('a day with only sums is accepted, today also per hour', async () => {
+    await assertSucceeds(setDoc(ownerDoc('days', '2026-11-05'), day()));
+    await assertSucceeds(
+      setDoc(
+        ownerDoc('days', '2026-11-05'),
+        day({ hours: [hour, hour], recordingStart: '2026-06-03' })
+      )
+    );
+    await assertFails(
+      setDoc(ownerDoc('days', '2026-11-05'), day({ recordingStart: 'since my first window' }))
+    );
   });
 
   test('a day with a title, url or app is refused', async () => {
     for (const field of ['title', 'url', 'app', 'events']) {
-      await assertFails(
-        setDoc(ownerDoc('days', '2026-11-05'), { date: '2026-11-05', ...sums, [field]: 'x' })
-      );
+      await assertFails(setDoc(ownerDoc('days', '2026-11-05'), day({ [field]: 'x' })));
     }
   });
 
+  test('a day must say its version and devices, and has at most 25 hours', async () => {
+    const { version, ...noVersion } = day();
+    const { hosts, ...noHosts } = day();
+    await assertFails(setDoc(ownerDoc('days', '2026-11-05'), noVersion));
+    await assertFails(setDoc(ownerDoc('days', '2026-11-05'), noHosts));
+    await assertFails(setDoc(ownerDoc('days', '2026-11-05'), day({ hours: Array(26).fill(hour) })));
+  });
+
   test('the day field must match the document', async () => {
-    await assertFails(setDoc(ownerDoc('days', '2026-11-05'), { date: '2026-11-04', ...sums }));
+    await assertFails(setDoc(ownerDoc('days', '2026-11-05'), day({ date: '2026-11-04' })));
   });
 
   test('weekly sums keep the shape the Hours page stores', async () => {
