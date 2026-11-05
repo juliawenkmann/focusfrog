@@ -138,7 +138,7 @@ div.pomodoro-page
             )
               icon(name="edit")
               | Edit
-          event-editor(:event="event", :bucket_id="bucket_id", @save="updateTimer", @delete="removeTimer")
+          event-editor(:event="event", @save="updateTimer", @delete="removeTimer")
 </template>
 
 <style scoped lang="scss">
@@ -704,6 +704,8 @@ import moment from 'moment';
 import EventEditor from '../components/EventEditor.vue';
 import { useBucketsStore } from '~/stores/buckets';
 import { useCategoryStore } from '~/stores/categories';
+import { IS_CLOUD_BUILD } from '~/sync/config';
+import { loadStoredValue, onStoredValueChange, saveStoredValue } from '~/util/focusfrogStorage';
 import {
   categorizeFocusFrogEvent,
   categoryLabel,
@@ -752,6 +754,26 @@ function formatClock(seconds: number): string {
   return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
 }
 
+// Sessions are stored like todos (storage.json on the Mac, and the cloud when signed in),
+// so a timer started on the phone runs on the Mac too. Each one keeps the event shape
+// it had in the aw-stopwatch bucket: { id, timestamp, duration, data }.
+const SESSIONS_KEY = 'pomodoroSessions';
+
+function normalizeSessions(value: unknown): any[] {
+  return (Array.isArray(value) ? value : []).filter(
+    session =>
+      session &&
+      typeof session.id === 'string' &&
+      session.timestamp &&
+      session.data &&
+      typeof session.data === 'object'
+  );
+}
+
+function newSessionId(): string {
+  return `pomodoro-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function modeByValue(value: string) {
   return POMODORO_MODES.find(mode => mode.value === value) || POMODORO_MODES[0];
 }
@@ -765,7 +787,6 @@ export default {
     return {
       loading: true,
       completingTimer: false,
-      bucket_id: 'aw-stopwatch',
       events: [],
       taskLabel: '',
       selectedMode: 'focus',
@@ -887,8 +908,15 @@ export default {
     },
   },
   mounted: async function () {
-    await this.$aw.ensureBucket(this.bucket_id, 'general.stopwatch', 'unknown');
     useCategoryStore().load();
+    this.$once(
+      'hook:beforeDestroy',
+      // A session started or edited on another device; the Mac also keeps it locally.
+      onStoredValueChange(SESSIONS_KEY, value => {
+        this.events = normalizeSessions(value);
+        this.saveSessions();
+      })
+    );
     await this.getEvents();
     this.tickInterval = window.setInterval(this.tick, 1000);
   },
@@ -924,7 +952,9 @@ export default {
       const modeConfig = this.selectedModeConfig;
       if (modeConfig.value === 'focus') this.requestNotificationPermission();
       const event = {
-        timestamp: new Date(),
+        id: newSessionId(),
+        timestamp: new Date().toISOString(),
+        duration: 0,
         data: {
           running: true,
           kind: 'pomodoro',
@@ -934,9 +964,9 @@ export default {
           task: this.taskLabel.trim(),
         },
       };
-      await this.$aw.heartbeat(this.bucket_id, 1, event);
+      this.events = [event, ...this.events];
+      this.saveSessions();
       if (modeConfig.value === 'focus') this.taskLabel = '';
-      await this.getEvents();
       if (modeConfig.value === 'focus') {
         this.lastDistractionCheckAt = 0;
         this.checkForDistraction();
@@ -963,8 +993,7 @@ export default {
         newEvent.data.completed = planned;
         newEvent.data.completedAt = new Date().toISOString();
         newEvent.duration = planned && targetDuration > 0 ? targetDuration : elapsed;
-        await this.$aw.replaceEvent(this.bucket_id, newEvent);
-        await this.getEvents();
+        this.updateTimer(newEvent);
       } finally {
         this.completingTimer = false;
       }
@@ -1041,6 +1070,8 @@ export default {
         });
     },
     async getCurrentActivityForDistraction() {
+      // Only the Mac knows the current window; the phone has no tracking.
+      if (IS_CLOUD_BUILD) return null;
       const bucketsStore = useBucketsStore();
       await bucketsStore.ensureLoaded();
 
@@ -1158,20 +1189,26 @@ export default {
       this.distractionDismissedUntil = Date.now() + DISTRACTION_DISMISS_MS;
       this.distractionWarning = null;
     },
-    updateTimer: async function (new_event) {
+    updateTimer(new_event) {
       const i = this.events.findIndex(e => e.id == new_event.id);
       if (i != -1) {
-        this.$set(this.events, i, new_event);
+        const timestamp = new Date(new_event.timestamp).toISOString();
+        this.$set(this.events, i, { ...new_event, timestamp });
+        this.saveSessions();
       } else {
         console.error('Could not update Pomodoro session.');
       }
     },
     removeTimer: function (event) {
       this.events = _.filter(this.events, e => e.id != event.id);
+      this.saveSessions();
     },
     getEvents: async function () {
-      this.events = await this.$aw.getEvents(this.bucket_id, { limit: 100 });
+      this.events = normalizeSessions((await loadStoredValue(SESSIONS_KEY)).value);
       this.loading = false;
+    },
+    saveSessions() {
+      void saveStoredValue(SESSIONS_KEY, this.events);
     },
   },
 };

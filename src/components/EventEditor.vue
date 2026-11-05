@@ -5,7 +5,7 @@ b-modal(v-if="event && event.id", :id="'edit-modal-' + event.id", ref="eventEdit
 
   div(v-else)
     table(style="width: 100%")
-      tr
+      tr(v-if="bucket_id")
         th Bucket
         td {{ bucket_id }}
       tr
@@ -60,6 +60,9 @@ b-modal(v-if="event && event.id", :id="'edit-modal-' + event.id", ref="eventEdit
 //  - Bucket viewer
 //  - Timeline (on event-click)
 //  - Search (soon)
+//
+// Without a bucket_id it edits a copy of the event and only emits save/delete: the
+// parent stores it (Pomodoro sessions, which sync with the phone).
 
 import moment from 'moment';
 
@@ -71,7 +74,7 @@ export default {
   name: 'EventEditor',
   props: {
     event: { type: Object },
-    bucket_id: { type: String, required: true },
+    bucket_id: { type: String, default: '' },
   },
   data() {
     return {
@@ -112,17 +115,19 @@ export default {
       // This emit needs to be called first, otherwise it won't occur for some reason
       // FIXME: but what if the replace fails? Then UI will incorrectly think event was replaced?
       this.$emit('save', this.editedEvent);
-      await this.$aw.replaceEvent(this.bucket_id, this.editedEvent);
+      if (this.bucket_id) await this.$aw.replaceEvent(this.bucket_id, this.editedEvent);
     },
     async delete_() {
       // This emit needs to be called first, otherwise it won't occur for some reason
       // FIXME: but what if the replace fails? Then UI will incorrectly think event was deleted?
       this.$emit('delete', this.event);
-      await this.$aw.deleteEvent(this.bucket_id, this.event.id);
+      if (this.bucket_id) await this.$aw.deleteEvent(this.bucket_id, this.event.id);
     },
     async getEvent() {
       if (this.bucket_id && this.event && this.event.id) {
         this.editedEvent = await this.$aw.getEvent(this.bucket_id, this.event.id);
+      } else if (this.event && this.event.id) {
+        this.editedEvent = JSON.parse(JSON.stringify(this.event));
       } else {
         this.editedEvent = null;
       }

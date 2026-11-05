@@ -105,16 +105,19 @@ const macRoutes = [
 // Routes with `meta.tab` appear in the phone's tab bar (Header.vue), in this order.
 const cloudRoutes = [
   { path: '/', redirect: '/todos' },
+  // The same pages and order as the Mac's top bar.
   { path: '/home', component: Home, meta: { tab: { icon: 'clock', label: 'Hours' } } },
-  {
-    path: '/todos',
-    component: Todos,
-    meta: { fullContainer: true, tab: { icon: 'tasks', label: 'Todos' } },
-  },
   {
     path: '/time-blocking',
     component: TimeBlocking,
     meta: { fullContainer: true, tab: { icon: 'calendar-week', label: 'Plan' } },
+  },
+  { path: '/pomodoro', component: Stopwatch, meta: { tab: { icon: 'clock', label: 'Pomodoro' } } },
+  { path: '/stopwatch', redirect: '/pomodoro' },
+  {
+    path: '/todos',
+    component: Todos,
+    meta: { fullContainer: true, tab: { icon: 'tasks', label: 'Todos' } },
   },
   {
     path: '/vision-board',

@@ -6,6 +6,7 @@ export type SyncedKey =
   | 'todoProjects'
   | 'timeBlocks'
   | 'manualWork'
+  | 'pomodoroSessions'
   | 'visionBoard'
   | 'todoDayPlan'
   | 'todoFrog'
@@ -36,11 +37,13 @@ export const KEY_SPECS: Record<SyncedKey, KeySpec> = {
   todoProjects: { kind: 'items', collection: 'todoProjects', localServer: true },
   timeBlocks: { kind: 'items', collection: 'timeBlocks', localServer: true },
   manualWork: { kind: 'items', collection: 'manualWork', localServer: true },
+  // Pomodoro sessions, including the one running now.
+  pomodoroSessions: { kind: 'items', collection: 'pomodoroSessions', localServer: true },
   visionBoard: { kind: 'board', collection: 'visionItems', localServer: true },
   todoDayPlan: { kind: 'state', collection: 'state', docId: 'todoDayPlan', localServer: true },
   todoFrog: { kind: 'state', collection: 'state', docId: 'todoFrog', localServer: true },
   weeklySummaries: { kind: 'records', collection: 'weeks', localServer: true },
-  // Daily sums the Mac sends for the phone's Hours page (see sync/daySums.ts).
+  // Daily sums the Mac sends for the phone's Hours page (see util/daySums.ts).
   daySums: { kind: 'records', collection: 'days' },
   // The look (theme, flower picture) and day boundaries, shared by all devices.
   settings: { kind: 'state', collection: 'state', docId: 'settings' },

@@ -44,7 +44,7 @@ div.app-header(:class="{'fixed-top-padding': fixedTopMenu}")
             icon(name="calendar-week")
             | Time Blocking
 
-        b-nav-item(v-if="!isCloudBuild" to="/pomodoro")
+        b-nav-item(to="/pomodoro")
           div.px-2.px-lg-1
             icon(name="clock")
             | Pomodoro
@@ -397,7 +397,8 @@ export default {
     bottom: 0;
     left: 0;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-auto-columns: 1fr;
+    grid-auto-flow: column;
     gap: 0.25rem;
     padding: 0.4rem 0.6rem calc(0.4rem + env(safe-area-inset-bottom));
     border-top: 1px solid rgba(15, 23, 42, 0.1);

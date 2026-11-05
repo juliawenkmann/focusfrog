@@ -29,7 +29,8 @@ service cloud.firestore {
     // { item, updatedAt, deletedAt, device, position? }. Deletes are kept as
     // tombstones (deletedAt) so another device does not bring the item back.
     function isItemCollection(collection) {
-      return collection in ['todos', 'todoProjects', 'timeBlocks', 'manualWork', 'visionItems'];
+      return collection in ['todos', 'todoProjects', 'timeBlocks', 'manualWork', 'visionItems',
+        'pomodoroSessions'];
     }
 
     function validItem(id) {

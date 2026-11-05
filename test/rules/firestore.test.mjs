@@ -141,6 +141,18 @@ describe('item documents', () => {
     })));
   });
 
+  test('Pomodoro sessions sync like todos', async () => {
+    const session = {
+      id: 'pomodoro-1',
+      timestamp: '2026-11-05T10:00:00.000Z',
+      duration: 0,
+      data: { running: true, kind: 'pomodoro', mode: 'focus', targetDuration: 1500 },
+    };
+    await assertSucceeds(
+      setDoc(ownerDoc('pomodoroSessions', 'pomodoro-1'), todoDoc('pomodoro-1', { item: session }))
+    );
+  });
+
   test('the owner can delete documents', async () => {
     await seed(['users', OWNER_UID, 'todos', 'todo-1'], todoDoc());
     await assertSucceeds(deleteDoc(ownerDoc('todos', 'todo-1')));

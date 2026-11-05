@@ -47,9 +47,11 @@ const awTarget = new URL(
 const FOCUSFROG_VERSION = 'v1.0.0';
 const WEEKLY_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 let nativeApi = null;
+let eventToJson = null;
 let retention = null;
 const visionImageDir = path.join(path.dirname(storagePath), 'vision-board-images');
 const manualWorkStorageKey = 'manualWork';
+const pomodoroStorageKey = 'pomodoroSessions';
 const dailyMeetingWorkMinutes = 60;
 const dailyMeetingWorkStartTime = '12:00';
 const storageKeys = new Set([
@@ -61,6 +63,7 @@ const storageKeys = new Set([
   'visionBoard',
   'weeklySummaries',
   manualWorkStorageKey,
+  pomodoroStorageKey,
 ]);
 const visionImageMaxBytes = 8 * 1024 * 1024;
 const visionImageIdPattern =
@@ -504,6 +507,16 @@ function serveVisionImage(req, res) {
   imageStream.pipe(res);
 }
 
+// Pomodoro sessions used to live in the aw-stopwatch bucket. Until the Pomodoro page saves
+// its own list, those are its sessions (and the cloud import picks them up from here).
+function stopwatchSessions() {
+  if (!nativeApi?.store.hasBucket('aw-stopwatch')) return null;
+  return nativeApi.store
+    .getEvents('aw-stopwatch')
+    .map(event => eventToJson(event))
+    .map(event => ({ ...event, id: `aw-stopwatch-${event.id}` }));
+}
+
 async function serveStorage(req, res) {
   const requestUrl = new URL(req.url || '/', `http://${req.headers.host || '127.0.0.1'}`);
   const match = requestUrl.pathname.match(/^\/focusfrog-storage\/([A-Za-z0-9_-]+)$/);
@@ -515,7 +528,10 @@ async function serveStorage(req, res) {
   }
 
   if (req.method === 'GET' || req.method === 'HEAD') {
-    const payload = { value: readStorage()[key] ?? null };
+    const stored = readStorage()[key];
+    const payload = {
+      value: stored ?? (key === pomodoroStorageKey ? stopwatchSessions() : null),
+    };
     if (req.method === 'HEAD') {
       res.writeHead(200, {
         'content-type': 'application/json; charset=utf-8',
@@ -1029,6 +1045,7 @@ if (!fs.existsSync(path.join(distDir, 'index.html'))) {
 
 if (trackingMode === 'native') {
   const { NativeActivityApi } = await import('./tracking/aw-api.mjs');
+  ({ eventToJson } = await import('./tracking/aw-store.mjs'));
   retention = await import('./tracking/retention.mjs');
   nativeApi = new NativeActivityApi({
     dir: trackingDir,
