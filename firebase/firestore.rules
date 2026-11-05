@@ -1,0 +1,136 @@
+rules_version = '2';
+
+// FocusFrog belongs to one person. Everything lives under users/{uid}, and only the
+// owner's own account may read or write it: signed-out visitors and any other account
+// get nothing, even if they bypass the app.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(uid) {
+      return request.auth != null &&
+        request.auth.uid == uid &&
+        request.auth.token.email in ['juliawenkmann@gmail.com'];
+    }
+
+    function shortString(value, maxLength) {
+      return value is string && value.size() <= maxLength;
+    }
+
+    function optionalShortString(data, key, maxLength) {
+      return !(key in data) || shortString(data[key], maxLength);
+    }
+
+    function validDuration(value) {
+      return value is number && value >= 0 && value <= 100000000;
+    }
+
+    // One todo, project, time block, manual work entry or dream:
+    // { item, updatedAt, deletedAt, device, position? }. Deletes are kept as
+    // tombstones (deletedAt) so another device does not bring the item back.
+    function isItemCollection(collection) {
+      return collection in ['todos', 'todoProjects', 'timeBlocks', 'manualWork', 'visionItems'];
+    }
+
+    function validItem(id) {
+      let data = request.resource.data;
+      return data.keys().hasAll(['item', 'updatedAt', 'deletedAt', 'device']) &&
+        data.keys().hasOnly(['item', 'updatedAt', 'deletedAt', 'device', 'position']) &&
+        data.item is map &&
+        data.item.size() <= 40 &&
+        data.item.id == id &&
+        shortString(data.updatedAt, 40) &&
+        (data.deletedAt == null || shortString(data.deletedAt, 40)) &&
+        shortString(data.device, 80) &&
+        (!('position' in data) || data.position is number);
+    }
+
+    // Small single documents: the day plan, the frog and synced settings.
+    function validState(name) {
+      let data = request.resource.data;
+      let keys = ['value', 'updatedAt', 'device'];
+      return name in ['todoDayPlan', 'todoFrog', 'settings'] &&
+        data.keys().hasAll(keys) &&
+        data.keys().hasOnly(keys) &&
+        data.value is map &&
+        shortString(data.updatedAt, 40) &&
+        shortString(data.device, 80);
+    }
+
+    // A vision board photo, downscaled on the device that added it.
+    function validImage() {
+      let data = request.resource.data;
+      let keys = ['data', 'mimeType', 'width', 'height', 'updatedAt', 'device'];
+      return data.keys().hasAll(keys) &&
+        data.keys().hasOnly(keys) &&
+        shortString(data.data, 900000) &&
+        data.mimeType in ['image/webp', 'image/jpeg'] &&
+        data.width is int && data.width > 0 && data.width <= 4096 &&
+        data.height is int && data.height > 0 && data.height <= 4096 &&
+        shortString(data.updatedAt, 40) &&
+        shortString(data.device, 80);
+    }
+
+    // Time sums only. Window titles, URLs and app names never leave the Mac, so a
+    // document carrying any other field is refused.
+    function validSums(data) {
+      return validDuration(data.activeDuration) &&
+        validDuration(data.workDuration) &&
+        validDuration(data.notWorkDuration) &&
+        data.categoryDurations is list &&
+        data.categoryDurations.size() <= 300 &&
+        shortString(data.computedAt, 40) &&
+        optionalShortString(data, 'contextKey', 40) &&
+        optionalShortString(data, 'device', 80);
+    }
+
+    function validDay(date) {
+      let data = request.resource.data;
+      return date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        data.keys().hasAll(['date', 'activeDuration', 'workDuration', 'notWorkDuration',
+          'categoryDurations', 'computedAt']) &&
+        data.keys().hasOnly(['date', 'activeDuration', 'workDuration', 'notWorkDuration',
+          'manualWorkDuration', 'categoryDurations', 'computedAt', 'contextKey', 'device']) &&
+        data.date == date &&
+        validSums(data) &&
+        (!('manualWorkDuration' in data) || validDuration(data.manualWorkDuration));
+    }
+
+    function validWeek(weekStart) {
+      let data = request.resource.data;
+      return weekStart.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        data.keys().hasAll(['version', 'weekStart', 'activeDuration', 'workDuration',
+          'notWorkDuration', 'categoryDurations', 'computedAt']) &&
+        data.keys().hasOnly(['version', 'weekStart', 'contextKey', 'computedAt',
+          'keptAfterContextChange', 'activeDuration', 'workDuration', 'notWorkDuration',
+          'categoryDurations', 'device']) &&
+        data.version is int &&
+        data.weekStart == weekStart &&
+        (!('keptAfterContextChange' in data) || data.keptAfterContextChange is bool) &&
+        validSums(data);
+    }
+
+    function validDoc(collection, id) {
+      return (isItemCollection(collection) && validItem(id)) ||
+        (collection == 'state' && validState(id)) ||
+        (collection == 'visionImages' && validImage()) ||
+        (collection == 'days' && validDay(id)) ||
+        (collection == 'weeks' && validWeek(id));
+    }
+
+    // An edit made offline that arrives after a newer edit from another device is
+    // refused, so the newer one stays (newest change wins, per item).
+    function notOlder(collection) {
+      return !(isItemCollection(collection) || collection == 'state') ||
+        request.resource.data.updatedAt >= resource.data.updatedAt;
+    }
+
+    match /users/{uid}/{collection}/{id} {
+      allow read, delete: if isOwner(uid);
+      allow create: if isOwner(uid) && validDoc(collection, id);
+      allow update: if isOwner(uid) && validDoc(collection, id) && notOlder(collection);
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

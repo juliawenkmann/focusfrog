@@ -29,3 +29,8 @@ test/e2e/reports
 
 # python
 __pycache__
+
+# firebase emulators
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
