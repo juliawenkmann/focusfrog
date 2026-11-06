@@ -639,10 +639,20 @@ div.todos-page
               div
                 div.section-label Choose
                 h5.mb-0 Available todos
-              span.todo-count {{ planCandidateTodos.length }}
-            div.todo-empty(v-if="planCandidateTodos.length === 0") Nothing else available.
+              span.todo-count(v-if="!isCloudBuild") {{ planCandidateTodos.length }}
+              //- On the phone the list starts hidden, so the day plan fits on the screen.
+              button.todo-available-toggle(
+                v-else
+                type="button"
+                :aria-expanded="showAvailableTodos ? 'true' : 'false'"
+                @click="showAvailableTodos = !showAvailableTodos"
+              )
+                span.todo-count {{ planCandidateTodos.length }}
+                span {{ showAvailableTodos ? 'Hide' : 'Show' }}
+                icon(:name="showAvailableTodos ? 'chevron-up' : 'chevron-down'")
+            div.todo-empty(v-if="showAvailableTodos && planCandidateTodos.length === 0") Nothing else available.
             div.todo-plan-choice-group(
-              v-for="group in planCandidateGroups"
+              v-for="group in showAvailableTodos ? planCandidateGroups : []"
               :key="'choice-group-' + group.id"
             )
               div.todo-plan-choice-group-header
@@ -895,6 +905,8 @@ import 'vue-awesome/icons/calendar-alt';
 import 'vue-awesome/icons/calendar-day';
 import 'vue-awesome/icons/check';
 import 'vue-awesome/icons/check-circle';
+import 'vue-awesome/icons/chevron-down';
+import 'vue-awesome/icons/chevron-up';
 import 'vue-awesome/icons/clipboard-list';
 import 'vue-awesome/icons/filter';
 import 'vue-awesome/icons/grip-lines';
@@ -924,6 +936,7 @@ import {
   TodoProject,
   TODO_PROJECT_COLORS,
 } from '~/util/todoProjects';
+import { IS_CLOUD_BUILD } from '~/sync/config';
 import { loadStoredValue, onStoredValueChange, saveStoredValue } from '~/util/focusfrogStorage';
 
 type RepeatRule = 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'custom';
@@ -1083,6 +1096,8 @@ export default {
   name: 'Todos',
   data() {
     return {
+      isCloudBuild: IS_CLOUD_BUILD,
+      showAvailableTodos: !IS_CLOUD_BUILD,
       todos: [] as TodoItem[],
       projects: [] as TodoProject[],
       activeProjectFilter: 'all',
@@ -5355,6 +5370,20 @@ html[data-dashboard-theme='contrast'] .todo-plan-choice-group-header {
 
 .todo-add-icon {
   margin-right: 0.25rem;
+}
+
+.todo-available-toggle {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 800;
 }
 
 /* The phone: compact rows, so a screen shows many todos instead of a few. Only the
