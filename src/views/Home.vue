@@ -251,6 +251,12 @@ div.time-dashboard(:class="dashboardThemeClass")
       span.timeline-legend-item
         span.timeline-legend-dot.timeline-legend-total
         span Total
+      span.timeline-legend-item
+        span.timeline-legend-dot.timeline-legend-balance
+        span {{ timelineBalanceLabel }}
+      span.timeline-legend-item(v-if="timelineChart.holidayBands.length > 0")
+        span.timeline-legend-dot.timeline-legend-holiday
+        span Holiday
     div.timeline-empty(v-if="!loading && timelineChart.rows.length === 0")
       | No timeline data found for this range.
     div.timeline-chart(v-else)
@@ -260,6 +266,14 @@ div.time-dashboard(:class="dashboardThemeClass")
           :viewBox="timelineViewBox"
           preserveAspectRatio="xMidYMid meet"
         )
+          rect.timeline-holiday-band(
+            v-for="band in timelineChart.holidayBands"
+            :key="band.key"
+            :x="band.x"
+            :y="timelineChart.top"
+            :width="band.width"
+            :height="timelineChart.bottom - timelineChart.top"
+          )
           g.timeline-gridlines
             g(v-for="tick in timelineChart.yTicks" :key="'tick-' + tick.label")
               line.timeline-grid(
@@ -288,6 +302,7 @@ div.time-dashboard(:class="dashboardThemeClass")
             :y1="timelineChart.top"
             :y2="timelineChart.bottom"
           )
+          polyline.timeline-balance-line(:points="timelineChart.balancePolyline")
           polyline.timeline-line.timeline-line-total(:points="timelineChart.totalPolyline")
           polyline.timeline-line.timeline-line-work(:points="timelineChart.workPolyline")
           polyline.timeline-line.timeline-line-not-work(:points="timelineChart.notWorkPolyline")
@@ -336,7 +351,9 @@ div.time-dashboard(:class="dashboardThemeClass")
               @click="setTimelineSelectedIndex(row.index)"
             )
       div.timeline-day-summary(v-if="timelineSelectedRow")
-        div.timeline-day-label {{ timelineSelectedRow.title || timelineSelectedRow.label }}
+        div.timeline-day-label(:class="{ 'timeline-day-label--holidays': timelineSelectedHolidayLabel }")
+          span {{ timelineSelectedRow.title || timelineSelectedRow.label }}
+          small.timeline-day-holidays(v-if="timelineSelectedHolidayLabel") {{ timelineSelectedHolidayLabel }}
         div.timeline-day-metrics
           div.timeline-day-metric.timeline-day-work
             span Work
@@ -394,17 +411,20 @@ import { currentDaySums, DAY_SUMS_KEY, daySummary, hoursInRange } from '~/util/d
 import type { DaySum } from '~/util/daySums';
 import {
   addHolidayRange,
+  balancedSeconds,
   creditedHolidays,
   freeDayLabel,
   holidayDays,
+  holidayRuns,
   HOLIDAYS_PER_YEAR,
   nextWeekdayFeiertag,
   normalizeHolidayChoices,
   remainingWeekdayFeiertage,
   toggleHolidayDay,
   WORK_DAY_SECONDS,
+  WORK_WEEK_SECONDS,
 } from '~/util/timeOff';
-import type { HolidayDay } from '~/util/timeOff';
+import type { HolidayDay, HolidayRun } from '~/util/timeOff';
 import { getClient } from '~/util/awclient';
 import { useBucketsStore } from '~/stores/buckets';
 import { useCategoryStore } from '~/stores/categories';
@@ -547,6 +567,10 @@ interface TimelineChartData {
   notWorkPolyline: string;
   totalPolyline: string;
   selectedX: number | null;
+  // The work that would balance the scale, at each row: zero where no work is expected.
+  balancePolyline: string;
+  // Year and Since recording: shaded stretches for the days on holiday.
+  holidayBands: { key: string; x: number; width: number }[];
   pointRadius: number;
   selectedPointRadius: number;
   axisTitle: string;
@@ -944,6 +968,47 @@ export default {
       if (this.isLongRange) return IS_CLOUD_BUILD ? '520px' : '0px';
       return `${this.timelineChart.width}px`;
     },
+    // The holidays in the chart of weeks: Year and Since recording.
+    timelineHolidayRuns(): HolidayRun[] {
+      if (!this.isLongRange) return [];
+      const dates = new Set<string>(this.holidays.filter(day => day.counted).map(day => day.date));
+      return holidayRuns(
+        this.timelineDailyRows.map(row => row.date),
+        dates
+      );
+    },
+    timelineSelectedHolidayLabel(): string {
+      const days = this.timelineHolidayRuns
+        .filter(run => run.week === this.timelineSelectedIndex)
+        .reduce((total, run) => total + run.days, 0);
+      if (days === 0) return '';
+      return days === 1 ? '1 holiday' : `${days} holidays`;
+    },
+    // How much work at each row of the chart would level the scale.
+    timelineBalanceRows(): number[] {
+      const rows = this.timelineDailyRows;
+      if (this.range === 'today') {
+        const day = balancedSeconds([this.todayKey()], this.isFreeDay);
+        const perRow = this.todayTimelineMode === 'hourly' ? day / 24 : day;
+        return rows.map(() => perRow);
+      }
+      if (this.range === 'week') {
+        return rows.map(row => balancedSeconds([row.date], this.isFreeDay));
+      }
+      // Week by week the line shows a normal week; the holidays have their own bands.
+      return rows.map(() => WORK_WEEK_SECONDS);
+    },
+    timelineBalanceLabel(): string {
+      const today = balancedSeconds([this.todayKey()], this.isFreeDay);
+      if (this.range === 'today') {
+        return this.todayTimelineMode === 'hourly'
+          ? `Balance ${Math.round(today / 24 / 60)} min per hour`
+          : `Balance ${this.formatDecimalHours(today)} h today`;
+      }
+      return this.range === 'week'
+        ? 'Balance 8 h per weekday, 0 on free days'
+        : 'Balance 40 h per week';
+    },
     timelineChart(): TimelineChartData {
       const dayCount = this.timelineDailyRows.length;
       const isTodayCumulative = this.range === 'today';
@@ -986,9 +1051,11 @@ export default {
         0,
         ...this.timelineDailyRows.map(row => row.activeDuration / 60)
       );
+      // The balance line always fits, even before there is much work to show.
+      const maxBalanceSeconds = Math.max(0, ...this.timelineBalanceRows);
       const maxAxisValue = usesMinuteAxis
-        ? getTimelineMaxMinutes(maxObservedMinutes)
-        : getTimelineMaxHours(maxObservedHours);
+        ? getTimelineMaxMinutes(Math.max(maxObservedMinutes, maxBalanceSeconds / 60))
+        : getTimelineMaxHours(Math.max(maxObservedHours, maxBalanceSeconds / 3600));
       const xForIndex = (index: number) =>
         this.timelineDailyRows.length <= 1
           ? left + plotWidth / 2
@@ -1081,6 +1148,23 @@ export default {
         workPolyline: toPolyline(workPoints),
         notWorkPolyline: toPolyline(notWorkPoints),
         totalPolyline: toPolyline(totalPoints),
+        // A week's point marks its Monday, so its days follow to the right of it.
+        holidayBands: this.timelineHolidayRuns.map(run => {
+          const bandWidth = Math.max(3, (run.days / 7) * hitWidth);
+          const x = xForIndex(run.week) + (run.firstDay / 7) * hitWidth;
+          return {
+            key: `${run.week}-${run.firstDay}`,
+            x: Math.min(x, right - bandWidth),
+            width: bandWidth,
+          };
+        }),
+        balancePolyline: this.timelineBalanceRows
+          .map((seconds, index) => {
+            const y = yForValue(usesMinuteAxis ? seconds / 60 : seconds / 3600).toFixed(1);
+            // A single row still gets a line across the chart.
+            return dayCount === 1 ? `${left},${y} ${right},${y}` : `${xForIndex(index)},${y}`;
+          })
+          .join(' '),
         selectedX:
           this.timelineDailyRows.length === 0
             ? null
@@ -2913,6 +2997,39 @@ export default {
 .timeline-point-total {
   fill: #1d4ed8;
   background: #1d4ed8;
+}
+
+.timeline-legend-balance {
+  background: #d97706;
+}
+
+.timeline-legend-holiday {
+  background: #8b5cf6;
+}
+
+.timeline-day-label--holidays {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.timeline-holiday-band {
+  fill: #8b5cf6;
+  fill-opacity: 0.2;
+}
+
+.timeline-day-holidays {
+  flex-basis: 100%;
+  color: #6d28d9;
+  font-weight: 800;
+}
+
+.timeline-balance-line {
+  fill: none;
+  stroke: #d97706;
+  stroke-width: 2;
+  stroke-dasharray: 3 5;
+  stroke-linecap: round;
 }
 
 .timeline-chart {

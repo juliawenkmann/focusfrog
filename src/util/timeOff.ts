@@ -8,6 +8,7 @@ import type { ManualWorkEntry } from '~/util/workDay';
 export const HOLIDAYS_PER_YEAR = 30;
 // What a workday should have: 40h a week over 5 days.
 export const WORK_DAY_SECONDS = 8 * 3600;
+export const WORK_WEEK_SECONDS = 5 * WORK_DAY_SECONDS;
 // A weekday with less work than this was a holiday.
 export const HOLIDAY_WORK_LIMIT_SECONDS = 3600;
 
@@ -202,4 +203,36 @@ export function remainingWeekdayFeiertage(todayKey: string): number {
 export function freeDayLabel(date: string, creditedDays: Set<string>): string {
   if (!isWeekday(date)) return 'Weekend';
   return weekdayFeiertag(date) || (creditedDays.has(date) ? 'Holiday' : '');
+}
+
+// The work that levels the scale over these days: a normal workday for each day not free.
+export function balancedSeconds(dates: string[], isFreeDay: (date: string) => boolean): number {
+  return dates.filter(date => !isFreeDay(date)).length * WORK_DAY_SECONDS;
+}
+
+export interface HolidayRun {
+  // Which week of the list, the first day within it (Monday is 0), and how many days in a row.
+  week: number;
+  firstDay: number;
+  days: number;
+}
+
+// Where holidays fall in a chart of weeks: each run of consecutive days within a week.
+export function holidayRuns(weekStarts: string[], holidayDates: Set<string>): HolidayRun[] {
+  const runs: HolidayRun[] = [];
+  weekStarts.forEach((weekStart, week) => {
+    let run: HolidayRun | null = null;
+    for (let day = 0; day < 7; day++) {
+      const date = moment(weekStart, DATE).add(day, 'days').format(DATE);
+      if (!holidayDates.has(date)) {
+        run = null;
+      } else if (run) {
+        run.days += 1;
+      } else {
+        run = { week, firstDay: day, days: 1 };
+        runs.push(run);
+      }
+    }
+  });
+  return runs;
 }

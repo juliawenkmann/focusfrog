@@ -2,10 +2,12 @@ import { DAY_SUM_VERSION } from '../../src/util/daySums';
 import type { DaySum } from '../../src/util/daySums';
 import {
   addHolidayRange,
+  balancedSeconds,
   creditedHolidays,
   feiertage,
   freeDayLabel,
   holidayDays,
+  holidayRuns,
   HOLIDAYS_PER_YEAR,
   nextWeekdayFeiertag,
   NO_HOLIDAY_CHOICES,
@@ -176,8 +178,11 @@ test('stored choices are cleaned up', () => {
 });
 
 describe('the balance', () => {
-  // June 2026: the 4th is Fronleichnam; the 6th and 7th are the weekend.
+  // June 2026: Monday the 1st; the 4th is Fronleichnam; the 6th and 7th are the weekend.
+  const week = ['01', '02', '03', '04', '05', '06', '07'].map(day => `2026-06-${day}`);
   const none = new Set<string>();
+  const isFree = (credited: Set<string>) => (date: string) => Boolean(freeDayLabel(date, credited));
+  const hours = (seconds: number) => seconds / 3600;
 
   test('weekends, Feiertage and holidays are free, and say why', () => {
     expect(freeDayLabel('2026-06-06', none)).toBe('Weekend');
@@ -189,5 +194,45 @@ describe('the balance', () => {
 
   test('a Feiertag on a weekend stays a weekend', () => {
     expect(freeDayLabel('2026-08-15', none)).toBe('Weekend');
+  });
+
+  test('a weekday balances at 8 hours, a weekend at zero', () => {
+    expect(hours(balancedSeconds(['2026-06-02'], isFree(none)))).toBe(8);
+    expect(hours(balancedSeconds(['2026-06-06'], isFree(none)))).toBe(0);
+    expect(hours(balancedSeconds(['2026-06-07'], isFree(none)))).toBe(0);
+  });
+
+  test('a week balances at 40 hours, 8 less per free day', () => {
+    const normal = ['08', '09', '10', '11', '12', '13', '14'].map(day => `2026-06-${day}`);
+    expect(hours(balancedSeconds(normal, isFree(none)))).toBe(40);
+    expect(hours(balancedSeconds(week, isFree(none)))).toBe(32); // with Fronleichnam
+    expect(hours(balancedSeconds(week, isFree(new Set(['2026-06-02']))))).toBe(24);
+  });
+
+  test('a whole week of holidays balances at zero', () => {
+    const holidays = new Set(week);
+    expect(balancedSeconds(week, isFree(holidays))).toBe(0);
+  });
+});
+
+describe('holidays in the chart of weeks', () => {
+  const weeks = ['2026-09-07', '2026-09-14', '2026-09-21'];
+
+  test('a whole week off is one run of five days', () => {
+    const dates = new Set(['2026-09-07', '2026-09-08', '2026-09-09', '2026-09-10', '2026-09-11']);
+    expect(holidayRuns(weeks, dates)).toEqual([{ week: 0, firstDay: 0, days: 5 }]);
+  });
+
+  test('days apart are separate runs, at their place in the week', () => {
+    const dates = new Set(['2026-09-14', '2026-09-16', '2026-09-17']);
+    expect(holidayRuns(weeks, dates)).toEqual([
+      { week: 1, firstDay: 0, days: 1 },
+      { week: 1, firstDay: 2, days: 2 },
+    ]);
+  });
+
+  test('days outside the weeks are not shown', () => {
+    expect(holidayRuns(weeks, new Set(['2026-08-19']))).toEqual([]);
+    expect(holidayRuns([], new Set(['2026-09-07']))).toEqual([]);
   });
 });
