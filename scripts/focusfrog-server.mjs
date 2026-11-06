@@ -62,6 +62,7 @@ const storageKeys = new Set([
   'timeBlocks',
   'visionBoard',
   'weeklySummaries',
+  'daySums',
   manualWorkStorageKey,
   pomodoroStorageKey,
 ]);

@@ -43,8 +43,8 @@ export const KEY_SPECS: Record<SyncedKey, KeySpec> = {
   todoDayPlan: { kind: 'state', collection: 'state', docId: 'todoDayPlan', localServer: true },
   todoFrog: { kind: 'state', collection: 'state', docId: 'todoFrog', localServer: true },
   weeklySummaries: { kind: 'records', collection: 'weeks', localServer: true },
-  // Daily sums the Mac sends for the phone's Hours page (see util/daySums.ts).
-  daySums: { kind: 'records', collection: 'days' },
+  // Daily sums from the Mac: the phone's Hours page and the holiday count (util/daySums.ts).
+  daySums: { kind: 'records', collection: 'days', localServer: true },
   // The look (theme, flower picture) and day boundaries, shared by all devices.
   settings: { kind: 'state', collection: 'state', docId: 'settings' },
 };

@@ -1,5 +1,11 @@
 import moment from 'moment';
-import { currentDaySums, DAY_SUM_VERSION, daySummary, hoursInRange } from '../../src/util/daySums';
+import {
+  currentDaySums,
+  datesToSum,
+  DAY_SUM_VERSION,
+  daySummary,
+  hoursInRange,
+} from '../../src/util/daySums';
 import type { DaySum } from '../../src/util/daySums';
 import {
   summarizeActiveEvents,
@@ -79,5 +85,54 @@ describe('hourly sums for the phone', () => {
     });
     expect(Object.keys(days)).toEqual(['2026-11-05']);
     expect(totals(daySummary(undefined))).toEqual([0, 0, 0]);
+  });
+});
+
+describe('which days the Mac sums up', () => {
+  // Summed up the morning after, so final.
+  const finalDay = (date: string, contextKey = 'rules') =>
+    ({
+      version: DAY_SUM_VERSION,
+      date,
+      contextKey,
+      computedAt: moment(date).add(1, 'day').hour(12).toISOString(),
+    } as DaySum);
+  const store = (...days: DaySum[]) => Object.fromEntries(days.map(day => [day.date, day]));
+  const pick = (current: Record<string, DaySum>, today: string) =>
+    datesToSum(current, today, 'rules', '04:00');
+
+  test('the first run fills this week and the last finished one', () => {
+    const dates = pick({}, '2026-11-06'); // a Friday
+    expect(dates[0]).toBe('2026-10-26');
+    expect(dates[dates.length - 1]).toBe('2026-11-06');
+    expect(dates).toHaveLength(12);
+  });
+
+  test('nothing older than that: its raw events are gone, it would look like holidays', () => {
+    const dates = pick({}, '2026-11-09'); // the next Monday
+    expect(dates[0]).toBe('2026-11-02');
+  });
+
+  test('final days stay, today is always summed up', () => {
+    expect(pick(store(finalDay('2026-11-05')), '2026-11-06')).not.toContain('2026-11-05');
+    expect(pick(store(finalDay('2026-11-05')), '2026-11-06')).toContain('2026-11-06');
+  });
+
+  test('a day summed up while it ran is done again', () => {
+    const running = { ...finalDay('2026-11-05'), computedAt: '2026-11-05T10:00:00.000Z' };
+    expect(pick(store(running), '2026-11-06')).toContain('2026-11-05');
+  });
+
+  test('after weeks away, the gap is filled (no events, so holidays)', () => {
+    const dates = pick(store(finalDay('2026-11-20')), '2026-12-25');
+    expect(dates[0]).toBe('2026-11-21');
+    expect(dates).toContain('2026-12-01');
+  });
+
+  test('changed rules redo recent days only', () => {
+    const old = store(finalDay('2026-10-20', 'old'), finalDay('2026-11-03', 'old'));
+    const dates = pick(old, '2026-11-06');
+    expect(dates).toContain('2026-11-03');
+    expect(dates).not.toContain('2026-10-20');
   });
 });
