@@ -126,6 +126,20 @@ mirror; the cloud is added alongside. Before the first upload, a snapshot of
   check stays Mac-only (it needs window titles). Verified on the emulators: phone Hours equals
   Mac Hours number for number; Mac Hours unchanged against the previous build; a timer
   started on the phone runs on the Mac and back.
+- 2026-11-06 — Holidays on the Hours page (`util/timeOff.ts`, Mac and phone). 30 days per
+  calendar year; Feiertage of Bavaria (Würzburg, with Mariä Himmelfahrt). A weekday is a holiday
+  once it is over and tracked + manual work is under 1 hour (the automatic meeting hour does not
+  count). Choices by hand (`holidayData`: added, notCounted) sync as a setting. Weekends, Feiertage
+  and holidays within the allowance are free days: no meeting credit, and their hours are left out
+  of the scale, so a weekday balances at 8h (life counts x0.50) and a week at 40h minus 8h per free
+  weekday; holidays past the allowance are normal workdays. Day sums now go back as far as raw
+  events exist and also live in storage.json, because raw events are pruned after about two
+  weeks: they are the per-day history. Days before 2026-10-26 exist only as weekly sums.
+- 2026-11-06 — Hours has a Year view (whole ISO weeks of this year, from the start of recording)
+  beside Since recording; the holiday card shows in those two views only. The timeline has a
+  balance line where the scale would level out (`balancedSeconds`): 8h on a weekday, 0 on a free
+  day. In the long views it is a flat 40h, a week without holidays, and the holidays are shaded
+  (`holidayRuns`); the scale still leaves them out.
 - After installing a new Mac app, the open FocusFrog tab must be reloaded: it keeps running
   the old code (and the old uploader's writes are refused by newer rules).
 - Later: Pomodoro on the phone (sessions in the cloud), lock the rules to the owner uid.
