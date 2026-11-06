@@ -152,7 +152,7 @@ div.time-dashboard(:class="dashboardThemeClass")
       span Target: 8h per weekday, nothing on weekends, Feiertage and holidays
       span Work share now: {{ balanceWorkSharePercent }}%
 
-  div.balance-section.holiday-section.mt-4(v-if="range === 'sinceRecording'")
+  div.balance-section.holiday-section.mt-4(v-if="isLongRange")
     div.balance-header
       div
         div.section-label Holidays {{ holidayYear }}
@@ -552,7 +552,7 @@ interface TimelineChartData {
   axisTitle: string;
 }
 
-type DashboardRange = 'today' | 'week' | 'sinceRecording';
+type DashboardRange = 'today' | 'week' | 'year' | 'sinceRecording';
 type TodayTimelineMode = 'cumulative' | 'hourly';
 
 // On a weekday 8 hours of work balance the 16 hours left: life counts 8/16.
@@ -667,6 +667,7 @@ export default {
       return [
         { value: 'today', text: 'Today' },
         { value: 'week', text: 'Week' },
+        { value: 'year', text: 'Year', title: 'This year, as far as it was recorded' },
         { value: 'sinceRecording', text: 'Since recording', title: 'Everything since recording' },
       ];
     },
@@ -870,9 +871,16 @@ export default {
         const end = start.clone().add(6, 'days');
         return `${start.format('MMM D')} - ${end.format('MMM D')}`;
       }
-      return 'Since recording';
+      return this.range === 'year'
+        ? String(this.getYearStartDay().isoWeekYear())
+        : 'Since recording';
+    },
+    // Year and Since recording: week by week, with the holidays.
+    isLongRange(): boolean {
+      return this.range === 'year' || this.range === 'sinceRecording';
     },
     timelineRangeSubtitle(): string {
+      if (this.range === 'year') return 'Every week of this year';
       if (this.range === 'sinceRecording') return 'Everything since recording';
       if (this.range === 'week') return 'Monday to Sunday';
       return this.todayTimelineMode === 'hourly'
@@ -932,19 +940,19 @@ export default {
       return `0 0 ${this.timelineChart.width} ${this.timelineChart.height}`;
     },
     timelineChartMinWidth(): string {
-      if (this.range === 'sinceRecording') return '0px';
+      // The Mac fits all weeks on the screen; on the phone they scroll to stay readable.
+      if (this.isLongRange) return IS_CLOUD_BUILD ? '520px' : '0px';
       return `${this.timelineChart.width}px`;
     },
     timelineChart(): TimelineChartData {
       const dayCount = this.timelineDailyRows.length;
       const isTodayCumulative = this.range === 'today';
       const usesMinuteAxis = this.range === 'today' && this.todayTimelineMode === 'hourly';
-      const width =
-        this.range === 'sinceRecording'
-          ? 700
-          : isTodayCumulative
-          ? Math.max(720, 74 + dayCount * 46)
-          : Math.max(700, 74 + dayCount * 72);
+      const width = this.isLongRange
+        ? 700
+        : isTodayCumulative
+        ? Math.max(720, 74 + dayCount * 46)
+        : Math.max(700, 74 + dayCount * 72);
       const height = 300;
       const left = 54;
       const right = width - 20;
@@ -952,7 +960,7 @@ export default {
       const bottom = height - 44;
       const plotWidth = right - left;
       const plotHeight = bottom - chartTop;
-      const compactSinceRecording = this.range === 'sinceRecording' && dayCount > 7;
+      const compactSinceRecording = this.isLongRange && dayCount > 7;
       const compactTodayCumulative = isTodayCumulative && dayCount > 14;
       const maxVisibleLabels = compactSinceRecording
         ? Math.max(2, Math.floor(plotWidth / 56))
@@ -1346,7 +1354,7 @@ export default {
 
       this.loading = quiet !== true;
       try {
-        if (this.range === 'sinceRecording') {
+        if (this.isLongRange) {
           await this.loadSinceRecordingSummary(isStale);
           return;
         }
@@ -1465,6 +1473,7 @@ export default {
 
       for (const weekStart of completedWeekStarts(firstDay, currentWeekStart)) {
         const start = moment(weekStart, 'YYYY-MM-DD');
+        if (this.range === 'year' && start.isBefore(this.getYearStartDay())) continue;
         let summary = store[weekStart];
         if (!summary) {
           // Gaps are only expected before tracking began; anything later was never summarized.
@@ -1763,10 +1772,9 @@ export default {
         return this.getCurrentWeekTimeperiods();
       }
 
+      const recordingStart = this.getRecordingStartDay();
       const start =
-        this.range === 'sinceRecording'
-          ? this.getRecordingStartDay()
-          : today.clone().subtract(6, 'days');
+        this.range === 'year' ? moment.max(this.getYearStartDay(), recordingStart) : recordingStart;
       const days = today.diff(start, 'days') + 1;
 
       return Array.from({ length: days }, (_value, index) => {
@@ -1787,6 +1795,12 @@ export default {
 
     formatDecimalHours(seconds: number): string {
       return (seconds / 3600).toFixed(1);
+    },
+
+    // The Monday of this year's first week, so a year is made of whole weeks.
+    getYearStartDay(): moment.Moment {
+      const today = moment(get_today_with_offset(this.settingsStore.startOfDay));
+      return today.clone().isoWeek(1).startOf('isoWeek');
     },
 
     getCurrentWeekStartDay(): moment.Moment {
@@ -3282,6 +3296,10 @@ export default {
 }
 
 @media (max-width: 575.98px) {
+  .timeline-svg {
+    height: auto;
+  }
+
   .holiday-tiles {
     grid-template-columns: repeat(15, minmax(0, 1fr));
   }
