@@ -13,6 +13,7 @@ import { SavedQuery } from '~/util/savedQueries';
 import { View, defaultViews } from '~/stores/views';
 import type { PrivacyFilterRule } from '~/util/privacyFilters';
 import { DEFAULT_FLOWER_BACKGROUND, normalizeFlowerBackground } from '~/util/flowerBackgrounds';
+import { HolidayChoices, NO_HOLIDAY_CHOICES, normalizeHolidayChoices } from '~/util/timeOff';
 import { onOwnerSignIn } from '~/sync/cloud';
 import { IS_CLOUD_BUILD } from '~/sync/config';
 import { loadStoredValue, onStoredValueChange, saveStoredValue } from '~/util/focusfrogStorage';
@@ -43,6 +44,7 @@ const CLOUD_SETTING_KEYS = [
   'focusFrogFlowerBackground',
   'startOfDay',
   'startOfWeek',
+  'holidayData',
 ] as const;
 
 function cloudSettingsValue(
@@ -66,6 +68,9 @@ function normalizeCloudSettings(value: unknown): Record<string, unknown> {
   }
   if (typeof raw.startOfWeek === 'string' && raw.startOfWeek) {
     settings.startOfWeek = raw.startOfWeek;
+  }
+  if (raw.holidayData !== undefined) {
+    settings.holidayData = normalizeHolidayChoices(raw.holidayData);
   }
   return settings;
 }
@@ -93,6 +98,8 @@ interface State {
   focusFrogTheme: FocusFrogTheme;
   // Which picture the flower theme shows (see util/flowerBackgrounds).
   focusFrogFlowerBackground: string;
+  // Holidays added or excluded by hand (see util/timeOff).
+  holidayData: HolidayChoices;
 
   newReleaseCheckData: Record<string, any>;
   userSatisfactionPollData: {
@@ -141,6 +148,7 @@ export const useSettingsStore = defineStore('settings', {
     theme: 'auto',
     focusFrogTheme: 'bright',
     focusFrogFlowerBackground: DEFAULT_FLOWER_BACKGROUND,
+    holidayData: NO_HOLIDAY_CHOICES,
 
     newReleaseCheckData: {
       isEnabled: true,
@@ -394,9 +402,10 @@ export const useSettingsStore = defineStore('settings', {
 // on this device go up (only when they differ), changes from another device come down.
 export function connectCloudSettings(): void {
   const store = useSettingsStore();
+  // Compared as text: $patch changes nested settings (holidayData) in place.
   watch(
-    () => cloudSettingsValue(store.$state),
-    value => void saveStoredValue('settings', value)
+    () => JSON.stringify(cloudSettingsValue(store.$state)),
+    () => void saveStoredValue('settings', cloudSettingsValue(store.$state))
   );
   onStoredValueChange('settings', value => void store.applyCloudSettings(value));
   onOwnerSignIn(async () => {

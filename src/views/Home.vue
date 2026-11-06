@@ -129,7 +129,7 @@ div.time-dashboard(:class="dashboardThemeClass")
         div.section-label Work-life balance
         h5.mb-0 Weighted scale
         div.balance-note
-          | Life is every elapsed hour not counted as work. Life counts x{{ lifeBalanceFactorLabel }}, so 40h work balances a full week.
+          | Life is every weekday hour not counted as work. Life counts x{{ lifeBalanceFactorLabel }}, so 8h of work balances a weekday. Weekends, Feiertage and holidays don't count: no work is expected on them.
       div.balance-status(:class="balanceStatusClass") {{ balanceStatusText }}
     div.balance-scale
       div.balance-pan.balance-pan-work
@@ -149,8 +149,42 @@ div.time-dashboard(:class="dashboardThemeClass")
       div.balance-weight-work(:style="{ width: balanceWorkWeightWidth }")
       div.balance-weight-life(:style="{ width: balanceLifeWeightWidth }")
     div.balance-details
-      span Target: 40h work per 168h week
+      span Target: 8h per weekday, nothing on weekends, Feiertage and holidays
       span Work share now: {{ balanceWorkSharePercent }}%
+
+  div.balance-section.holiday-section.mt-4(v-if="range === 'sinceRecording'")
+    div.balance-header
+      div
+        div.section-label Holidays {{ holidayYear }}
+        h5.mb-0 {{ holidaysUsed }} of {{ holidaysPerYear }} days used
+        div.balance-note(v-if="holidaysPlanned > 0") {{ holidaysPlanned }} more planned
+      div.balance-status(:class="holidaysLeft < 0 ? 'balance-life-heavy' : 'balance-even'")
+        | {{ holidaysLeft < 0 ? -holidaysLeft + ' over' : holidaysLeft + ' left' }}
+    div.holiday-tiles(aria-hidden="true")
+      span.holiday-tile(v-for="tile in holidayTiles" :key="tile.key" :class="tile.className")
+    div.holiday-days(v-if="holidaysThisYear.length > 0")
+      button.holiday-day(
+        v-for="day in holidaysThisYear"
+        :key="day.date"
+        type="button"
+        :class="{ 'holiday-day--excluded': !day.counted, 'holiday-day--planned': day.date > todayKey() }"
+        :aria-pressed="day.counted ? 'true' : 'false'"
+        :title="day.counted ? 'Not a holiday? Tap to remove it.' : 'Tap to count this day as a holiday.'"
+        @click="toggleHoliday(day)"
+      ) {{ formatHolidayDate(day.date) }}
+    div.balance-note
+      | A weekday counts as a holiday once it is over and you worked under 1 hour. Feiertage don't use up holidays. Tap a day above if it is wrong.
+    div.balance-details
+      span(v-if="nextFeiertag") Next Feiertag: {{ nextFeiertag.name }}, {{ formatHolidayDate(nextFeiertag.date) }}
+      span(v-if="feiertageLeft > 0") {{ feiertageLeft }} more on a weekday this year
+    b-form.holiday-add(@submit.prevent="addHolidays")
+      div.holiday-add-label Add holidays (from, to)
+      div.holiday-add-fields
+        b-form-input(v-model="holidayFrom" type="date" size="sm" aria-label="First day" required)
+        b-form-input(v-model="holidayTo" type="date" size="sm" aria-label="Last day (optional)")
+        b-button(type="submit" size="sm" variant="outline-primary" :disabled="!holidayFrom")
+          icon(name="plus")
+          span Add
 
   div.chart-section.mt-4(v-if="summary && activeSeconds > 0")
     div.chart-header
@@ -355,8 +389,22 @@ import {
   saveStoredValue,
 } from '~/util/focusfrogStorage';
 import { IS_CLOUD_BUILD } from '~/sync/config';
+import { onDaySumsSent } from '~/sync/daySums';
 import { currentDaySums, DAY_SUMS_KEY, daySummary, hoursInRange } from '~/util/daySums';
 import type { DaySum } from '~/util/daySums';
+import {
+  addHolidayRange,
+  creditedHolidays,
+  freeDayLabel,
+  holidayDays,
+  HOLIDAYS_PER_YEAR,
+  nextWeekdayFeiertag,
+  normalizeHolidayChoices,
+  remainingWeekdayFeiertage,
+  toggleHolidayDay,
+  WORK_DAY_SECONDS,
+} from '~/util/timeOff';
+import type { HolidayDay } from '~/util/timeOff';
 import { getClient } from '~/util/awclient';
 import { useBucketsStore } from '~/stores/buckets';
 import { useCategoryStore } from '~/stores/categories';
@@ -507,10 +555,8 @@ interface TimelineChartData {
 type DashboardRange = 'today' | 'week' | 'sinceRecording';
 type TodayTimelineMode = 'cumulative' | 'hourly';
 
-const WEEKLY_WORK_TARGET_SECONDS = 40 * 3600;
-const WEEK_SECONDS = 7 * 24 * 3600;
-const LIFE_BALANCE_FACTOR =
-  WEEKLY_WORK_TARGET_SECONDS / (WEEK_SECONDS - WEEKLY_WORK_TARGET_SECONDS);
+// On a weekday 8 hours of work balance the 16 hours left: life counts 8/16.
+const LIFE_BALANCE_FACTOR = WORK_DAY_SECONDS / (24 * 3600 - WORK_DAY_SECONDS);
 const BALANCE_TOLERANCE = 0.08;
 const MANUAL_WORK_STORAGE_KEY = 'timetracker.manualWork.v1';
 const MANUAL_WORK_MODAL_ID = 'manual-work-modal';
@@ -600,6 +646,11 @@ export default {
       cloudHosts: 0,
       cloudComputedAt: '',
       cloudRecordingStart: '',
+      // The Mac's sums per day, on both devices: they tell which days were holidays.
+      dayHistory: {} as Record<string, DaySum>,
+      holidayFrom: '',
+      holidayTo: '',
+      holidaysPerYear: HOLIDAYS_PER_YEAR,
       summary: null as WorkCategorySummary | null,
       timelineDailyRows: [] as DayRow[],
       timelineSelectedIndex: 0,
@@ -653,7 +704,7 @@ export default {
     workMetricNote(): string {
       const timeperiods = this.getTimeperiods();
       const manualSeconds = sumManualWorkSeconds(this.manualWorkEntries, timeperiods);
-      const meetingSeconds = sumMeetingSeconds(timeperiods, this.todayKey());
+      const meetingSeconds = sumMeetingSeconds(timeperiods, this.todayKey(), this.isFreeDay);
       const additions = [];
       if (meetingSeconds > 0) additions.push(`meetings +${this.formatHours(meetingSeconds)}`);
       if (manualSeconds > 0) additions.push(`manual +${this.formatHours(manualSeconds)}`);
@@ -678,6 +729,70 @@ export default {
         )
       );
     },
+    holidays(): HolidayDay[] {
+      return holidayDays({
+        days: this.dayHistory,
+        manualEntries: this.manualWorkEntries,
+        choices: normalizeHolidayChoices(this.settingsStore.holidayData),
+        todayKey: this.todayKey(),
+        startOfDay: this.settingsStore.startOfDay,
+      });
+    },
+    creditedHolidayDates(): Set<string> {
+      return creditedHolidays(this.holidays);
+    },
+    // A weekend, Feiertag or holiday: no work is expected, so no meeting credit either,
+    // and its hours are left out of the scale.
+    isFreeDay(): (date: string) => boolean {
+      const credited = this.creditedHolidayDates;
+      return (date: string) => Boolean(freeDayLabel(date, credited));
+    },
+    // Free days change what the summary adds up to.
+    freeDaysKey(): string {
+      return Array.from(this.creditedHolidayDates).join();
+    },
+    holidayYear(): string {
+      return this.todayKey().slice(0, 4);
+    },
+    holidaysThisYear(): HolidayDay[] {
+      return this.holidays.filter(day => day.date.startsWith(this.holidayYear));
+    },
+    holidaysUsed(): number {
+      return this.holidaysThisYear.filter(day => day.counted && day.date <= this.todayKey()).length;
+    },
+    holidaysPlanned(): number {
+      return this.holidaysThisYear.filter(day => day.counted && day.date > this.todayKey()).length;
+    },
+    holidaysLeft(): number {
+      return HOLIDAYS_PER_YEAR - this.holidaysUsed - this.holidaysPlanned;
+    },
+    holidayTiles(): { key: number; className: string }[] {
+      const used = this.holidaysUsed;
+      const taken = used + this.holidaysPlanned;
+      return Array.from({ length: Math.max(HOLIDAYS_PER_YEAR, taken) }, (_tile, key) => ({
+        key,
+        className:
+          key >= HOLIDAYS_PER_YEAR
+            ? 'holiday-tile--over'
+            : key < used
+            ? 'holiday-tile--used'
+            : key < taken
+            ? 'holiday-tile--planned'
+            : '',
+      }));
+    },
+    nextFeiertag() {
+      return nextWeekdayFeiertag(this.todayKey());
+    },
+    feiertageLeft(): number {
+      return remainingWeekdayFeiertage(this.todayKey());
+    },
+    // Today's scale on a free day has nothing to weigh: it says which day it is.
+    todayFreeDayLabel(): string {
+      if (this.range !== 'today') return '';
+      return freeDayLabel(this.todayKey(), this.creditedHolidayDates);
+    },
+    // The hours that count on the scale: those of the days on which work is expected.
     balancePeriodSeconds(): number {
       const now = moment();
       return this.getTimeperiods().reduce((total, timeperiod) => {
@@ -685,6 +800,7 @@ export default {
         const start = moment(startIso);
         const end = moment(endIso);
         if (!start.isValid() || !end.isValid()) return total;
+        if (this.isFreeDay(start.format('YYYY-MM-DD'))) return total;
         const clippedEnd = moment.min(end, now);
         if (!clippedEnd.isAfter(start)) return total;
         return total + clippedEnd.diff(start, 'seconds', true);
@@ -716,6 +832,7 @@ export default {
       return `${(this.weightedLifeSeconds / this.balanceWeightTotalSeconds) * 100}%`;
     },
     balanceTiltRatio(): number {
+      if (this.todayFreeDayLabel) return 0;
       const reference = Math.max(this.workSeconds, this.weightedLifeSeconds, 1);
       return (this.weightedLifeSeconds - this.workSeconds) / reference;
     },
@@ -724,6 +841,7 @@ export default {
       return `rotate(${degrees.toFixed(1)}deg)`;
     },
     balanceStatusText(): string {
+      if (this.todayFreeDayLabel) return this.todayFreeDayLabel;
       if (Math.abs(this.balanceTiltRatio) <= BALANCE_TOLERANCE) return 'Balanced';
       return this.balanceTiltRatio < 0 ? 'Work-heavy' : 'Life-heavy';
     },
@@ -968,6 +1086,10 @@ export default {
     },
   },
   watch: {
+    // A day became free or stopped being free: the meeting credit changes with it.
+    freeDaysKey() {
+      if (this.summary) void this.loadSummary(true);
+    },
     // Newest point in view: on a narrow screen the chart scrolls sideways.
     timelineDailyRows() {
       this.$nextTick(() => {
@@ -995,7 +1117,17 @@ export default {
       await this.loadSummary();
       return;
     }
-    await Promise.all([this.loadServerManualWorkEntries(), this.bucketsStore.ensureLoaded()]);
+    this.$once(
+      'hook:beforeDestroy',
+      onDaySumsSent(days => {
+        this.dayHistory = currentDaySums(days);
+      })
+    );
+    await Promise.all([
+      this.loadServerManualWorkEntries(),
+      this.bucketsStore.ensureLoaded(),
+      this.loadDayHistory(),
+    ]);
     this.supportedHosts = enabledWorkReportHosts(this.bucketsStore.buckets || []);
     await this.loadSummary();
     this.ensureWeeklySummaries().catch(err => {
@@ -1144,7 +1276,7 @@ export default {
         cursor = cursor.add(1, 'day')
       ) {
         const dateKey = cursor.format('YYYY-MM-DD');
-        if (dateKey <= todayKey) dates.add(dateKey);
+        if (dateKey <= todayKey && !this.isFreeDay(dateKey)) dates.add(dateKey);
       }
       return Array.from(dates).reduce(
         (total, date) =>
@@ -1173,7 +1305,13 @@ export default {
       summary: WorkCategorySummary,
       timeperiods: string[]
     ): WorkCategorySummary {
-      return applyManualWork(summary, this.manualWorkEntries, timeperiods, this.todayKey());
+      return applyManualWork(
+        summary,
+        this.manualWorkEntries,
+        timeperiods,
+        this.todayKey(),
+        this.isFreeDay
+      );
     },
 
     formatManualWorkEntryDuration(entry: ManualWorkEntry): string {
@@ -1244,21 +1382,43 @@ export default {
       }
     },
 
-    // The sums the Mac sent, and from its latest day: devices, time sent, start of recording.
-    async loadCloudDays(): Promise<Record<string, DaySum>> {
+    // The sums the Mac sent. On the phone its latest day also tells the devices, the time
+    // it was sent and the start of recording.
+    async loadDayHistory(): Promise<Record<string, DaySum>> {
       const days = currentDaySums((await peekStoredValue(DAY_SUMS_KEY)).value);
-      const latest = Object.values(days).sort((a, b) => b.date.localeCompare(a.date))[0];
-      this.cloudHosts = latest?.hosts || 0;
-      this.cloudComputedAt = latest?.computedAt || '';
-      this.cloudRecordingStart = latest?.recordingStart || '';
+      this.dayHistory = days;
+      if (IS_CLOUD_BUILD) {
+        const latest = Object.values(days).sort((a, b) => b.date.localeCompare(a.date))[0];
+        this.cloudHosts = latest?.hosts || 0;
+        this.cloudComputedAt = latest?.computedAt || '';
+        this.cloudRecordingStart = latest?.recordingStart || '';
+      }
       return days;
+    },
+
+    formatHolidayDate(date: string): string {
+      return moment(date, 'YYYY-MM-DD').format('ddd, MMM D');
+    },
+
+    toggleHoliday(day: HolidayDay) {
+      const choices = normalizeHolidayChoices(this.settingsStore.holidayData);
+      void this.settingsStore.update({ holidayData: toggleHolidayDay(choices, day) });
+    },
+
+    addHolidays() {
+      if (!this.holidayFrom) return;
+      const [from, to] = [this.holidayFrom, this.holidayTo || this.holidayFrom].sort();
+      const choices = normalizeHolidayChoices(this.settingsStore.holidayData);
+      void this.settingsStore.update({ holidayData: addHolidayRange(choices, from, to) });
+      this.holidayFrom = '';
+      this.holidayTo = '';
     },
 
     // Tracked sums per day: queried from this Mac's tracking, or on the phone taken from
     // the sums the Mac sends (sync/daySums.ts).
     async loadTrackedDays(timeperiods: string[]): Promise<TrackedDays> {
       if (IS_CLOUD_BUILD) {
-        const days = await this.loadCloudDays();
+        const days = await this.loadDayHistory();
         const dayOf = (timeperiod: string) =>
           days[moment(timeperiod.split('/')[0]).format('YYYY-MM-DD')];
         const first = dayOf(timeperiods[0]);
@@ -1286,7 +1446,7 @@ export default {
       const store = IS_CLOUD_BUILD
         ? await this.loadWeeklySummaryStore()
         : await this.ensureWeeklySummaries();
-      if (IS_CLOUD_BUILD) await this.loadCloudDays();
+      if (IS_CLOUD_BUILD) await this.loadDayHistory();
       if (isStale()) return;
       const recordingStart = this.getRecordingStartDay();
       const today = moment(get_today_with_offset(this.settingsStore.startOfDay));
@@ -2320,6 +2480,98 @@ export default {
   flex-wrap: wrap;
 }
 
+.holiday-tiles {
+  display: grid;
+  grid-template-columns: repeat(30, minmax(0, 1fr));
+  gap: 0.25rem;
+  margin-top: 0.85rem;
+}
+
+.holiday-tile {
+  height: 1.15rem;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  border-radius: 4px;
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.holiday-tile--used {
+  border-color: var(--work-color);
+  background: var(--work-color);
+}
+
+.holiday-tile--planned {
+  border-color: var(--work-color);
+  background: rgba(5, 150, 105, 0.25);
+}
+
+.holiday-tile--over {
+  border-color: var(--not-work-color);
+  background: var(--not-work-color);
+}
+
+.holiday-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+}
+
+.holiday-day {
+  appearance: none;
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--work-color);
+  border-radius: 999px;
+  background: rgba(5, 150, 105, 0.12);
+  color: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.holiday-day--planned {
+  border-style: dashed;
+}
+
+.holiday-day--excluded {
+  border-color: rgba(148, 163, 184, 0.7);
+  background: transparent;
+  opacity: 0.65;
+  text-decoration: line-through;
+}
+
+.holiday-section .balance-note {
+  margin-top: 0.65rem;
+}
+
+.holiday-add {
+  margin-top: 0.75rem;
+}
+
+.holiday-add-label {
+  margin-bottom: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.holiday-add-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.holiday-add-fields input {
+  flex: 1 1 8.5rem;
+  width: auto;
+  min-width: 0;
+}
+
+.holiday-add-fields .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
 .theme-bright .balance-section,
 .theme-bright .chart-section,
 .theme-bright .timeline-section {
@@ -3030,6 +3282,10 @@ export default {
 }
 
 @media (max-width: 575.98px) {
+  .holiday-tiles {
+    grid-template-columns: repeat(15, minmax(0, 1fr));
+  }
+
   .dashboard-header,
   .header-actions {
     align-items: stretch;

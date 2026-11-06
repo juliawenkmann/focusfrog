@@ -136,16 +136,21 @@ export function dailyMeetingEntry(date: string): ManualWorkEntry {
   };
 }
 
-// One meeting credit for every day the periods touch, up to today.
+// Whether a date is a Feiertag or holiday (see util/timeOff.ts).
+export type IsFreeDay = (date: string) => boolean;
+const NO_FREE_DAYS: IsFreeDay = () => false;
+
+// One meeting credit for every day the periods touch, up to today, except free days.
 export function dailyMeetingEntriesForTimeperiods(
   timeperiods: string[],
-  todayKey: string
+  todayKey: string,
+  isFreeDay: IsFreeDay = NO_FREE_DAYS
 ): ManualWorkEntry[] {
   const dates = new Set<string>();
   timeperiods.forEach(timeperiod => {
     const start = moment(timeperiod.split('/')[0]);
     const dateKey = start.format('YYYY-MM-DD');
-    if (start.isValid() && dateKey <= todayKey) dates.add(dateKey);
+    if (start.isValid() && dateKey <= todayKey && !isFreeDay(dateKey)) dates.add(dateKey);
   });
   return Array.from(dates).sort().map(dailyMeetingEntry);
 }
@@ -153,8 +158,15 @@ export function dailyMeetingEntriesForTimeperiods(
 export const sumManualWorkSeconds = (entries: ManualWorkEntry[], timeperiods: string[]) =>
   entries.reduce((total, entry) => total + manualWorkSecondsInTimeperiods(entry, timeperiods), 0);
 
-export const sumMeetingSeconds = (timeperiods: string[], todayKey: string) =>
-  sumManualWorkSeconds(dailyMeetingEntriesForTimeperiods(timeperiods, todayKey), timeperiods);
+export const sumMeetingSeconds = (
+  timeperiods: string[],
+  todayKey: string,
+  isFreeDay: IsFreeDay = NO_FREE_DAYS
+) =>
+  sumManualWorkSeconds(
+    dailyMeetingEntriesForTimeperiods(timeperiods, todayKey, isFreeDay),
+    timeperiods
+  );
 
 export function addCategoryDuration(
   categoryDurations: CategoryDuration[],
@@ -177,7 +189,8 @@ export function applyManualWork(
   summary: WorkCategorySummary,
   entries: ManualWorkEntry[],
   timeperiods: string[],
-  todayKey: string
+  todayKey: string,
+  isFreeDay: IsFreeDay = NO_FREE_DAYS
 ): WorkCategorySummary {
   const rows: [string[], number][] = [
     ...entries.map(
@@ -187,7 +200,7 @@ export function applyManualWork(
           manualWorkSecondsInTimeperiods(entry, timeperiods),
         ] as [string[], number]
     ),
-    [DAILY_MEETING_WORK_CATEGORY, sumMeetingSeconds(timeperiods, todayKey)],
+    [DAILY_MEETING_WORK_CATEGORY, sumMeetingSeconds(timeperiods, todayKey, isFreeDay)],
   ];
   const extraWorkSeconds = rows.reduce((total, [, seconds]) => total + seconds, 0);
   if (extraWorkSeconds <= 0) return summary;
@@ -269,16 +282,6 @@ export function summarizeWorkQueryResult(result: any, categoryRules: any[]): Wor
     result.rawActiveEvents || []
   );
   return summarizeActiveEvents(activeEvents, sumEventDurations(activeEvents), categoryRules);
-}
-
-// Monday of this week through today, as YYYY-MM-DD.
-export function currentWeekDates(todayKey: string): string[] {
-  const today = moment(todayKey);
-  const dates: string[] = [];
-  for (let day = today.clone().startOf('isoWeek'); day.isSameOrBefore(today); day.add(1, 'd')) {
-    dates.push(day.format('YYYY-MM-DD'));
-  }
-  return dates;
 }
 
 // The day tracking began on these hosts (today if nothing was tracked yet).

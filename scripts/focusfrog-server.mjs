@@ -818,6 +818,8 @@ function getDailyMeetingWorkSecondsForTimeperiod(timeperiod) {
   const date = localDateKey(new Date(rangeStartMs));
   const today = localDateKey(new Date());
   if (date > today) return 0;
+  // No work is expected on weekends, so no meetings either.
+  if ([0, 6].includes(new Date(rangeStartMs).getDay())) return 0;
 
   return manualWorkEntrySecondsInRange(
     {
