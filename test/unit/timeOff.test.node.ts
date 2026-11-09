@@ -15,6 +15,7 @@ import {
   remainingWeekdayFeiertage,
   toggleHolidayDay,
   weekdayFeiertag,
+  withTouchingWeekends,
 } from '../../src/util/timeOff';
 
 // A day the Mac summed up after it ended.
@@ -228,6 +229,33 @@ describe('holidays in the chart of weeks', () => {
     expect(holidayRuns(weeks, dates)).toEqual([
       { week: 1, firstDay: 0, days: 1 },
       { week: 1, firstDay: 2, days: 2 },
+    ]);
+  });
+
+  test('a Friday brings the weekend after it, a Monday the one before', () => {
+    expect(Array.from(withTouchingWeekends(new Set(['2026-09-11']))).sort()).toEqual([
+      '2026-09-11',
+      '2026-09-12',
+      '2026-09-13',
+    ]);
+    expect(Array.from(withTouchingWeekends(new Set(['2026-09-14']))).sort()).toEqual([
+      '2026-09-12',
+      '2026-09-13',
+      '2026-09-14',
+    ]);
+  });
+
+  test('a day in the middle of the week touches no weekend', () => {
+    expect(Array.from(withTouchingWeekends(new Set(['2026-09-09'])))).toEqual(['2026-09-09']);
+  });
+
+  test('two weeks off become one stretch, weekend included', () => {
+    const days = ['07', '08', '09', '10', '11', '14', '15', '16', '17', '18'];
+    const dates = withTouchingWeekends(new Set(days.map(day => `2026-09-${day}`)));
+    expect(holidayRuns(['2026-08-31', '2026-09-07', '2026-09-14'], dates)).toEqual([
+      { week: 0, firstDay: 5, days: 2 }, // the weekend before
+      { week: 1, firstDay: 0, days: 7 },
+      { week: 2, firstDay: 0, days: 7 }, // with the weekend after
     ]);
   });
 

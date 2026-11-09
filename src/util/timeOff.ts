@@ -210,6 +210,17 @@ export function balancedSeconds(dates: string[], isFreeDay: (date: string) => bo
   return dates.filter(date => !isFreeDay(date)).length * WORK_DAY_SECONDS;
 }
 
+// The days to shade for these holidays: also the weekends right before and after them.
+export function withTouchingWeekends(holidayDates: Set<string>): Set<string> {
+  const shaded = new Set(holidayDates);
+  holidayDates.forEach(date => {
+    const day = moment(date, DATE);
+    const offsets = day.isoWeekday() === 5 ? [1, 2] : day.isoWeekday() === 1 ? [-1, -2] : [];
+    offsets.forEach(offset => shaded.add(day.clone().add(offset, 'days').format(DATE)));
+  });
+  return shaded;
+}
+
 export interface HolidayRun {
   // Which week of the list, the first day within it (Monday is 0), and how many days in a row.
   week: number;

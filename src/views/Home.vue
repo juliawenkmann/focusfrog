@@ -421,6 +421,7 @@ import {
   normalizeHolidayChoices,
   remainingWeekdayFeiertage,
   toggleHolidayDay,
+  withTouchingWeekends,
   WORK_DAY_SECONDS,
   WORK_WEEK_SECONDS,
 } from '~/util/timeOff';
@@ -968,19 +969,26 @@ export default {
       if (this.isLongRange) return IS_CLOUD_BUILD ? '520px' : '0px';
       return `${this.timelineChart.width}px`;
     },
-    // The holidays in the chart of weeks: Year and Since recording.
+    countedHolidayDates(): Set<string> {
+      return new Set<string>(this.holidays.filter(day => day.counted).map(day => day.date));
+    },
+    // The holidays in the chart of weeks: Year and Since recording. The weekends they touch
+    // are shaded with them, as one stretch of time off.
     timelineHolidayRuns(): HolidayRun[] {
       if (!this.isLongRange) return [];
-      const dates = new Set<string>(this.holidays.filter(day => day.counted).map(day => day.date));
       return holidayRuns(
         this.timelineDailyRows.map(row => row.date),
-        dates
+        withTouchingWeekends(this.countedHolidayDates)
       );
     },
+    // Only the holidays themselves count here, not the weekends shaded with them.
     timelineSelectedHolidayLabel(): string {
-      const days = this.timelineHolidayRuns
-        .filter(run => run.week === this.timelineSelectedIndex)
-        .reduce((total, run) => total + run.days, 0);
+      const row = this.timelineSelectedRow;
+      if (!this.isLongRange || !row) return '';
+      const days = holidayRuns([row.date], this.countedHolidayDates).reduce(
+        (total, run) => total + run.days,
+        0
+      );
       if (days === 0) return '';
       return days === 1 ? '1 holiday' : `${days} holidays`;
     },
