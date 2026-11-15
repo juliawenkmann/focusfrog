@@ -505,6 +505,17 @@ function blockConfig(type: TimeBlockType) {
   return BLOCK_TYPE_CONFIG[type] || BLOCK_TYPE_CONFIG.work;
 }
 
+// A block's colours: those of its todo's project, else those of its category.
+function blockColors(type: TimeBlockType, projectColor: string) {
+  const { color, soft } = blockConfig(type);
+  return projectColor
+    ? {
+        '--block-color': projectColor,
+        '--block-soft': `color-mix(in srgb, ${projectColor} 16%, transparent)`,
+      }
+    : { '--block-color': color, '--block-soft': soft };
+}
+
 function snap(minute: number, step = SNAP_MINUTES): number {
   return Math.round(minute / step) * step;
 }
@@ -869,7 +880,6 @@ export default {
     ghost() {
       const drag = this.drag as DragState | null;
       if (drag && drag.mode === 'todo' && drag.moved && drag.over && drag.todo) {
-        const config = blockConfig(todoBlockType(drag.todo.area));
         return {
           date: drag.date,
           title: drag.todo.title,
@@ -877,22 +887,20 @@ export default {
           endMinute: drag.endMinute,
           style: {
             ...this.rangeStyle(drag.startMinute, drag.endMinute),
-            '--block-color': config.color,
-            '--block-soft': config.soft,
+            ...blockColors(todoBlockType(drag.todo.area), this.projectColor(drag.todo)),
           },
         };
       }
       if (!drag || drag.mode !== 'move' || !drag.moved || !drag.occurrence) return null;
-      const config = blockConfig(drag.occurrence.block.type);
+      const block = drag.occurrence.block;
       return {
         date: drag.date,
-        title: drag.occurrence.block.title,
+        title: block.title,
         startMinute: drag.startMinute,
         endMinute: drag.endMinute,
         style: {
           ...this.rangeStyle(drag.startMinute, drag.endMinute),
-          '--block-color': config.color,
-          '--block-soft': config.soft,
+          ...blockColors(block.type, this.blockProjectColor(block)),
         },
       };
     },
@@ -1545,8 +1553,19 @@ export default {
       writePreference(TODO_CATEGORY_STORAGE_KEY, id);
     },
     todoColor(todo: PlannableTodo): string {
+      return this.projectColor(todo) || INBOX_PROJECT_COLOR;
+    },
+    // The colour of a todo's project; empty for the Inbox.
+    projectColor(todo: PlannableTodo): string {
       const project = (this.todoProjects as TodoProject[]).find(item => item.id === todo.projectId);
-      return project ? project.color : INBOX_PROJECT_COLOR;
+      return project ? project.color : '';
+    },
+    // A block planned from a todo takes the colour of that todo's project.
+    blockProjectColor(block: TimeBlock): string {
+      const todo = block.todoId
+        ? (this.todosById as Record<string, PlannableTodo>)[block.todoId]
+        : null;
+      return todo ? this.projectColor(todo) : '';
     },
     dueLabel(todo: PlannableTodo): string {
       const due = moment(todo.dueDate, DATE_FORMAT);
@@ -1673,7 +1692,6 @@ export default {
       return Boolean(this.drag?.moved && this.drag.occurrence?.key === item.key);
     },
     eventStyle(item: PositionedOccurrence) {
-      const config = blockConfig(item.block.type);
       const resizing = this.isDragging(item) && this.drag.mode === 'resize';
       const endMinute = resizing ? this.drag.endMinute : item.endMinute;
       const width = 100 / item.columns;
@@ -1681,8 +1699,7 @@ export default {
         ...this.rangeStyle(item.startMinute, endMinute),
         left: `calc(${item.column * width}% + 2px)`,
         width: `calc(${width}% - 4px)`,
-        '--block-color': config.color,
-        '--block-soft': config.soft,
+        ...blockColors(item.block.type, this.blockProjectColor(item.block)),
       };
     },
     eventClass(item: PositionedOccurrence) {
