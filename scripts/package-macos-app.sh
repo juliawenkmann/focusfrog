@@ -112,7 +112,10 @@ if [[ -d "$INSTALLED_APP" && "$(cd "$APP_CONTENTS/.." && pwd -P)" != "$(cd "$INS
 fi
 
 PORT="${FOCUSFROG_PORT:-27180}"
-FOCUSFROG_URL="http://127.0.0.1:${PORT}/#/home"
+# The Dock opens the hosted FocusFrog, the same page as on the phone. Opened on this Mac it
+# sends the Mac's hours itself (src/sync/macBridge.ts). The Mac's own page, with Settings,
+# Activity and Trends, stays at http://127.0.0.1:${PORT}.
+FOCUSFROG_URL="${FOCUSFROG_OPEN_URL:-https://focusfrog.juliawenkmann.workers.dev/#/home}"
 HEALTH_URL="http://127.0.0.1:${PORT}/focusfrog-healthz"
 LOG_DIR="${TMPDIR:-/tmp}"
 SERVER_LOG="$LOG_DIR/focusfrog-server.log"

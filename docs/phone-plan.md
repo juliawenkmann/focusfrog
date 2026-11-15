@@ -146,6 +146,15 @@ mirror; the cloud is added alongside. Before the first upload, a snapshot of
   the Mac's version. Off the Mac, documents are written one by one so one refusal does not take
   the rest of a save with it. Clients from before send no base and still save by time. Seen
   before: the phone opened from its cache and re-saved all 29 dreams at once.
+- 2026-11-15 — The Dock opens the hosted FocusFrog (workers.dev), the user's wish. Opened on the
+  Mac it sends the Mac's day sums itself (`src/sync/macBridge.ts`): it finds the Mac's server at
+  127.0.0.1:27180, sums with the Mac's own categories, and uploads only sums, as the Mac's page
+  does. The server lets that one origin only read (health without folders, settings, the bucket
+  list, queries; `FOCUSFROG_BRIDGE_ORIGINS`) and refuses it everything else. Chrome asks once
+  whether the site may reach apps on this device; the Hours page says whether the hours are sent.
+  Settings, Activity, Trends and the Work report stay on the Mac's page at 127.0.0.1:27180.
+  Checked on the emulators: days sent this way equal the Mac page's (sums and contextKey), other
+  days stay untouched, and the Mac's page opened later with an old copy keeps newer web edits.
 - After installing a new Mac app, the open FocusFrog tab must be reloaded: it keeps running
   the old code (and the old uploader's writes are refused by newer rules).
 - Later: Pomodoro on the phone (sessions in the cloud), lock the rules to the owner uid.
