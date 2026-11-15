@@ -17,6 +17,8 @@ export interface TimeBlock {
   repeatUntil: string;
   // Dates of single occurrences that were removed from a repeating block.
   skipDates: string[];
+  // The todo this block was planned from (only set on such blocks).
+  todoId?: string;
   createdAt: string;
   updatedAt: string;
 }

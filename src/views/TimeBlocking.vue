@@ -32,6 +32,15 @@ div.cal-page
         ) {{ option.text }}
       b-button(
         size="sm"
+        :variant="todoTrayOpen ? 'secondary' : 'outline-secondary'"
+        :aria-pressed="todoTrayOpen ? 'true' : 'false'"
+        :title="todoTrayOpen ? 'Hide todos' : 'Plan todos'"
+        @click="toggleTodoTray"
+      )
+        icon.mr-1(name="tasks")
+        | Todos
+      b-button(
+        size="sm"
         :variant="sidebarOpen ? 'outline-secondary' : 'secondary'"
         :aria-pressed="sidebarOpen ? 'true' : 'false'"
         :title="sidebarOpen ? 'Hide sidebar' : 'Show sidebar'"
@@ -113,73 +122,119 @@ div.cal-page
             span.cal-template-name {{ template.title }}
             small {{ template.start }}–{{ template.end }}
 
-    main.cal-panel.cal-board
-      div.cal-scroll(ref="scroll")
-        div.cal-head-row(:style="gridStyle")
-          div.cal-corner
-          div.cal-day-head(
-            v-for="day in visibleDays"
-            :key="'head-' + day.date"
-            :class="{ 'cal-day-head--today': day.isToday, 'cal-day-head--weekend': day.isWeekend }"
+    div.cal-main
+      //- Todos to plan: a category, then the todo. Drag one onto the calendar, or tap it and
+      //- then a time (the way to go on the phone).
+      section.cal-panel.cal-todo-tray(v-if="todoTrayOpen" aria-label="Todos to plan")
+        div.cal-todo-cats(role="tablist" aria-label="Todo categories")
+          button.cal-todo-cat(
+            v-for="category in todoCategories"
+            :key="category.id"
+            type="button"
+            role="tab"
+            :aria-selected="activeTodoCategory.id === category.id ? 'true' : 'false'"
+            :class="{ 'cal-todo-cat--active': activeTodoCategory.id === category.id }"
+            :style="{ '--todo-color': category.color }"
+            @click="selectTodoCategory(category.id)"
           )
-            button.cal-day-head-button(
-              type="button"
-              :title="viewMode === 'day' ? day.long : 'Open ' + day.long"
-              @click="openDay(day.date)"
-            )
-              span.cal-day-weekday {{ day.weekday }}
-              span.cal-day-number {{ day.dayNumber }}
-            span.cal-day-load(v-if="day.plannedMinutes > 0") {{ durationLabel(day.plannedMinutes) }}
-        div.cal-body-row(:style="gridStyle")
-          div.cal-rail(:style="{ height: scheduleHeight + 'px' }")
-            span.cal-rail-label(
-              v-for="tick in hourTicks"
-              :key="tick.minute"
-              :style="{ top: minuteTop(tick.minute) }"
-            ) {{ tick.label }}
-          div.cal-column(
-            v-for="(day, dayIndex) in visibleDays"
-            :key="'col-' + day.date"
-            ref="dayColumns"
-            :class="{ 'cal-column--today': day.isToday, 'cal-column--weekend': day.isWeekend }"
-            :style="{ height: scheduleHeight + 'px' }"
-            @pointerdown="startCreate(day.date, $event)"
+            span.cal-todo-cat-dot
+            span {{ category.label }}
+            span.cal-todo-cat-count {{ category.todos.length }}
+        div.cal-todo-cards(v-if="activeTodoCategory.todos.length > 0")
+          button.cal-todo-card(
+            v-for="todo in activeTodoCategory.todos"
+            :key="todo.id"
+            type="button"
+            :class="{ 'cal-todo-card--placing': placingTodo && placingTodo.id === todo.id, 'cal-todo-card--scheduled': todoSchedule[todo.id] }"
+            :style="{ '--todo-color': todoColor(todo) }"
+            :title="'Drag onto the calendar, or tap and then tap a time: ' + todo.title"
+            @pointerdown="startTodoDrag(todo, $event)"
           )
-            div.cal-selection(
-              v-if="drag && drag.mode === 'create' && drag.date === day.date"
-              :style="rangeStyle(drag.startMinute, drag.endMinute)"
+            span.cal-todo-card-title {{ todo.title }}
+            span.cal-todo-card-meta(v-if="todoSchedule[todo.id]")
+              icon(name="check" scale="0.6")
+              | {{ todoSchedule[todo.id] }}
+            span.cal-todo-card-meta(v-else-if="todo.dueDate") Due {{ dueLabel(todo) }}
+        div.cal-todo-empty(v-else-if="todosLoaded") {{ emptyTodoText }}
+      div.cal-placing(v-if="placingTodo" role="status")
+        span.cal-placing-text
+          | Tap a time for
+          strong {{ placingTodo.title }}
+        b-button(size="sm" variant="primary" type="button" @click="placeInNextFreeSlot") Next free slot
+        b-button(size="sm" variant="outline-secondary" type="button" @click="cancelPlacing") Cancel
+      main.cal-panel.cal-board
+        div.cal-scroll(ref="scroll")
+          div.cal-head-row(:style="gridStyle")
+            div.cal-corner
+            div.cal-day-head(
+              v-for="day in visibleDays"
+              :key="'head-' + day.date"
+              :class="{ 'cal-day-head--today': day.isToday, 'cal-day-head--weekend': day.isWeekend }"
             )
-              span {{ minutesToTime(drag.startMinute) }}–{{ minutesToTime(drag.endMinute) }}
-            button.cal-event(
-              v-for="item in eventsByDate[day.date]"
-              :key="item.key"
-              type="button"
-              :class="eventClass(item)"
-              :style="eventStyle(item)"
-              :aria-label="eventAriaLabel(item)"
-              @pointerdown.stop="startMove(item, $event)"
-              @click.stop="handleEventClick(item)"
-            )
-              span.cal-event-title {{ item.block.title }}
-              span.cal-event-time
-                icon.cal-event-repeat(v-if="isRepeating(item.block)" name="redo" scale="0.55")
-                | {{ eventTimeLabel(item) }}
-              span.cal-event-notes(v-if="item.block.notes") {{ item.block.notes }}
-              span.cal-event-resize(
-                aria-hidden="true"
-                title="Drag to change the end time"
-                @pointerdown.stop="startResize(item, $event)"
+              button.cal-day-head-button(
+                type="button"
+                :title="viewMode === 'day' ? day.long : 'Open ' + day.long"
+                @click="openDay(day.date)"
               )
-            div.cal-event.cal-event--ghost(
-              v-if="ghost && ghost.date === day.date"
-              :style="ghost.style"
-              aria-hidden="true"
+                span.cal-day-weekday {{ day.weekday }}
+                span.cal-day-number {{ day.dayNumber }}
+              span.cal-day-load(v-if="day.plannedMinutes > 0") {{ durationLabel(day.plannedMinutes) }}
+          div.cal-body-row(:style="gridStyle")
+            div.cal-rail(:style="{ height: scheduleHeight + 'px' }")
+              span.cal-rail-label(
+                v-for="tick in hourTicks"
+                :key="tick.minute"
+                :style="{ top: minuteTop(tick.minute) }"
+              ) {{ tick.label }}
+            div.cal-column(
+              v-for="(day, dayIndex) in visibleDays"
+              :key="'col-' + day.date"
+              ref="dayColumns"
+              :class="{ 'cal-column--today': day.isToday, 'cal-column--weekend': day.isWeekend }"
+              :style="{ height: scheduleHeight + 'px' }"
+              @pointerdown="startCreate(day.date, $event)"
             )
-              span.cal-event-title {{ ghost.title }}
-              span.cal-event-time {{ minutesToTime(ghost.startMinute) }}–{{ minutesToTime(ghost.endMinute) }}
-            div.cal-now(v-if="day.isToday" :style="{ top: minuteTop(nowMinute) }" aria-hidden="true")
-      p.cal-hint
-        | Drag on the calendar to block time · drag a block to move it, its bottom edge to resize · ← → to browse, T for today
+              div.cal-selection(
+                v-if="drag && drag.mode === 'create' && drag.date === day.date"
+                :style="rangeStyle(drag.startMinute, drag.endMinute)"
+              )
+                span {{ minutesToTime(drag.startMinute) }}–{{ minutesToTime(drag.endMinute) }}
+              button.cal-event(
+                v-for="item in eventsByDate[day.date]"
+                :key="item.key"
+                type="button"
+                :class="eventClass(item)"
+                :style="eventStyle(item)"
+                :aria-label="eventAriaLabel(item)"
+                @pointerdown.stop="startMove(item, $event)"
+                @click.stop="handleEventClick(item)"
+              )
+                span.cal-event-title {{ item.block.title }}
+                span.cal-event-time
+                  icon.cal-event-repeat(v-if="isRepeating(item.block)" name="redo" scale="0.55")
+                  | {{ eventTimeLabel(item) }}
+                span.cal-event-notes(v-if="item.block.notes") {{ item.block.notes }}
+                span.cal-event-resize(
+                  aria-hidden="true"
+                  title="Drag to change the end time"
+                  @pointerdown.stop="startResize(item, $event)"
+                )
+              div.cal-event.cal-event--ghost(
+                v-if="ghost && ghost.date === day.date"
+                :style="ghost.style"
+                aria-hidden="true"
+              )
+                span.cal-event-title {{ ghost.title }}
+                span.cal-event-time {{ minutesToTime(ghost.startMinute) }}–{{ minutesToTime(ghost.endMinute) }}
+              div.cal-now(v-if="day.isToday" :style="{ top: minuteTop(nowMinute) }" aria-hidden="true")
+        p.cal-hint
+          | Drag on the calendar to block time · drag a todo from above onto it · drag a block to move it, its bottom edge to resize · ← → to browse, T for today
+
+  div.cal-todo-drag-chip(
+    v-if="todoDragChip"
+    :style="{ left: todoDragChip.x + 'px', top: todoDragChip.y + 'px', '--todo-color': todoDragChip.color }"
+    aria-hidden="true"
+  ) {{ todoDragChip.title }}
 
   b-modal(
     id="cal-block-editor"
@@ -267,14 +322,36 @@ div.cal-page
 </template>
 
 <script lang="ts">
+import 'vue-awesome/icons/check';
 import 'vue-awesome/icons/chevron-left';
 import 'vue-awesome/icons/chevron-right';
 import 'vue-awesome/icons/columns';
 import 'vue-awesome/icons/plus';
 import 'vue-awesome/icons/redo';
+import 'vue-awesome/icons/tasks';
 import 'vue-awesome/icons/trash';
 import moment from 'moment';
-import { loadStoredValue, onStoredValueChange, saveStoredValue } from '~/util/focusfrogStorage';
+import {
+  loadStoredValue,
+  onStoredValueChange,
+  peekStoredValue,
+  saveStoredValue,
+} from '~/util/focusfrogStorage';
+import {
+  DayPlan,
+  firstFreeSlot,
+  nextScheduled,
+  normalizePlannableTodos,
+  planCategories,
+  PlanCategory,
+  PlannableTodo,
+  scheduledLabel,
+  TODO_BLOCK_MINUTES,
+  todoBlockType,
+} from '~/util/todoPlanning';
+import { INBOX_PROJECT_COLOR, normalizeTodoProjects } from '~/util/todoProjects';
+import type { TodoProject } from '~/util/todoProjects';
+import { weekdayFeiertag } from '~/util/timeOff';
 import {
   BlockOccurrence,
   DAY_MINUTES,
@@ -320,7 +397,8 @@ interface TimeBlockTemplate {
 }
 
 interface DragState {
-  mode: 'create' | 'move' | 'resize';
+  // place: a tap that puts the picked todo there (a swipe that scrolls does not).
+  mode: 'create' | 'move' | 'resize' | 'todo' | 'place';
   moved: boolean;
   startX: number;
   startY: number;
@@ -329,6 +407,14 @@ interface DragState {
   startMinute: number;
   endMinute: number;
   occurrence: BlockOccurrence | null;
+  // A todo being dragged onto the calendar: where the pointer is, and whether it is over it.
+  todo?: PlannableTodo;
+  clientX?: number;
+  clientY?: number;
+  over?: boolean;
+  // Edge scrolling starts only once the pointer was well inside the calendar, so coming in
+  // over its top edge does not scroll it.
+  scrollArmed?: boolean;
 }
 
 const TIME_BLOCK_STORAGE_KEY = 'focusfrog.timeBlocks.v1';
@@ -336,6 +422,10 @@ const TIME_BLOCK_SERVER_KEY = 'timeBlocks';
 const VIEW_STORAGE_KEY = 'focusfrog.timeBlocks.view';
 const HIDDEN_TYPES_STORAGE_KEY = 'focusfrog.timeBlocks.hiddenTypes';
 const SIDEBAR_STORAGE_KEY = 'focusfrog.timeBlocks.sidebar';
+const TODO_TRAY_STORAGE_KEY = 'focusfrog.timeBlocks.todoTray';
+const TODO_CATEGORY_STORAGE_KEY = 'focusfrog.timeBlocks.todoCategory';
+// Near the top or bottom of the calendar, a dragged todo scrolls it.
+const AUTOSCROLL_EDGE = 48;
 const HOUR_HEIGHT = 52;
 const SNAP_MINUTES = 15;
 const DRAG_THRESHOLD = 4;
@@ -456,6 +546,17 @@ export default {
       editorOpen: false,
       drag: null as DragState | null,
       suppressClick: false,
+      // Todos to plan (read only: the Todos page keeps them).
+      todos: [] as PlannableTodo[],
+      todosLoaded: false,
+      todoProjects: [] as TodoProject[],
+      dayPlan: null as DayPlan | null,
+      todoTrayOpen: readPreference(TODO_TRAY_STORAGE_KEY) !== 'closed',
+      todoCategoryId: readPreference(TODO_CATEGORY_STORAGE_KEY) || 'plan',
+      // A todo tapped in the tray, waiting for a tap on the calendar.
+      placingTodo: null as PlannableTodo | null,
+      // The block just made from a todo, briefly highlighted.
+      placedBlockId: '',
       nowTick: Date.now(),
       nowTimer: 0,
       viewOptions: [
@@ -681,8 +782,59 @@ export default {
         this.draft.title && isValidDate(this.draft.date) && this.draftTimesValid && repeatDaysOk
       );
     },
+    todoCategories(): PlanCategory[] {
+      return planCategories(this.todos, this.todoProjects, this.dayPlan, today());
+    },
+    // The chosen category; today's plan falls back to all todos when it is empty.
+    activeTodoCategory(): PlanCategory {
+      const categories = this.todoCategories as PlanCategory[];
+      const chosen = categories.find(category => category.id === this.todoCategoryId);
+      if (chosen && (chosen.todos.length > 0 || chosen.id !== 'plan')) return chosen;
+      return categories.find(category => category.id === 'all') as PlanCategory;
+    },
+    emptyTodoText(): string {
+      return this.todos.length === 0
+        ? 'No todos yet. Add some on the Todos page.'
+        : 'Nothing open here.';
+    },
+    // When each todo is next on the calendar.
+    todoSchedule(): Record<string, string> {
+      const schedule: Record<string, string> = {};
+      (this.todos as PlannableTodo[]).forEach(todo => {
+        const slot = nextScheduled(this.blocks, todo.id, today());
+        if (slot) schedule[todo.id] = scheduledLabel(slot, today());
+      });
+      return schedule;
+    },
+    todosById(): Record<string, PlannableTodo> {
+      return Object.fromEntries((this.todos as PlannableTodo[]).map(todo => [todo.id, todo]));
+    },
+    todoDragChip() {
+      const drag = this.drag as DragState | null;
+      if (!drag || drag.mode !== 'todo' || !drag.moved || drag.over || !drag.todo) return null;
+      return {
+        title: drag.todo.title,
+        color: this.todoColor(drag.todo),
+        x: drag.clientX,
+        y: drag.clientY,
+      };
+    },
     ghost() {
       const drag = this.drag as DragState | null;
+      if (drag && drag.mode === 'todo' && drag.moved && drag.over && drag.todo) {
+        const config = blockConfig(todoBlockType(drag.todo.area));
+        return {
+          date: drag.date,
+          title: drag.todo.title,
+          startMinute: drag.startMinute,
+          endMinute: drag.endMinute,
+          style: {
+            ...this.rangeStyle(drag.startMinute, drag.endMinute),
+            '--block-color': config.color,
+            '--block-soft': config.soft,
+          },
+        };
+      }
       if (!drag || drag.mode !== 'move' || !drag.moved || !drag.occurrence) return null;
       const config = blockConfig(drag.occurrence.block.type);
       return {
@@ -713,6 +865,13 @@ export default {
       'hook:beforeDestroy',
       onStoredValueChange(TIME_BLOCK_SERVER_KEY, this.applyCloudBlocks)
     );
+    void this.loadTodoSources();
+    for (const key of ['todos', 'todoProjects', 'todoDayPlan'] as const) {
+      this.$once(
+        'hook:beforeDestroy',
+        onStoredValueChange(key, () => void this.loadTodoSources())
+      );
+    }
     this.nowTimer = window.setInterval(() => {
       this.nowTick = Date.now();
     }, 60 * 1000);
@@ -796,6 +955,8 @@ export default {
         repeatDays,
         repeatUntil: repeat !== 'none' && isValidDate(block?.repeatUntil) ? block.repeatUntil : '',
         skipDates: Array.isArray(block?.skipDates) ? block.skipDates.filter(isValidDate) : [],
+        // Only blocks planned from a todo carry the link.
+        ...(typeof block?.todoId === 'string' && block.todoId ? { todoId: block.todoId } : {}),
         createdAt: typeof block?.createdAt === 'string' ? block.createdAt : moment().toISOString(),
         updatedAt: typeof block?.updatedAt === 'string' ? block.updatedAt : moment().toISOString(),
       };
@@ -870,7 +1031,13 @@ export default {
       scroller.scrollTop = Math.min(hour, 16) * HOUR_HEIGHT;
     },
     handleKeydown(event: KeyboardEvent) {
+      if (this.placingTodo && event.key === 'Escape') {
+        event.preventDefault();
+        this.cancelPlacing();
+        return;
+      }
       if (this.editorOpen || this.drag || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (this.placingTodo) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, [contenteditable="true"], .modal')) return;
       if (event.key === 'ArrowLeft') this.shiftRange(-1);
@@ -1074,7 +1241,7 @@ export default {
       );
       const start = Math.floor(minute / 30) * 30;
       this.beginDrag({
-        mode: 'create',
+        mode: this.placingTodo ? 'place' : 'create',
         moved: false,
         startX: event.clientX,
         startY: event.clientY,
@@ -1122,6 +1289,11 @@ export default {
       const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
       if (!drag.moved && distance < DRAG_THRESHOLD) return;
       drag.moved = true;
+      if (drag.mode === 'place') return;
+      if (drag.mode === 'todo') {
+        this.dragTodo(drag, event);
+        return;
+      }
       const minute = this.minuteAt(event.clientY);
 
       if (drag.mode === 'create') {
@@ -1151,6 +1323,19 @@ export default {
       this.stopDragListeners();
       this.drag = null;
       if (!drag) return;
+
+      if (drag.mode === 'todo' && drag.todo) {
+        // A tap picks the todo; a drag that ends over the calendar places it there.
+        if (!drag.moved) this.startPlacing(drag.todo);
+        else if (drag.over) this.placeTodo(drag.todo, drag.date, drag.startMinute);
+        return;
+      }
+      if (drag.mode === 'place') {
+        if (!drag.moved && this.placingTodo) {
+          this.placeTodo(this.placingTodo, drag.date, drag.startMinute);
+        }
+        return;
+      }
 
       if (drag.mode === 'create') {
         this.openNewBlock({
@@ -1229,6 +1414,146 @@ export default {
       this.saveBlocks();
     },
 
+    // Todos to plan
+    async loadTodoSources() {
+      const [todos, projects, dayPlan] = await Promise.all([
+        peekStoredValue('todos'),
+        peekStoredValue('todoProjects'),
+        peekStoredValue('todoDayPlan'),
+      ]);
+      this.todos = normalizePlannableTodos(todos.value);
+      this.todoProjects = normalizeTodoProjects(projects.value);
+      const plan = dayPlan.value as Partial<DayPlan> | null;
+      this.dayPlan =
+        plan && typeof plan.date === 'string' && Array.isArray(plan.todoIds)
+          ? { date: plan.date, todoIds: plan.todoIds.filter(id => typeof id === 'string') }
+          : null;
+      this.todosLoaded = true;
+    },
+    toggleTodoTray() {
+      this.todoTrayOpen = !this.todoTrayOpen;
+      writePreference(TODO_TRAY_STORAGE_KEY, this.todoTrayOpen ? 'open' : 'closed');
+      if (!this.todoTrayOpen) this.cancelPlacing();
+    },
+    selectTodoCategory(id: string) {
+      this.todoCategoryId = id;
+      writePreference(TODO_CATEGORY_STORAGE_KEY, id);
+    },
+    todoColor(todo: PlannableTodo): string {
+      const project = (this.todoProjects as TodoProject[]).find(item => item.id === todo.projectId);
+      return project ? project.color : INBOX_PROJECT_COLOR;
+    },
+    dueLabel(todo: PlannableTodo): string {
+      const due = moment(todo.dueDate, DATE_FORMAT);
+      const day = due.isSame(moment(), 'day') ? 'today' : due.format('ddd, MMM D');
+      return todo.dueTime ? `${day} ${todo.dueTime}` : day;
+    },
+    startTodoDrag(todo: PlannableTodo, event: PointerEvent) {
+      if (event.button !== 0) return;
+      // A mouse would otherwise start selecting text.
+      if (event.pointerType === 'mouse') event.preventDefault();
+      this.beginDrag({
+        mode: 'todo',
+        moved: false,
+        startX: event.clientX,
+        startY: event.clientY,
+        date: this.rangeDates.includes(this.focusDate) ? this.focusDate : this.rangeDates[0],
+        anchorMinute: 0,
+        startMinute: 0,
+        endMinute: TODO_BLOCK_MINUTES,
+        occurrence: null,
+        todo,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        over: false,
+      });
+    },
+    // The pointer is over the calendar: the block would start at the quarter hour under it.
+    dragTodo(drag: DragState, event: PointerEvent) {
+      drag.clientX = event.clientX;
+      drag.clientY = event.clientY;
+      const scroller = this.$refs.scroll as HTMLElement | undefined;
+      const rect = scroller?.getBoundingClientRect();
+      drag.over = Boolean(
+        rect &&
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom
+      );
+      if (!drag.over || !scroller || !rect) return;
+      const nearTop = event.clientY < rect.top + AUTOSCROLL_EDGE * 2;
+      const nearBottom = event.clientY > rect.bottom - AUTOSCROLL_EDGE;
+      if (!nearTop && !nearBottom) drag.scrollArmed = true;
+      if (drag.scrollArmed && nearTop) scroller.scrollTop -= 12;
+      else if (drag.scrollArmed && nearBottom) scroller.scrollTop += 12;
+      const start = Math.floor(this.minuteAt(event.clientY) / SNAP_MINUTES) * SNAP_MINUTES;
+      drag.startMinute = Math.max(0, Math.min(DAY_MINUTES - TODO_BLOCK_MINUTES, start));
+      drag.endMinute = drag.startMinute + TODO_BLOCK_MINUTES;
+      drag.date = this.dateAt(event.clientX, drag.date);
+    },
+    startPlacing(todo: PlannableTodo) {
+      this.placingTodo = this.placingTodo && this.placingTodo.id === todo.id ? null : todo;
+    },
+    cancelPlacing() {
+      this.placingTodo = null;
+    },
+    // A one-hour block for the todo, with the todo's title and kind of work.
+    placeTodo(todo: PlannableTodo, date: string, startMinute: number) {
+      const start = Math.max(0, Math.min(DAY_MINUTES - TODO_BLOCK_MINUTES, startMinute));
+      const now = moment().toISOString();
+      const block = this.normalizeBlock({
+        id: this.newBlockId(),
+        title: todo.title,
+        type: todoBlockType(todo.area),
+        date,
+        start: minutesToTime(start),
+        end: minutesToTime(start + TODO_BLOCK_MINUTES),
+        notes: '',
+        repeat: 'none',
+        repeatDays: [],
+        repeatUntil: '',
+        skipDates: [],
+        todoId: todo.id,
+        createdAt: now,
+        updatedAt: now,
+      });
+      this.blocks = [...this.blocks, block];
+      this.saveBlocks();
+      this.placingTodo = null;
+      this.placedBlockId = block.id;
+      window.setTimeout(() => {
+        if (this.placedBlockId === block.id) this.placedBlockId = '';
+      }, 1600);
+    },
+    // The first free hour from now (or from the week on screen, if it is later). Work is
+    // not put on weekends or Feiertage. The calendar moves there if it is off screen.
+    async placeInNextFreeSlot() {
+      const todo = this.placingTodo as PlannableTodo | null;
+      if (!todo) return;
+      const type = todoBlockType(todo.area);
+      const forWork = blockConfig(type).kind === 'work';
+      const slot = firstFreeSlot({
+        from: this.rangeDates[0],
+        todayKey: today(),
+        nowMinute: this.nowMinute,
+        busyOn: date => occurrencesForDates(this.blocks, [date]),
+        skipDay: date => forWork && (isoWeekday(date) >= 6 || Boolean(weekdayFeiertag(date))),
+      });
+      if (!slot) {
+        await this.$bvModal.msgBoxOk('There is no free hour in the next two weeks.', {
+          centered: true,
+        });
+        return;
+      }
+      if (!this.rangeDates.includes(slot.date)) this.focusOn(slot.date);
+      this.placeTodo(todo, slot.date, slot.startMinute);
+      this.$nextTick(() => {
+        const scroller = this.$refs.scroll as HTMLElement | undefined;
+        if (scroller) scroller.scrollTop = Math.max(0, (slot.startMinute / 60) * HOUR_HEIGHT - 80);
+      });
+    },
+
     // Presentation helpers
     minuteTop(minute: number): string {
       return `${(minute / 60) * HOUR_HEIGHT}px`;
@@ -1266,6 +1591,10 @@ export default {
         'cal-event--moving': this.isDragging(item) && this.drag.mode === 'move',
         'cal-event--resizing': this.isDragging(item) && this.drag.mode === 'resize',
         'cal-event--past': this.isPast(item),
+        'cal-event--todo-done': Boolean(
+          item.block.todoId && this.todosById[item.block.todoId]?.completed
+        ),
+        'cal-event--placed': item.block.id === this.placedBlockId,
       };
     },
     isPast(item: BlockOccurrence): boolean {
@@ -1993,6 +2322,201 @@ export default {
   flex: 1;
 }
 
+/* Todos to plan */
+.cal-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cal-todo-tray {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.65rem 0.75rem;
+}
+
+.cal-todo-cats,
+.cal-todo-cards {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cal-todo-cats::-webkit-scrollbar,
+.cal-todo-cards::-webkit-scrollbar {
+  display: none;
+}
+
+.cal-todo-cat {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #1e293b;
+  font-size: 0.82rem;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cal-todo-cat--active {
+  border-color: var(--todo-color);
+  background: color-mix(in srgb, var(--todo-color) 16%, white);
+  box-shadow: 0 0 0 1px var(--todo-color) inset;
+}
+
+.cal-todo-cat-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--todo-color);
+}
+
+.cal-todo-cat-count {
+  min-width: 1.3rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.cal-todo-cards {
+  padding-bottom: 0.15rem;
+}
+
+/* A card scrolls the strip sideways; moving it up or down drags it to the calendar. */
+.cal-todo-card {
+  display: flex;
+  flex: 0 0 10.5rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  min-height: 3.4rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-left: 4px solid var(--todo-color);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f172a;
+  text-align: left;
+  cursor: grab;
+  touch-action: pan-x;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition: box-shadow 120ms ease, transform 120ms ease;
+}
+
+.cal-todo-card:hover,
+.cal-todo-card:focus-visible {
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+}
+
+.cal-todo-card--placing {
+  box-shadow: 0 0 0 2px var(--todo-color);
+  transform: translateY(-1px);
+}
+
+.cal-todo-card-title {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.2;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.cal-todo-card-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.cal-todo-card--scheduled .cal-todo-card-meta {
+  color: #047857;
+}
+
+.cal-todo-empty {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.cal-placing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  border-radius: 10px;
+  background: rgba(236, 253, 245, 0.97);
+  color: #064e3b;
+  font-size: 0.88rem;
+}
+
+.cal-placing-text {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.cal-placing-text strong {
+  margin-left: 0.3rem;
+}
+
+.cal-todo-drag-chip {
+  position: fixed;
+  z-index: 1050;
+  max-width: 14rem;
+  padding: 0.35rem 0.6rem;
+  overflow: hidden;
+  border-left: 4px solid var(--todo-color);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+  font-size: 0.84rem;
+  font-weight: 800;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  transform: translate(-50%, -120%);
+  white-space: nowrap;
+}
+
+.cal-event--todo-done .cal-event-title {
+  text-decoration: line-through;
+}
+
+.cal-event--todo-done .cal-event-title::before {
+  content: '✓ ';
+}
+
+.cal-event--placed {
+  animation: cal-placed 1.4s ease-out;
+}
+
+@keyframes cal-placed {
+  0% {
+    box-shadow: 0 0 0 4px var(--block-color);
+  }
+
+  100% {
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  }
+}
+
 /* Themes */
 /* dark.css gives every button light text. The bright style is light, so the calendar's
    own buttons get dark text back, as the flower style does for all buttons. */
@@ -2085,6 +2609,28 @@ html[data-dashboard-theme='contrast'] .cal-column {
 
 html[data-dashboard-theme='contrast'] .cal-column--today {
   background-color: rgba(16, 185, 129, 0.1);
+}
+
+html[data-dashboard-theme='contrast'] .cal-todo-cat,
+html[data-dashboard-theme='contrast'] .cal-todo-card,
+html[data-dashboard-theme='contrast'] .cal-todo-drag-chip {
+  border-color: rgba(148, 163, 184, 0.34);
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+html[data-dashboard-theme='contrast'] .cal-todo-cat--active {
+  background: color-mix(in srgb, var(--todo-color) 30%, #0f172a);
+}
+
+html[data-dashboard-theme='contrast'] .cal-todo-card-meta,
+html[data-dashboard-theme='contrast'] .cal-todo-empty {
+  color: #cbd5e1;
+}
+
+html[data-dashboard-theme='contrast'] .cal-placing {
+  background: #052e22;
+  color: #d1fae5;
 }
 
 html[data-dashboard-theme='contrast'] .cal-event {
