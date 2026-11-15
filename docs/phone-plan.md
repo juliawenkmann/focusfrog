@@ -140,6 +140,12 @@ mirror; the cloud is added alongside. Before the first upload, a snapshot of
   balance line where the scale would level out (`balancedSeconds`): 8h on a weekday, 0 on a free
   day. In the long views it is a flat 40h, a week without holidays, and the holidays are shaded
   (`holidayRuns`); the scale still leaves them out.
+- 2026-11-10 — The Mac wins (the user's wish). Saves from the Mac app carry `mac: true`; other
+  devices name the version they changed (`base`, per document in `KeySync`), and the rules
+  (`macWins`) refuse a change to a copy the Mac has replaced since; the refused device then shows
+  the Mac's version. Off the Mac, documents are written one by one so one refusal does not take
+  the rest of a save with it. Clients from before send no base and still save by time. Seen
+  before: the phone opened from its cache and re-saved all 29 dreams at once.
 - After installing a new Mac app, the open FocusFrog tab must be reloaded: it keeps running
   the old code (and the old uploader's writes are refused by newer rules).
 - Later: Pomodoro on the phone (sessions in the cloud), lock the rules to the owner uid.

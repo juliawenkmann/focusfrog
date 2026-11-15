@@ -76,7 +76,9 @@ describe('only the owner sees FocusFrog data', () => {
       .firestore();
     await assertFails(getDoc(doc(stranger, 'users', OWNER_UID, 'todos', 'todo-1')));
     await assertFails(getDocs(collection(stranger, 'users', OWNER_UID, 'todos')));
-    await assertFails(setDoc(doc(stranger, 'users', OWNER_UID, 'todos', 'todo-2'), todoDoc('todo-2')));
+    await assertFails(
+      setDoc(doc(stranger, 'users', OWNER_UID, 'todos', 'todo-2'), todoDoc('todo-2'))
+    );
   });
 
   test('another account cannot use FocusFrog for its own data either', async () => {
@@ -87,17 +89,13 @@ describe('only the owner sees FocusFrog data', () => {
   });
 
   test('the owner email on someone else uid is not enough', async () => {
-    const impostor = env
-      .authenticatedContext('impostor-uid', { email: OWNER_EMAIL })
-      .firestore();
+    const impostor = env.authenticatedContext('impostor-uid', { email: OWNER_EMAIL }).firestore();
     await seed(['users', OWNER_UID, 'todos', 'todo-1'], todoDoc());
     await assertFails(getDoc(doc(impostor, 'users', OWNER_UID, 'todos', 'todo-1')));
   });
 
   test('a new account with the owner email gets no space of its own', async () => {
-    const impostor = env
-      .authenticatedContext('impostor-uid', { email: OWNER_EMAIL })
-      .firestore();
+    const impostor = env.authenticatedContext('impostor-uid', { email: OWNER_EMAIL }).firestore();
     await assertFails(setDoc(doc(impostor, 'users', 'impostor-uid', 'todos', 't'), todoDoc('t')));
     await assertFails(getDocs(collection(impostor, 'users', 'impostor-uid', 'todos')));
   });
@@ -130,15 +128,28 @@ describe('item documents', () => {
   });
 
   test('an older offline edit cannot overwrite a newer one', async () => {
-    await seed(['users', OWNER_UID, 'todos', 'todo-1'], todoDoc('todo-1', {
-      updatedAt: '2026-11-05T10:05:00.000Z',
-    }));
-    await assertFails(setDoc(ownerDoc('todos', 'todo-1'), todoDoc('todo-1', {
-      updatedAt: '2026-11-05T10:00:00.000Z',
-    })));
-    await assertSucceeds(setDoc(ownerDoc('todos', 'todo-1'), todoDoc('todo-1', {
-      updatedAt: '2026-11-05T10:06:00.000Z',
-    })));
+    await seed(
+      ['users', OWNER_UID, 'todos', 'todo-1'],
+      todoDoc('todo-1', {
+        updatedAt: '2026-11-05T10:05:00.000Z',
+      })
+    );
+    await assertFails(
+      setDoc(
+        ownerDoc('todos', 'todo-1'),
+        todoDoc('todo-1', {
+          updatedAt: '2026-11-05T10:00:00.000Z',
+        })
+      )
+    );
+    await assertSucceeds(
+      setDoc(
+        ownerDoc('todos', 'todo-1'),
+        todoDoc('todo-1', {
+          updatedAt: '2026-11-05T10:06:00.000Z',
+        })
+      )
+    );
   });
 
   test('Pomodoro sessions sync like todos', async () => {
@@ -156,6 +167,93 @@ describe('item documents', () => {
   test('the owner can delete documents', async () => {
     await seed(['users', OWNER_UID, 'todos', 'todo-1'], todoDoc());
     await assertSucceeds(deleteDoc(ownerDoc('todos', 'todo-1')));
+  });
+});
+
+describe('the Mac wins', () => {
+  const macTodo = (title, updatedAt) =>
+    todoDoc('todo-1', { item: { id: 'todo-1', title }, updatedAt, mac: true });
+  const phoneTodo = (title, updatedAt, base) =>
+    todoDoc('todo-1', { item: { id: 'todo-1', title }, updatedAt, base });
+
+  beforeEach(async () => {
+    await seed(
+      ['users', OWNER_UID, 'todos', 'todo-1'],
+      macTodo('from the Mac', '2026-11-10T10:00:00.000Z')
+    );
+  });
+
+  test('another device may change the version it saw', async () => {
+    await assertSucceeds(
+      setDoc(
+        ownerDoc('todos', 'todo-1'),
+        phoneTodo('phone', '2026-11-10T10:05:00.000Z', '2026-11-10T10:00:00.000Z')
+      )
+    );
+  });
+
+  test('but not an older copy', async () => {
+    await assertFails(
+      setDoc(
+        ownerDoc('todos', 'todo-1'),
+        phoneTodo('stale', '2026-11-10T10:05:00.000Z', '2026-11-10T09:00:00.000Z')
+      )
+    );
+  });
+
+  test('the Mac always may', async () => {
+    await assertSucceeds(
+      setDoc(ownerDoc('todos', 'todo-1'), macTodo('Mac again', '2026-11-10T10:06:00.000Z'))
+    );
+  });
+
+  test('an app from before this rule still saves by time', async () => {
+    await assertSucceeds(
+      setDoc(
+        ownerDoc('todos', 'todo-1'),
+        todoDoc('todo-1', { updatedAt: '2026-11-10T10:07:00.000Z' })
+      )
+    );
+  });
+
+  test('state documents too', async () => {
+    const state = (todoIds, updatedAt, extra) => ({
+      value: { date: '2026-11-10', todoIds },
+      updatedAt,
+      device: 'x',
+      ...extra,
+    });
+    await seed(
+      ['users', OWNER_UID, 'state', 'todoDayPlan'],
+      state(['a'], '2026-11-10T10:00:00.000Z', { mac: true })
+    );
+    await assertFails(
+      setDoc(
+        ownerDoc('state', 'todoDayPlan'),
+        state([], '2026-11-10T10:05:00.000Z', { base: '2026-11-10T09:00:00.000Z' })
+      )
+    );
+    await assertSucceeds(
+      setDoc(
+        ownerDoc('state', 'todoDayPlan'),
+        state(['a', 'b'], '2026-11-10T10:05:00.000Z', { base: '2026-11-10T10:00:00.000Z' })
+      )
+    );
+  });
+
+  test('mac must be true, base a short text', async () => {
+    await assertFails(
+      setDoc(
+        ownerDoc('todos', 'todo-1'),
+        todoDoc('todo-1', { updatedAt: '2026-11-10T10:08:00.000Z', mac: false })
+      )
+    );
+    await assertFails(
+      setDoc(
+        ownerDoc('todos', 'todo-1'),
+        todoDoc('todo-1', { updatedAt: '2026-11-10T10:08:00.000Z', base: 5 })
+      )
+    );
   });
 });
 
@@ -235,7 +333,9 @@ describe('state and photos', () => {
       device: 'mac',
     };
     await assertSucceeds(setDoc(ownerDoc('visionImages', 'img-1'), photo));
-    await assertFails(setDoc(ownerDoc('visionImages', 'img-2'), { ...photo, mimeType: 'text/html' }));
+    await assertFails(
+      setDoc(ownerDoc('visionImages', 'img-2'), { ...photo, mimeType: 'text/html' })
+    );
     await assertFails(
       setDoc(ownerDoc('visionImages', 'img-3'), { ...photo, data: 'x'.repeat(900001) })
     );

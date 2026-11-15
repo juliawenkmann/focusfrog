@@ -28,14 +28,23 @@ class FakeCloud {
           this.listeners = this.listeners.filter(candidate => candidate !== listener);
         };
       },
+      // Like the rules (`macWins`): a document from another device must name the version
+      // it changed; each document is accepted or refused on its own.
       write: async (spec, writes) => {
+        let refused = 0;
         writes.forEach(([id, data]) => {
+          const current = this.docs(spec.collection).get(id);
+          if (current && data.mac !== true && 'base' in data && data.base !== current.updatedAt) {
+            refused += 1;
+            return;
+          }
           this.docs(spec.collection).set(id, data);
           this.writes.push([spec.collection, id, data]);
         });
         this.listeners
           .filter(l => l.spec.collection === spec.collection)
           .forEach(l => this.emitTo(l));
+        if (refused) throw new Error(`${refused} change(s) refused`);
       },
     };
   }
@@ -53,6 +62,7 @@ let clock = 0;
 const stamp = (name: string) => () => ({
   updatedAt: new Date(Date.UTC(2026, 10, 5, 10, 0, clock++)).toISOString(),
   device: name,
+  mac: name === 'mac',
 });
 
 const todo = (id: string, title = id, extra: Record<string, unknown> = {}) => ({
@@ -219,5 +229,110 @@ describe('syncing between two devices', () => {
     mac.value();
     mac.save({ date: '2026-11-05', todoIds: ['a', 'b'] });
     expect(seen).toEqual([{ date: '2026-11-05', todoIds: ['a', 'b'] }]);
+  });
+});
+
+describe('the Mac wins', () => {
+  // The phone page holds a copy; the Mac changes the same todo; the phone, still on its
+  // old copy, saves its own change to it.
+  function staleSetup() {
+    const cloud = new FakeCloud();
+    const mac = device(cloud, 'mac');
+    const phone = device(cloud, 'phone');
+    mac.value();
+    mac.save([todo('a'), todo('b')]);
+    phone.value();
+    mac.value();
+    mac.save([todo('a', 'renamed on the Mac'), todo('b')]);
+    return { cloud, mac, phone };
+  }
+
+  test('a phone change to a copy the Mac has replaced is refused', async () => {
+    const { cloud, phone } = staleSetup();
+    phone.save([todo('a', 'stale phone edit'), todo('b')]);
+    await Promise.resolve();
+    expect(cloud.docs('todos').get('a')?.item).toEqual(todo('a', 'renamed on the Mac'));
+  });
+
+  test("the phone's other changes in the same save still go through", async () => {
+    const { cloud, phone } = staleSetup();
+    phone.save([todo('a', 'stale phone edit'), todo('b', 'phone edit')]);
+    await Promise.resolve();
+    expect(cloud.docs('todos').get('b')?.item).toEqual(todo('b', 'phone edit'));
+    expect(cloud.docs('todos').get('a')?.item).toEqual(todo('a', 'renamed on the Mac'));
+  });
+
+  test('a phone that has the latest version can change it', () => {
+    const { cloud, phone } = staleSetup();
+    const current = phone.value() as unknown[];
+    phone.save(current.map(item => ({ ...(item as object), completed: true })));
+    expect(cloud.docs('todos').get('a')?.item).toMatchObject({ completed: true });
+  });
+
+  test('a phone that kept editing builds on its own last save', () => {
+    const cloud = new FakeCloud();
+    const phone = device(cloud, 'phone');
+    phone.value();
+    phone.save([todo('a')]);
+    phone.save([todo('a', 'second edit')]);
+    phone.save([todo('a', 'third edit')]);
+    expect(cloud.docs('todos').get('a')?.item).toEqual(todo('a', 'third edit'));
+  });
+
+  test('the Mac overwrites whatever the phone did', () => {
+    const cloud = new FakeCloud();
+    const mac = device(cloud, 'mac');
+    const phone = device(cloud, 'phone');
+    mac.value();
+    mac.save([todo('a')]);
+    phone.value();
+    phone.save([todo('a', 'phone edit')]);
+    mac.save([todo('a', 'Mac edit')]);
+    expect(cloud.docs('todos').get('a')?.item).toEqual(todo('a', 'Mac edit'));
+    expect(cloud.docs('todos').get('a')).toMatchObject({ mac: true });
+  });
+
+  test('the same content saved again elsewhere keeps the phone current', () => {
+    const cloud = new FakeCloud();
+    const mac = device(cloud, 'mac');
+    const phone = device(cloud, 'phone');
+    mac.value();
+    mac.save([todo('a')]);
+    phone.value();
+    // The Mac saves the very same todo again (a newer stamp, nothing new in it).
+    cloud
+      .backend()
+      .write(KEY_SPECS.todos, [
+        [
+          'a',
+          { item: todo('a'), updatedAt: '2026-12-01T00:00:00.000Z', deletedAt: null, mac: true },
+        ],
+      ]);
+    phone.save([todo('a', 'phone edit')]);
+    expect(cloud.docs('todos').get('a')?.item).toEqual(todo('a', 'phone edit'));
+  });
+
+  test('a stale phone cannot delete what the Mac changed', async () => {
+    const { cloud, phone } = staleSetup();
+    phone.save([todo('b')]);
+    await Promise.resolve();
+    expect(cloud.docs('todos').get('a')?.deletedAt).toBeNull();
+  });
+
+  test('state documents follow the same rule', async () => {
+    const cloud = new FakeCloud();
+    const mac = device(cloud, 'mac', KEY_SPECS.todoDayPlan);
+    const phone = device(cloud, 'phone', KEY_SPECS.todoDayPlan);
+    mac.value();
+    mac.save({ date: '2026-11-10', todoIds: ['a'] });
+    phone.value();
+    mac.value();
+    mac.save({ date: '2026-11-10', todoIds: ['a', 'b'] });
+    phone.save({ date: '2026-11-10', todoIds: [] });
+    await Promise.resolve();
+    expect(cloud.docs('state').get('todoDayPlan')?.value).toEqual({
+      date: '2026-11-10',
+      todoIds: ['a', 'b'],
+    });
   });
 });

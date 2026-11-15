@@ -37,9 +37,14 @@ function canonical(prints: Map<string, string>): string {
   return JSON.stringify(Array.from(prints.entries()).sort(([a], [b]) => a.localeCompare(b)));
 }
 
+const versionOf = (docs: RemoteDocs, id: string) => String(docs.get(id)?.updatedAt || '');
+
 export class KeySync {
   private remote: RemoteDocs = new Map();
   private baseline = new Map<string, string>();
+  // For each document, the version (its updatedAt) whose content the page holds: a save
+  // names it, so the rules can tell a change to an outdated copy.
+  private bases = new Map<string, string>();
   private delivered = '';
   private listeners = new Set<ChangeListener>();
   private stopListening: (() => void) | null = null;
@@ -124,10 +129,15 @@ export class KeySync {
     this.delivered = canonical(this.baseline);
     if (!changed.length && !removed.length) return;
     const stamp = this.stamp();
-    const writes: Writes = changed.map(([id, entry]) => [id, entryDoc(this.spec, entry, stamp)]);
+    const base = (id: string) => this.bases.get(id) || '';
+    const writes: Writes = changed.map(([id, entry]) => [
+      id,
+      entryDoc(this.spec, entry, stamp, base(id)),
+    ]);
     if (this.spec.kind === 'items' || this.spec.kind === 'board') {
-      removed.forEach(id => writes.push([id, tombstoneDoc(id, stamp)]));
+      removed.forEach(id => writes.push([id, tombstoneDoc(id, stamp, base(id))]));
     }
+    writes.forEach(([id]) => this.bases.set(id, stamp.updatedAt));
     this.track(this.backend.write(this.spec, writes));
   }
 
@@ -151,6 +161,13 @@ export class KeySync {
 
   private receive(docs: RemoteDocs, info: SnapshotInfo): void {
     this.remote = docs;
+    // A document saved again with the content the page already has (by this or another
+    // device) is still the page's version.
+    if (this.pageLoaded) {
+      fingerprint(toEntries(this.spec, fromRemote(this.spec, docs))).forEach((content, id) => {
+        if (this.baseline.get(id) === content) this.bases.set(id, versionOf(docs, id));
+      });
+    }
     if (!info.fromCache) {
       this.serverSeen = true;
       if (this.pendingImport !== undefined) {
@@ -173,6 +190,7 @@ export class KeySync {
     this.pageLoaded = true;
     this.baseline = fingerprint(toEntries(this.spec, value));
     this.delivered = canonical(this.baseline);
+    this.bases = new Map(Array.from(this.remote.keys(), id => [id, versionOf(this.remote, id)]));
   }
 
   private track(write: Promise<void>): void {

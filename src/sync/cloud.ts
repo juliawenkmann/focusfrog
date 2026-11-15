@@ -4,7 +4,7 @@
 import type { FirebaseApp } from 'firebase/app';
 import type { Auth, User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
-import { cloudConfig, OWNER_EMAILS } from '~/sync/config';
+import { cloudConfig, IS_CLOUD_BUILD, OWNER_EMAILS } from '~/sync/config';
 import { ChangeListener, KeySync, SyncBackend } from '~/sync/engine';
 import { KEY_SPECS, KeySpec, RemoteDocs, SYNCED_KEYS, SyncedKey } from '~/sync/model';
 import type { ResizedImage } from '~/util/imageResize';
@@ -77,7 +77,7 @@ function isOwner(user: User | null): boolean {
 }
 
 function firestoreBackend(firebase: Firebase, uid: string): SyncBackend {
-  const { collection, doc, onSnapshot, writeBatch } = firebase.firestoreApi;
+  const { collection, doc, onSnapshot, setDoc, writeBatch } = firebase.firestoreApi;
   const path = (spec: KeySpec) => ['users', uid, spec.collection] as const;
   return {
     listen(spec, onDocs, onError) {
@@ -106,6 +106,16 @@ function firestoreBackend(firebase: Firebase, uid: string): SyncBackend {
     },
     // One batch per save, so the page sees one change instead of one per document.
     async write(spec, writes) {
+      // Off the Mac, one document at a time: a change the rules refuse (the Mac changed that
+      // document meanwhile) must not take the others in the same save down with it.
+      if (IS_CLOUD_BUILD) {
+        const results = await Promise.allSettled(
+          writes.map(([id, data]) => setDoc(doc(firebase.db, ...path(spec), id), data))
+        );
+        const refused = results.find(result => result.status === 'rejected');
+        if (refused) throw (refused as PromiseRejectedResult).reason;
+        return;
+      }
       for (let start = 0; start < writes.length; start += 400) {
         const batch = writeBatch(firebase.db);
         writes
@@ -137,7 +147,8 @@ function startSyncs(firebase: Firebase, user: User): void {
   stopSyncs();
   const backend = firestoreBackend(firebase, user.uid);
   const device = deviceId();
-  const stamp = () => ({ updatedAt: new Date().toISOString(), device });
+  // Saves from the Mac app win over every other device (firebase/firestore.rules).
+  const stamp = () => ({ updatedAt: new Date().toISOString(), device, mac: !IS_CLOUD_BUILD });
   for (const key of SYNCED_KEYS) {
     const sync = new KeySync(KEY_SPECS[key], backend, stamp, trackWrite);
     valueListeners.get(key)?.forEach(listener => sync.onChange(listener));

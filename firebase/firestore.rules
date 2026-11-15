@@ -33,10 +33,18 @@ service cloud.firestore {
         'pomodoroSessions'];
     }
 
+    // Who changed it: the Mac app (mac), or another device naming the version it changed (base).
+    function validOrigin(data) {
+      return (!('mac' in data) || data.mac == true) &&
+        (!('base' in data) || shortString(data.base, 40));
+    }
+
     function validItem(id) {
       let data = request.resource.data;
       return data.keys().hasAll(['item', 'updatedAt', 'deletedAt', 'device']) &&
-        data.keys().hasOnly(['item', 'updatedAt', 'deletedAt', 'device', 'position']) &&
+        data.keys().hasOnly(['item', 'updatedAt', 'deletedAt', 'device', 'position', 'base',
+          'mac']) &&
+        validOrigin(data) &&
         data.item is map &&
         data.item.size() <= 40 &&
         data.item.id == id &&
@@ -52,7 +60,8 @@ service cloud.firestore {
       let keys = ['value', 'updatedAt', 'device'];
       return name in ['todoDayPlan', 'todoFrog', 'settings'] &&
         data.keys().hasAll(keys) &&
-        data.keys().hasOnly(keys) &&
+        data.keys().hasOnly(keys.concat(['base', 'mac'])) &&
+        validOrigin(data) &&
         data.value is map &&
         shortString(data.updatedAt, 40) &&
         shortString(data.device, 80);
@@ -133,10 +142,22 @@ service cloud.firestore {
         request.resource.data.updatedAt >= resource.data.updatedAt;
     }
 
+    // The Mac wins: another device may only change the version it last saw, so a stale copy
+    // (say a phone that opened from its cache) cannot overwrite a newer change made on the
+    // Mac; the refused device then shows the Mac's version. Older app versions send no base.
+    function macWins(collection) {
+      let data = request.resource.data;
+      return !(isItemCollection(collection) || collection == 'state') ||
+        data.get('mac', false) == true ||
+        !('base' in data) ||
+        data.base == resource.data.updatedAt;
+    }
+
     match /users/{uid}/{collection}/{id} {
       allow read, delete: if isOwner(uid);
       allow create: if isOwner(uid) && validDoc(collection, id);
-      allow update: if isOwner(uid) && validDoc(collection, id) && notOlder(collection);
+      allow update: if isOwner(uid) && validDoc(collection, id) && notOlder(collection) &&
+        macWins(collection);
     }
 
     match /{document=**} {

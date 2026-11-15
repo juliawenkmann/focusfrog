@@ -165,10 +165,18 @@ export function diffEntries(baseline: Map<string, string>, next: Entries): Entry
 export interface DocStamp {
   updatedAt: string;
   device: string;
+  // The Mac app's saves always win (see `macWins` in firebase/firestore.rules).
+  mac?: boolean;
 }
 
-// The cloud document for one changed entry.
-export function entryDoc(spec: KeySpec, entry: unknown, stamp: DocStamp): JsonObject {
+// Who changed a document: the Mac, or another device that names the version it changed
+// (`base`), so the rules can refuse a change made to a copy the Mac has replaced since.
+function writtenBy(stamp: DocStamp, base: string): JsonObject {
+  return stamp.mac ? { mac: true } : { base };
+}
+
+// The cloud document for one changed entry; `base` is the version it was changed from.
+export function entryDoc(spec: KeySpec, entry: unknown, stamp: DocStamp, base = ''): JsonObject {
   switch (spec.kind) {
     case 'items':
     case 'board': {
@@ -179,21 +187,28 @@ export function entryDoc(spec: KeySpec, entry: unknown, stamp: DocStamp): JsonOb
         updatedAt: stamp.updatedAt,
         deletedAt: null,
         device: stamp.device,
+        ...writtenBy(stamp, base),
       };
     }
     case 'state':
-      return { value: entry, updatedAt: stamp.updatedAt, device: stamp.device };
+      return {
+        value: entry,
+        updatedAt: stamp.updatedAt,
+        device: stamp.device,
+        ...writtenBy(stamp, base),
+      };
     case 'records':
       return { ...(entry as JsonObject), device: stamp.device };
   }
 }
 
 // A deleted item stays as a tombstone so other devices drop it too.
-export function tombstoneDoc(id: string, stamp: DocStamp): JsonObject {
+export function tombstoneDoc(id: string, stamp: DocStamp, base = ''): JsonObject {
   return {
     item: { id },
     updatedAt: stamp.updatedAt,
     deletedAt: stamp.updatedAt,
     device: stamp.device,
+    ...writtenBy(stamp, base),
   };
 }
