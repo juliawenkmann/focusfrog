@@ -2,9 +2,8 @@
 div.cal-page
   header.cal-header
     div.cal-title
-      div.section-label Time blocking
       h3.mb-0 {{ rangeTitle }}
-      div.cal-subtitle {{ rangeSummary }}
+      span.cal-subtitle {{ rangeSummary }}
     div.cal-toolbar
       b-button-group(size="sm")
         b-button(
@@ -52,7 +51,11 @@ div.cal-page
         icon.mr-1(name="plus")
         | New block
 
-  div.cal-layout(:class="{ 'cal-layout--wide': !sidebarOpen }")
+  div.cal-layout(
+    ref="layout"
+    :class="{ 'cal-layout--wide': !sidebarOpen, 'cal-layout--fit': fitHeight > 0 }"
+    :style="fitHeight > 0 ? { height: fitHeight + 'px' } : null"
+  )
     aside.cal-sidebar(v-if="sidebarOpen")
       section.cal-panel.cal-month
         div.cal-month-head
@@ -443,6 +446,9 @@ const TODO_TRAY_STORAGE_KEY = 'focusfrog.timeBlocks.todoTray';
 const TODO_CATEGORY_STORAGE_KEY = 'focusfrog.timeBlocks.todoCategory';
 // Near the top or bottom of the calendar, a dragged todo scrolls it.
 const AUTOSCROLL_EDGE = 48;
+// Below this the calendar is not fitted into the window (the page scrolls as before).
+const MIN_FIT_HEIGHT = 420;
+const FIT_MIN_WIDTH = 961;
 const HOUR_HEIGHT = 52;
 const SNAP_MINUTES = 15;
 const DRAG_THRESHOLD = 4;
@@ -567,6 +573,8 @@ export default {
       stripStart: addDays(today(), -STRIP_DAYS_BACK),
       firstIndex: STRIP_DAYS_BACK,
       stripWidth: 0,
+      // On a wide window: the height that fits the calendar into it (0: not fitted).
+      fitHeight: 0,
       // Where the arrows last sent the strip, so quick presses add up.
       scrollTarget: null as { index: number; until: number } | null,
       stripObserver: null as ResizeObserver | null,
@@ -939,13 +947,16 @@ export default {
       this.stripObserver = new ResizeObserver(() => this.measureStrip());
       this.stripObserver.observe(this.$refs.scroll as HTMLElement);
     }
+    window.addEventListener('resize', this.fitToWindow);
     this.$nextTick(() => {
+      this.fitToWindow();
       this.scrollToIndex(this.firstIndex);
       this.scrollToWorkingHours();
     });
   },
   beforeDestroy() {
     if (this.nowTimer) window.clearInterval(this.nowTimer);
+    window.removeEventListener('resize', this.fitToWindow);
     this.stripObserver?.disconnect();
     window.removeEventListener('keydown', this.handleKeydown);
     this.stopDragListeners();
@@ -1119,6 +1130,27 @@ export default {
       if (width <= 0 || width === this.stripWidth) return;
       this.stripWidth = width;
       this.$nextTick(() => this.scrollToIndex(this.firstIndex));
+    },
+    // On a wide window the calendar fills it below the header, so the page itself does not
+    // scroll: only the calendar (and the sidebar, if it is longer) does.
+    fitToWindow() {
+      const layout = this.$refs.layout as HTMLElement | undefined;
+      if (!layout || window.innerWidth < FIT_MIN_WIDTH) {
+        this.fitHeight = 0;
+        return;
+      }
+      // The page's own space below the calendar: paddings and margins up to the window.
+      let below = parseFloat(getComputedStyle(layout).marginBottom) || 0;
+      for (let node = layout.parentElement; node; node = node.parentElement) {
+        const style = getComputedStyle(node);
+        below +=
+          (parseFloat(style.paddingBottom) || 0) +
+          (parseFloat(style.borderBottomWidth) || 0) +
+          (parseFloat(style.marginBottom) || 0);
+      }
+      const layoutTop = layout.getBoundingClientRect().top + window.scrollY;
+      const height = Math.floor(window.innerHeight - layoutTop - below);
+      this.fitHeight = height >= MIN_FIT_HEIGHT ? height : 0;
     },
     openDay(date: string) {
       if (this.viewMode === 'day') {
@@ -1757,23 +1789,33 @@ export default {
 
 <style lang="scss" scoped>
 .cal-page {
-  padding: 1.4rem;
+  padding: 0.9rem 1.4rem 1rem;
   color: #0f172a;
 }
 
 .cal-header {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 0.9rem;
-  margin-bottom: 1rem;
+  gap: 0.6rem 0.9rem;
+  margin-bottom: 0.7rem;
+}
+
+.cal-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem 0.75rem;
+}
+
+.cal-title h3 {
+  font-size: 1.45rem;
 }
 
 .cal-subtitle {
-  margin-top: 0.15rem;
   color: #52627a;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
 
 .cal-toolbar {
@@ -2349,10 +2391,42 @@ export default {
 
 .cal-hint {
   margin: 0;
-  padding: 0.5rem 0.8rem;
+  overflow: hidden;
+  padding: 0.35rem 0.8rem;
   border-top: 1px solid rgba(148, 163, 184, 0.25);
   color: #64748b;
-  font-size: 0.76rem;
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Fitted into the window (fitToWindow): the calendar takes the height that is left. */
+.cal-layout--fit {
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.cal-layout--fit .cal-sidebar {
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+}
+
+.cal-layout--fit .cal-main {
+  min-height: 0;
+}
+
+.cal-layout--fit .cal-board {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.cal-layout--fit .cal-scroll {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
 }
 
 /* Editor */
@@ -2465,8 +2539,8 @@ export default {
 
 .cal-todo-tray {
   display: grid;
-  gap: 0.6rem;
-  padding: 0.65rem 0.75rem;
+  gap: 0.45rem;
+  padding: 0.5rem 0.65rem;
 }
 
 .cal-todo-cats,
@@ -2531,9 +2605,9 @@ export default {
   flex: 0 0 10.5rem;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.2rem;
-  min-height: 3.4rem;
-  padding: 0.45rem 0.55rem;
+  gap: 0.15rem;
+  min-height: 3rem;
+  padding: 0.38rem 0.5rem;
   border: 1px solid rgba(148, 163, 184, 0.4);
   border-left: 4px solid var(--todo-color);
   border-radius: 8px;
@@ -2740,8 +2814,12 @@ html[data-dashboard-theme='contrast'] .cal-column {
   background-color: #0b1220;
 }
 
+html[data-dashboard-theme='contrast'] .cal-column--weekend {
+  background-color: #0f1729;
+}
+
 html[data-dashboard-theme='contrast'] .cal-column--today {
-  background-color: rgba(16, 185, 129, 0.1);
+  background-color: rgba(16, 185, 129, 0.12);
 }
 
 html[data-dashboard-theme='contrast'] .cal-todo-cat,
@@ -2750,6 +2828,13 @@ html[data-dashboard-theme='contrast'] .cal-todo-drag-chip {
   border-color: rgba(148, 163, 184, 0.34);
   background: #0f172a;
   color: #f8fafc;
+}
+
+/* Cards keep their project's colour: the stripe, and a tint of it. */
+html[data-dashboard-theme='contrast'] .cal-todo-card,
+html[data-dashboard-theme='contrast'] .cal-todo-drag-chip {
+  border-left-color: var(--todo-color);
+  background: color-mix(in srgb, var(--todo-color) 14%, #0f172a);
 }
 
 html[data-dashboard-theme='contrast'] .cal-todo-cat--active {
@@ -2766,9 +2851,19 @@ html[data-dashboard-theme='contrast'] .cal-placing {
   color: #d1fae5;
 }
 
+/* Blocks in their colour, clearly, on the dark calendar. */
 html[data-dashboard-theme='contrast'] .cal-event {
-  border-color: rgba(148, 163, 184, 0.3);
-  background: linear-gradient(135deg, var(--block-soft), rgba(15, 23, 42, 0.96));
+  border-color: color-mix(in srgb, var(--block-color) 45%, transparent);
+  border-left-color: var(--block-color);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--block-color) 42%, #0f172a),
+    color-mix(in srgb, var(--block-color) 24%, #0f172a)
+  );
+}
+
+html[data-dashboard-theme='contrast'] .cal-event--past {
+  opacity: 0.78;
 }
 
 @media (max-width: 960px) {
