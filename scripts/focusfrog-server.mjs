@@ -360,6 +360,66 @@ function isAllowedLocalMutation(req) {
   }
 }
 
+// The hosted FocusFrog, opened on this Mac, sends the Mac's day sums to the phone itself
+// (src/sync/macBridge.ts). For that it may read, and only read: whether FocusFrog runs here,
+// the settings, the list of buckets, and queries. Everything else is refused to it. Requests
+// from other origins are handled as before.
+const bridgeOrigins = new Set(
+  (process.env.FOCUSFROG_BRIDGE_ORIGINS ?? 'https://focusfrog.juliawenkmann.workers.dev')
+    .split(',')
+    .map(entry => entry.trim())
+    .filter(Boolean)
+);
+
+function isBridgeRead(method, pathname) {
+  const route = pathname.replace(/\/+$/, '');
+  if (method === 'POST') return route === '/api/0/query';
+  if (method !== 'GET') return false;
+  return ['/focusfrog-healthz', '/api/0/settings', '/api/0/buckets'].includes(route);
+}
+
+// Answers what the hosted FocusFrog asks; true when the request has been answered here.
+function handleBridgeRequest(req, res) {
+  const requestOrigin = req.headers.origin;
+  if (!requestOrigin || !bridgeOrigins.has(requestOrigin)) return false;
+  const url = new URL(req.url || '/', 'http://127.0.0.1');
+  const preflight = req.method === 'OPTIONS';
+  const method = preflight
+    ? String(req.headers['access-control-request-method'] || '')
+    : req.method;
+  let loopback = false;
+  try {
+    loopback = isLoopbackHostname(new URL(`http://${req.headers.host || ''}`).hostname);
+  } catch (_error) {
+    loopback = false;
+  }
+  if (!loopback || !isBridgeRead(method, url.pathname)) {
+    res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8', vary: 'Origin' });
+    res.end('Forbidden');
+    return true;
+  }
+  const allow = { 'access-control-allow-origin': requestOrigin, vary: 'Origin' };
+  if (preflight) {
+    res.writeHead(204, {
+      ...allow,
+      'access-control-allow-methods': 'GET, POST',
+      'access-control-allow-headers': 'content-type',
+      'access-control-allow-private-network': 'true',
+      'access-control-max-age': '600',
+    });
+    res.end();
+    return true;
+  }
+  if (url.pathname.replace(/\/+$/, '') === '/focusfrog-healthz') {
+    // Only that this is FocusFrog: no folders.
+    res.writeHead(200, { ...allow, 'content-type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ ok: true, app: 'FocusFrog' }));
+    return true;
+  }
+  for (const [name, value] of Object.entries(allow)) res.setHeader(name, value);
+  return false;
+}
+
 function detectVisionImageFormat(buffer) {
   return visionImageFormats.find(format => format.matches(buffer)) || null;
 }
@@ -1092,6 +1152,7 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 const server = http.createServer((req, res) => {
+  if (handleBridgeRequest(req, res)) return;
   if (req.url?.startsWith('/focusfrog-healthz')) {
     serveHealth(res);
     return;

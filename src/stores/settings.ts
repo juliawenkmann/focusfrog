@@ -315,6 +315,25 @@ export const useSettingsStore = defineStore('settings', {
         }
       }
     },
+    // The hosted FocusFrog open on the Mac sums the Mac's days with the Mac's own categories
+    // (sync/macBridge.ts). Only these are taken from the Mac's server; the shared settings
+    // (CLOUD_SETTING_KEYS) keep coming from the cloud, and nothing is written back.
+    async loadMacCategories(): Promise<boolean> {
+      await this.ensureLoaded();
+      const server = (await getClient().get_settings()) as Record<string, any> | null;
+      if (!server || typeof server !== 'object') return false;
+      const sets = Array.isArray(server.category_sets) ? server.category_sets : [];
+      const activeIds = Array.isArray(server.active_set_ids) ? server.active_set_ids : ['default'];
+      this.$patch({
+        classes: normalizeFocusFrogCategories(server.classes ?? defaultCategories),
+        category_sets: sets.map(set => ({
+          ...set,
+          categories: normalizeFocusFrogCategories(set.categories || []),
+        })),
+        active_set_ids: activeIds,
+      });
+      return true;
+    },
     async save() {
       // Important check, to avoid saving settings before they are loaded (potentially overwriting them with defaults)
       if (!this.loaded) {

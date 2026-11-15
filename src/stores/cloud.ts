@@ -13,6 +13,7 @@ import {
 } from '~/sync/cloud';
 import { IS_CLOUD_BUILD } from '~/sync/config';
 import { startDaySumUploads } from '~/sync/daySums';
+import { startMacBridge } from '~/sync/macBridge';
 import { startVisionImageBackfill } from '~/sync/visionImages';
 
 const USABLE: CloudStatus[] = ['synced', 'saving', 'offline'];
@@ -48,6 +49,9 @@ export const useCloudStore = defineStore('cloud', {
       if (!IS_CLOUD_BUILD) {
         startDaySumUploads();
         startVisionImageBackfill();
+      } else {
+        // Opened on the Mac, the hosted FocusFrog sends the Mac's day sums itself.
+        startMacBridge();
       }
     },
     signIn,

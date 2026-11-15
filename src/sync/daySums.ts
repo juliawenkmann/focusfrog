@@ -2,7 +2,8 @@
 // Only sums leave the Mac (work, not work, time per category, per day and for today per
 // hour) — never window titles, URLs or app names; firebase/firestore.rules refuse anything
 // else in `days/`. Manual work is not included: every device adds it itself, exactly as
-// the Hours page does. Runs while FocusFrog is open on the Mac; kept in storage.json too.
+// the Hours page does. Runs while FocusFrog is open on the Mac (the Mac's own page, or the
+// hosted one through sync/macBridge.ts); the Mac's page keeps them in storage.json too.
 import moment from 'moment';
 import { useBucketsStore } from '~/stores/buckets';
 import { useCategoryStore } from '~/stores/categories';
@@ -29,6 +30,8 @@ const sums = (day: Partial<DaySum> = {}) => JSON.stringify({ ...day, computedAt:
 
 let running = false;
 let lastRun = 0;
+// Checked before each run; a run is skipped when it says no (see startDaySumUploads).
+let ready: () => Promise<boolean> = async () => true;
 
 const sentListeners = new Set<(days: Record<string, DaySum>) => void>();
 
@@ -44,6 +47,7 @@ async function uploadDaySums(): Promise<void> {
   running = true;
   try {
     if (Date.now() - lastRun < MIN_GAP_MS) return;
+    if (!(await ready())) return;
     lastRun = Date.now();
     const settings = useSettingsStore();
     const buckets = useBucketsStore();
@@ -95,8 +99,10 @@ async function uploadDaySums(): Promise<void> {
   }
 }
 
-// Started once by the Mac app (not the phone build).
-export function startDaySumUploads(): void {
+// Started once by the Mac app, or by the hosted FocusFrog when it is open on the Mac
+// (sync/macBridge.ts), which passes `whenReady`: no run until it says the Mac's settings are in.
+export function startDaySumUploads(whenReady?: () => Promise<boolean>): void {
+  if (whenReady) ready = whenReady;
   void uploadDaySums();
   onOwnerSignIn(() => void uploadDaySums());
   window.setInterval(() => void uploadDaySums(), INTERVAL_MS);

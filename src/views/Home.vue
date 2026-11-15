@@ -4,6 +4,14 @@ div.time-dashboard(:class="dashboardThemeClass")
     div
       h3.mb-1 FocusFrog
       div.text-muted {{ rangeSubtitle }}
+      div.mac-bridge(v-if="macBridgeNote" :class="'mac-bridge--' + macBridge.state")
+        span {{ macBridgeNote }}
+        b-button.mac-bridge-retry(
+          v-if="macBridge.state === 'unreachable'"
+          size="sm"
+          variant="link"
+          @click="retryMac"
+        ) Try again
     div.header-actions
       b-button-group.range-controls(size="sm")
         b-button(
@@ -407,6 +415,7 @@ import {
 } from '~/util/focusfrogStorage';
 import { IS_CLOUD_BUILD } from '~/sync/config';
 import { onDaySumsSent } from '~/sync/daySums';
+import { connectMac, macBridge } from '~/sync/macBridge';
 import { currentDaySums, DAY_SUMS_KEY, daySummary, hoursInRange } from '~/util/daySums';
 import type { DaySum } from '~/util/daySums';
 import {
@@ -670,6 +679,8 @@ export default {
       isCloudBuild: IS_CLOUD_BUILD,
       cloudHosts: 0,
       cloudComputedAt: '',
+      // Opened on the Mac, this page sends the Mac's hours itself (sync/macBridge.ts).
+      macBridge,
       cloudRecordingStart: '',
       // The Mac's sums per day, on both devices: they tell which days were holidays.
       dayHistory: {} as Record<string, DaySum>,
@@ -874,6 +885,22 @@ export default {
     balanceStatusClass(): string {
       if (Math.abs(this.balanceTiltRatio) <= BALANCE_TOLERANCE) return 'balance-even';
       return this.balanceTiltRatio < 0 ? 'balance-work-heavy' : 'balance-life-heavy';
+    },
+    macBridgeNote(): string {
+      switch (this.macBridge.state) {
+        case 'looking':
+          return 'Looking for FocusFrog on this Mac…';
+        case 'connected':
+          return "This Mac's hours are sent from here.";
+        case 'unreachable':
+          return (
+            "Can't reach FocusFrog on this Mac, so its hours are not sent. Is FocusFrog " +
+            'running? In Chrome, allow this site to reach apps on this device (the icon left ' +
+            'of the address).'
+          );
+        default:
+          return '';
+      }
     },
     hostSummary(): string {
       const count = IS_CLOUD_BUILD ? this.cloudHosts : this.supportedHosts.length;
@@ -1235,6 +1262,9 @@ export default {
     });
   },
   methods: {
+    retryMac() {
+      void connectMac();
+    },
     async setRange(range: DashboardRange) {
       if (this.range === range) return;
       this.range = range;
@@ -2079,6 +2109,22 @@ export default {
   border-color: #ffffff;
   background: #343a40;
   color: #ffffff !important;
+}
+
+.mac-bridge {
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.mac-bridge--unreachable {
+  color: #b45309;
+}
+
+.mac-bridge-retry {
+  padding: 0 0.3rem;
+  font-size: 0.8rem;
+  vertical-align: baseline;
 }
 
 .dashboard-header,
