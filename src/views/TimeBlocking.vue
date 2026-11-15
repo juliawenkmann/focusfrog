@@ -163,13 +163,14 @@ div.cal-page
         b-button(size="sm" variant="primary" type="button" @click="placeInNextFreeSlot") Next free slot
         b-button(size="sm" variant="outline-secondary" type="button" @click="cancelPlacing") Cancel
       main.cal-panel.cal-board
-        div.cal-scroll(ref="scroll")
+        div.cal-scroll(ref="scroll" @scroll.passive="handleStripScroll")
           div.cal-head-row(:style="gridStyle")
             div.cal-corner
+            div.cal-strip-pad
             div.cal-day-head(
-              v-for="day in visibleDays"
+              v-for="day in columnDays"
               :key="'head-' + day.date"
-              :class="{ 'cal-day-head--today': day.isToday, 'cal-day-head--weekend': day.isWeekend }"
+              :class="{ 'cal-day-head--today': day.isToday, 'cal-day-head--weekend': day.isWeekend, 'cal-day--behind': day.isBehind }"
             )
               button.cal-day-head-button(
                 type="button"
@@ -179,18 +180,21 @@ div.cal-page
                 span.cal-day-weekday {{ day.weekday }}
                 span.cal-day-number {{ day.dayNumber }}
               span.cal-day-load(v-if="day.plannedMinutes > 0") {{ durationLabel(day.plannedMinutes) }}
+            div.cal-strip-pad
           div.cal-body-row(:style="gridStyle")
-            div.cal-rail(:style="{ height: scheduleHeight + 'px' }")
+            div.cal-rail(ref="rail" :style="{ height: scheduleHeight + 'px' }")
               span.cal-rail-label(
                 v-for="tick in hourTicks"
                 :key="tick.minute"
                 :style="{ top: minuteTop(tick.minute) }"
               ) {{ tick.label }}
+            div.cal-strip-pad
             div.cal-column(
-              v-for="(day, dayIndex) in visibleDays"
+              v-for="day in columnDays"
               :key="'col-' + day.date"
               ref="dayColumns"
-              :class="{ 'cal-column--today': day.isToday, 'cal-column--weekend': day.isWeekend }"
+              :data-date="day.date"
+              :class="{ 'cal-column--today': day.isToday, 'cal-column--weekend': day.isWeekend, 'cal-day--behind': day.isBehind }"
               :style="{ height: scheduleHeight + 'px' }"
               @pointerdown="startCreate(day.date, $event)"
             )
@@ -227,8 +231,9 @@ div.cal-page
                 span.cal-event-title {{ ghost.title }}
                 span.cal-event-time {{ minutesToTime(ghost.startMinute) }}–{{ minutesToTime(ghost.endMinute) }}
               div.cal-now(v-if="day.isToday" :style="{ top: minuteTop(nowMinute) }" aria-hidden="true")
+            div.cal-strip-pad
         p.cal-hint
-          | Drag on the calendar to block time · drag a todo from above onto it · drag a block to move it, its bottom edge to resize · ← → to browse, T for today
+          | Drag on the calendar to block time · drag a todo from above onto it · drag a block to move it, its bottom edge to resize · scroll sideways or ← → to browse, T for today
 
   div.cal-todo-drag-chip(
     v-if="todoDragChip"
@@ -353,6 +358,15 @@ import { INBOX_PROJECT_COLOR, normalizeTodoProjects } from '~/util/todoProjects'
 import type { TodoProject } from '~/util/todoProjects';
 import { weekdayFeiertag } from '~/util/timeOff';
 import {
+  addDays,
+  daysBetween,
+  drawnRange,
+  firstVisibleIndex,
+  fitDayWidth,
+  STRIP_DAYS,
+  STRIP_DAYS_BACK,
+} from '~/util/dayStrip';
+import {
   BlockOccurrence,
   DAY_MINUTES,
   describeRepeat,
@@ -374,6 +388,9 @@ import {
 } from '~/util/calendarBlocks';
 
 type ViewMode = 'day' | '3day' | 'week';
+const VIEW_DAY_COUNT: Record<ViewMode, number> = { day: 1, '3day': 3, week: 7 };
+// The narrowest a day gets, in pixels: on a phone a week then shows part of itself.
+const MIN_DAY_WIDTH: Record<ViewMode, number> = { day: 144, '3day': 80, week: 106 };
 
 interface TimeBlockDraft {
   title: string;
@@ -534,7 +551,14 @@ export default {
   data() {
     return {
       blocks: [] as TimeBlock[],
-      focusDate: today(),
+      // The strip of days: its first day, the day index at the left edge (today when the page
+      // opens), and the width the days share.
+      stripStart: addDays(today(), -STRIP_DAYS_BACK),
+      firstIndex: STRIP_DAYS_BACK,
+      stripWidth: 0,
+      // Where the arrows last sent the strip, so quick presses add up.
+      scrollTarget: null as { index: number; until: number } | null,
+      stripObserver: null as ResizeObserver | null,
       monthDate: moment().startOf('month').format(DATE_FORMAT),
       viewMode: initialViewMode() as ViewMode,
       hiddenTypes: initialHiddenTypes(),
@@ -606,22 +630,39 @@ export default {
     scheduleHeight(): number {
       return 24 * HOUR_HEIGHT;
     },
+    dayCount(): number {
+      return VIEW_DAY_COUNT[this.viewMode as ViewMode];
+    },
+    dayWidth(): number {
+      return fitDayWidth(this.stripWidth, this.dayCount, MIN_DAY_WIDTH[this.viewMode as ViewMode]);
+    },
+    // The days in view, the leftmost first.
     rangeDates(): string[] {
-      const focusMoment = moment(this.focusDate, DATE_FORMAT);
-      if (this.viewMode === 'day') return [this.focusDate];
-      const start =
-        this.viewMode === 'week' ? focusMoment.clone().startOf('isoWeek') : focusMoment.clone();
-      const count = this.viewMode === 'week' ? 7 : 3;
-      return Array.from({ length: count }, (_value, index) =>
-        start.clone().add(index, 'days').format(DATE_FORMAT)
+      return Array.from({ length: this.dayCount }, (_value, index) =>
+        addDays(this.stripStart, this.firstIndex + index)
       );
     },
-    visibleDays() {
+    focusDate(): string {
+      return this.rangeDates[0];
+    },
+    drawn(): { start: number; end: number } {
+      return drawnRange(this.firstIndex, this.dayCount);
+    },
+    // The days drawn: those in view and some on each side, ready to scroll in.
+    drawnDates(): string[] {
+      const { start, end } = this.drawn;
+      return Array.from({ length: end - start }, (_value, index) =>
+        addDays(this.stripStart, start + index)
+      );
+    },
+    columnDays() {
       const todayDate = today();
-      return this.rangeDates.map(date => {
+      return this.drawnDates.map((date, index) => {
         const value = moment(date, DATE_FORMAT);
         return {
           date,
+          // Scrolled past, under the (see-through) hour rail.
+          isBehind: this.drawn.start + index < this.firstIndex,
           weekday: value.format('ddd'),
           dayNumber: value.format('D'),
           long: value.format('dddd, MMM D'),
@@ -634,10 +675,14 @@ export default {
         };
       });
     },
+    // The rail, the days before those drawn, the drawn days, the days after them.
     gridStyle() {
-      const minWidth = this.viewMode === 'week' ? '6.6rem' : '9rem';
+      const width = this.dayWidth;
+      const { start, end } = this.drawn;
       return {
-        gridTemplateColumns: `3.4rem repeat(${this.rangeDates.length}, minmax(${minWidth}, 1fr))`,
+        gridTemplateColumns: `3.4rem ${start * width}px repeat(${end - start}, ${width}px) ${
+          (STRIP_DAYS - end) * width
+        }px`,
       };
     },
     rangeIncludesToday(): boolean {
@@ -645,7 +690,7 @@ export default {
     },
     viewNoun(): string {
       if (this.viewMode === 'day') return 'day';
-      return this.viewMode === 'week' ? 'week' : '3 days';
+      return this.viewMode === 'week' ? '7 days' : '3 days';
     },
     rangeTitle(): string {
       const first = moment(this.rangeDates[0], DATE_FORMAT);
@@ -667,7 +712,7 @@ export default {
     },
     statsLabel(): string {
       if (this.viewMode === 'day') return this.rangeIncludesToday ? 'Today' : 'This day';
-      return this.viewMode === 'week' ? 'This week' : 'These 3 days';
+      return this.viewMode === 'week' ? 'These 7 days' : 'These 3 days';
     },
     focusLabel(): string {
       return moment(this.focusDate, DATE_FORMAT).format('ddd, MMM D');
@@ -680,10 +725,12 @@ export default {
     },
     occurrencesByDate(): Record<string, BlockOccurrence[]> {
       const byDate: Record<string, BlockOccurrence[]> = {};
-      this.rangeDates.forEach(date => {
+      this.drawnDates.forEach(date => {
         byDate[date] = [];
       });
-      this.rangeOccurrences.forEach(item => byDate[item.date].push(item));
+      occurrencesForDates(this.blocks, this.drawnDates)
+        .filter(item => !this.hiddenTypes.includes(item.block.type))
+        .forEach(item => byDate[item.date].push(item));
       return byDate;
     },
     eventsByDate(): Record<string, PositionedOccurrence[]> {
@@ -851,6 +898,9 @@ export default {
     },
   },
   watch: {
+    focusDate(date: string) {
+      this.monthDate = moment(date, DATE_FORMAT).startOf('month').format(DATE_FORMAT);
+    },
     'draft.repeat'(repeat: RepeatRule) {
       // Turning a series into a single event keeps the occurrence that was clicked.
       if (repeat === 'none' && this.editingSeries && this.editingDate) {
@@ -876,10 +926,19 @@ export default {
       this.nowTick = Date.now();
     }, 60 * 1000);
     window.addEventListener('keydown', this.handleKeydown);
-    this.$nextTick(() => this.scrollToWorkingHours());
+    this.measureStrip();
+    if (typeof ResizeObserver !== 'undefined') {
+      this.stripObserver = new ResizeObserver(() => this.measureStrip());
+      this.stripObserver.observe(this.$refs.scroll as HTMLElement);
+    }
+    this.$nextTick(() => {
+      this.scrollToIndex(this.firstIndex);
+      this.scrollToWorkingHours();
+    });
   },
   beforeDestroy() {
     if (this.nowTimer) window.clearInterval(this.nowTimer);
+    this.stripObserver?.disconnect();
     window.removeEventListener('keydown', this.handleKeydown);
     this.stopDragListeners();
   },
@@ -989,35 +1048,76 @@ export default {
       return items.reduce((total, item) => total + (item.endMinute - item.startMinute), 0);
     },
 
-    // Navigation
-    setViewMode(mode: ViewMode) {
+    // Navigation: the days are one strip that scrolls sideways (see util/dayStrip).
+    setViewMode(mode: ViewMode, date = this.focusDate) {
       this.viewMode = mode;
       writePreference(VIEW_STORAGE_KEY, mode);
-      this.$nextTick(() => this.scrollToWorkingHours());
+      this.$nextTick(() => {
+        this.focusOn(date);
+        this.scrollToWorkingHours();
+      });
     },
     shiftRange(direction: number) {
-      const step = this.viewMode === 'week' ? 7 : this.viewMode === '3day' ? 3 : 1;
-      this.focusOn(
-        moment(this.focusDate, DATE_FORMAT)
-          .add(direction * step, 'days')
-          .format(DATE_FORMAT)
-      );
+      // Quick presses add up, also while the strip is still gliding.
+      const target = this.scrollTarget as { index: number; until: number } | null;
+      const from = target && target.until > Date.now() ? target.index : this.firstIndex;
+      this.scrollToIndex(from + direction * this.dayCount, true);
     },
     goToday() {
-      this.focusOn(today());
+      this.focusOn(today(), true);
       this.$nextTick(() => this.scrollToWorkingHours());
     },
-    focusOn(date: string) {
-      this.focusDate = date;
-      this.monthDate = moment(date, DATE_FORMAT).startOf('month').format(DATE_FORMAT);
+    // Puts a day at the left edge. A day off the strip lays the strip out around it.
+    focusOn(date: string, smooth = false) {
+      const index = daysBetween(this.stripStart, date);
+      if (index >= 0 && index <= STRIP_DAYS - this.dayCount) {
+        this.scrollToIndex(index, smooth);
+        return;
+      }
+      this.stripStart = addDays(date, -STRIP_DAYS_BACK);
+      this.firstIndex = STRIP_DAYS_BACK;
+      this.$nextTick(() => this.scrollToIndex(STRIP_DAYS_BACK));
+    },
+    scrollToIndex(index: number, smooth = false) {
+      const target = Math.max(0, Math.min(STRIP_DAYS - this.dayCount, index));
+      const scroller = this.$refs.scroll as HTMLElement | undefined;
+      // Gliding is for short hops; far jumps go there at once.
+      // (the days drawn reach a week past those in view).
+      const glide = smooth && Math.abs(target - this.firstIndex) <= 7;
+      this.scrollTarget = { index: target, until: Date.now() + 1000 };
+      if (glide) {
+        scroller?.scrollTo({ left: target * this.dayWidth, behavior: 'smooth' });
+        return;
+      }
+      // Draw the days there first: scrolling to where nothing is drawn would snap back.
+      this.firstIndex = target;
+      this.$nextTick(() => scroller?.scrollTo({ left: target * this.dayWidth }));
+    },
+    // The scroll position is the truth for which days are in view; set only when it changes,
+    // so scrolling does not redraw the calendar on every frame.
+    handleStripScroll() {
+      const scroller = this.$refs.scroll as HTMLElement | undefined;
+      if (!scroller || !this.stripWidth) return;
+      const index = firstVisibleIndex(scroller.scrollLeft, this.dayWidth, this.dayCount);
+      if (index !== this.firstIndex) this.firstIndex = index;
+    },
+    // The days share the scroller's width next to the hour rail; when that changes, the day at
+    // the left edge stays there.
+    measureStrip() {
+      const scroller = this.$refs.scroll as HTMLElement | undefined;
+      const rail = this.$refs.rail as HTMLElement | undefined;
+      if (!scroller) return;
+      const width = scroller.clientWidth - (rail?.offsetWidth || 54);
+      if (width <= 0 || width === this.stripWidth) return;
+      this.stripWidth = width;
+      this.$nextTick(() => this.scrollToIndex(this.firstIndex));
     },
     openDay(date: string) {
       if (this.viewMode === 'day') {
         this.openNewBlock({ date });
         return;
       }
-      this.focusOn(date);
-      this.setViewMode('day');
+      this.setViewMode('day', date);
     },
     shiftMonth(direction: number) {
       this.monthDate = moment(this.monthDate, DATE_FORMAT)
@@ -1076,7 +1176,7 @@ export default {
       this.editorOpen = true;
     },
     applyTemplate(template: TimeBlockTemplate) {
-      const date = this.rangeDates.includes(this.focusDate) ? this.focusDate : this.rangeDates[0];
+      const date = this.focusDate;
       this.openNewBlock({
         title: template.title,
         type: template.type,
@@ -1197,15 +1297,20 @@ export default {
       return ((clientY - columnTop) / HOUR_HEIGHT) * 60;
     },
     dateAt(clientX: number, fallback: string): string {
+      // Only the days in view count: the ones scrolled away lie under the rail and outside.
+      const scroller = this.$refs.scroll as HTMLElement | undefined;
+      const rail = this.$refs.rail as HTMLElement | undefined;
+      if (scroller) {
+        const box = scroller.getBoundingClientRect();
+        if (clientX < box.left + (rail?.offsetWidth || 0)) return this.rangeDates[0];
+        if (clientX >= box.right) return this.rangeDates[this.rangeDates.length - 1];
+      }
       const columns = (this.$refs.dayColumns as HTMLElement[] | undefined) || [];
-      const index = columns.findIndex(column => {
-        const rect = column.getBoundingClientRect();
+      const column = columns.find(item => {
+        const rect = item.getBoundingClientRect();
         return clientX >= rect.left && clientX < rect.right;
       });
-      if (index >= 0) return this.rangeDates[index];
-      if (columns.length === 0) return fallback;
-      const firstLeft = columns[0].getBoundingClientRect().left;
-      return clientX < firstLeft ? this.rangeDates[0] : this.rangeDates[this.rangeDates.length - 1];
+      return column?.dataset.date || fallback;
     },
     beginDrag(state: DragState) {
       this.drag = state;
@@ -1457,7 +1562,7 @@ export default {
         moved: false,
         startX: event.clientX,
         startY: event.clientY,
-        date: this.rangeDates.includes(this.focusDate) ? this.focusDate : this.rangeDates[0],
+        date: this.focusDate,
         anchorMinute: 0,
         startMinute: 0,
         endMinute: TODO_BLOCK_MINUTES,
@@ -1910,6 +2015,9 @@ export default {
   height: min(74vh, 62rem);
   overflow: auto;
   overscroll-behavior: contain;
+  /* Scrolling sideways stops with a whole day at the left edge, next to the hour rail. */
+  scroll-snap-type: x mandatory;
+  scroll-padding-left: 3.4rem;
 }
 
 .cal-head-row,
@@ -2020,6 +2128,14 @@ export default {
   cursor: cell;
   touch-action: pan-x pan-y;
   user-select: none;
+}
+
+.cal-body-row .cal-column {
+  scroll-snap-align: start;
+}
+
+.cal-day--behind {
+  visibility: hidden;
 }
 
 .cal-column--weekend {
