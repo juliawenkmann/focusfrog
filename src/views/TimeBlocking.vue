@@ -1994,6 +1994,35 @@ export default {
 }
 
 /* Themes */
+/* dark.css gives every button light text. The bright style is light, so the calendar's
+   own buttons get dark text back, as the flower style does for all buttons. */
+html[data-dashboard-theme='bright'] .cal-page button:not(.btn),
+html[data-dashboard-theme='bright'] #cal-block-editor button:not(.btn) {
+  color: #1e293b !important;
+}
+
+/* ...keeping the colors that mark a state (same selectors, so these win by coming later). */
+html[data-dashboard-theme='bright'] .cal-page button.cal-text-button:not(.btn) {
+  color: #047857 !important;
+}
+
+html[data-dashboard-theme='bright'] .cal-page button.cal-month-day--outside:not(.btn) {
+  color: #b6c2d1 !important;
+}
+
+html[data-dashboard-theme='bright'] .cal-page button.cal-month-day--in-range:not(.btn) {
+  color: #065f46 !important;
+}
+
+html[data-dashboard-theme='bright'] .cal-page button.cal-category--hidden:not(.btn) {
+  color: #94a3b8 !important;
+}
+
+html[data-dashboard-theme='bright'] .cal-page .cal-day-head--today button:not(.btn),
+html[data-dashboard-theme='bright'] #cal-block-editor button.cal-weekday--active:not(.btn) {
+  color: #ffffff !important;
+}
+
 html[data-dashboard-theme='flower'] .cal-page {
   color: #102033;
 }
