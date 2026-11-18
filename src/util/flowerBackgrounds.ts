@@ -11,8 +11,8 @@ export interface FlowerBackground {
   // Black flower: how much the picture is dimmed (black overlay, 0-1). Brighter pictures
   // need more so light text on the smoked glass stays readable.
   shade: number;
-  // How the picture fills the window: stretched to cover it (the default), shown whole, or a
-  // seamless pattern repeated at its own size. `color` fills what the picture leaves free.
+  // How the picture fills the window: stretched to cover it (the default), a seamless pattern
+  // repeated at its own size, or copies side by side. `color` fills what the picture leaves free.
   size?: string;
   repeat?: string;
   color?: string;
@@ -46,7 +46,10 @@ export const FLOWER_BACKGROUNDS: FlowerBackground[] = [
     url: '/focusfrog-flower-bg-glass-frogs.webp',
     veil: 0.56,
     shade: 0.15,
-    size: 'contain',
+    // Three of the tall picture side by side, each a third of the window wide, or as tall as
+    // the window when that is more (415 × 738, so 56.24vh), so it is never left short.
+    size: 'max(33.34vw, 56.24vh) auto',
+    repeat: 'repeat-x',
     color: '#000000',
   },
 ];
