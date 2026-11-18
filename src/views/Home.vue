@@ -406,6 +406,7 @@ div.time-dashboard(:class="dashboardThemeClass")
 </template>
 
 <script lang="ts">
+import { pageTheme } from '~/util/focusFrogTheme';
 import moment from 'moment';
 import {
   loadStoredValue,
@@ -720,8 +721,7 @@ export default {
       }));
     },
     dashboardThemeClass(): string {
-      const theme = this.settingsStore.focusFrogTheme;
-      return `theme-${theme === 'contrast' || theme === 'flower' ? theme : 'bright'}`;
+      return `theme-${pageTheme(this.settingsStore.focusFrogTheme)}`;
     },
     noSupportedHosts(): boolean {
       return !IS_CLOUD_BUILD && this.supportedHosts.length === 0;
@@ -2092,8 +2092,8 @@ export default {
 
 .theme-flower .btn-primary,
 .theme-flower .btn-primary span {
-  border-color: #10b981;
-  background: #10b981;
+  border-color: #047857;
+  background: #047857;
   color: #ffffff !important;
 }
 

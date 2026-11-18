@@ -26,6 +26,8 @@ import { useServerStore } from '~/stores/server';
 import { useSettingsStore } from '~/stores/settings';
 import { IS_CLOUD_BUILD } from '~/sync/config';
 import { applyFlowerBackground } from '~/util/flowerBackgrounds';
+import { applyFocusFrogTheme } from '~/util/focusFrogTheme';
+import { pageLayout } from '~/util/pageLayout';
 import CloudGate from '~/components/CloudGate.vue';
 import FrogReminder from '~/components/FrogReminder.vue';
 
@@ -48,8 +50,9 @@ export default {
     showCloudGate(): boolean {
       return IS_CLOUD_BUILD && !useCloudStore().canUse;
     },
+    // The full window width: pages that always need it, or one that asks for it right now.
     fullContainer() {
-      return this.$route.meta.fullContainer;
+      return Boolean(this.$route.meta.fullContainer) || pageLayout.wide;
     },
     chromeless() {
       return Boolean(this.$route.meta.chromeless);
@@ -64,12 +67,7 @@ export default {
     // Get Theme From LocalStorage
     const settingsStore = useSettingsStore();
     await settingsStore.ensureLoaded();
-    document.documentElement.dataset.dashboardTheme =
-      settingsStore.focusFrogTheme === 'contrast'
-        ? 'contrast'
-        : settingsStore.focusFrogTheme === 'flower'
-        ? 'flower'
-        : 'bright';
+    applyFocusFrogTheme(settingsStore.focusFrogTheme);
     applyFlowerBackground(settingsStore.focusFrogFlowerBackground);
 
     // FocusFrog's bright, contrast, and flower palettes all live in dark.css.
@@ -110,12 +108,14 @@ export default {
   pointer-events: none;
 }
 
-html[data-dashboard-theme='flower'] .flower-petal-field {
+html[data-dashboard-theme='flower'] .flower-petal-field,
+html.ff-black-flower .flower-petal-field {
   display: block;
 }
 
 // The page sits above the falling petals; the top bar has its own layer (Header.vue).
-html[data-dashboard-theme='flower'] #wrapper > .app-content {
+html[data-dashboard-theme='flower'] #wrapper > .app-content,
+html.ff-black-flower #wrapper > .app-content {
   position: relative;
   z-index: 1;
 }

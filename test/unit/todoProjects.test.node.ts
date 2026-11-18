@@ -4,6 +4,7 @@ import {
   mergeTodoProjects,
   nextProjectColor,
   normalizeTodoProjects,
+  projectNamed,
   projectProgressShares,
   projectShares,
   projectTint,
@@ -21,6 +22,29 @@ const project = (overrides: Partial<TodoProject> = {}): TodoProject => ({
 });
 
 describe('todo projects', () => {
+  test('a name makes a new project, or picks the one that has it', () => {
+    const now = '2026-11-16T09:00:00.000Z';
+    const made = projectNamed([project()], '  Thesis ', '#ec4899', now);
+    expect(made?.created).toBe(true);
+    expect(made?.project).toMatchObject({
+      name: 'Thesis',
+      color: '#ec4899',
+      createdAt: now,
+      updatedAt: now,
+    });
+    expect(made?.project.id).toMatch(/^project-/);
+
+    expect(projectNamed([project()], 'focusfrog', '#ec4899', now)).toEqual({
+      project: project(),
+      created: false,
+    });
+    expect(projectNamed([project()], '   ', '#ec4899', now)).toBeNull();
+    // A colour that is not one gets the next free colour.
+    expect(projectNamed([project()], 'Home', 'red', now)?.project.color).toBe(
+      nextProjectColor([project()])
+    );
+  });
+
   test('cleans project names for consistent categorization', () => {
     expect(cleanProjectName('  Focus   Frog  ')).toBe('Focus Frog');
   });

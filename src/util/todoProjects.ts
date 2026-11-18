@@ -74,6 +74,30 @@ export function findProjectByName(projects: TodoProject[], name: unknown): TodoP
   return projects.find(project => project.name.toLocaleLowerCase() === cleanedName);
 }
 
+// The project with this name: the one there is (names are unique, ignoring case), or a new
+// one; null for an empty name. The Todos page and Time Blocking both make projects this way.
+export function projectNamed(
+  projects: TodoProject[],
+  name: unknown,
+  color: unknown,
+  now = new Date().toISOString()
+): { project: TodoProject; created: boolean } | null {
+  const cleanedName = cleanProjectName(name);
+  if (!cleanedName) return null;
+  const existing = findProjectByName(projects, cleanedName);
+  if (existing) return { project: existing, created: false };
+  return {
+    project: {
+      id: `project-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: cleanedName,
+      color: isProjectColor(color) ? color : nextProjectColor(projects),
+      createdAt: now,
+      updatedAt: now,
+    },
+    created: true,
+  };
+}
+
 export function isProjectColor(color: unknown): color is string {
   return typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color);
 }

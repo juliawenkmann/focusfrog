@@ -33,6 +33,11 @@ function macServer(): string {
     : MAC_SERVER;
 }
 
+// FocusFrog's server on this Mac, for what only the Mac has (its calendars); none on a phone.
+export function macServerOnThisMac(): string | null {
+  return IS_CLOUD_BUILD && onMacDesktop() ? macServer() : null;
+}
+
 async function reachMac(server: string): Promise<boolean> {
   try {
     // No time limit: the first time, the request waits while Chrome asks for access.

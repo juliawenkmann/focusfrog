@@ -81,34 +81,61 @@ div.cal-page
       section.cal-panel
         div.cal-panel-label {{ statsLabel }}
         div.cal-stats
-          div.cal-stat.cal-stat--work
-            span Work
-            strong {{ durationLabel(workMinutes) }}
-          div.cal-stat.cal-stat--life
-            span Life
-            strong {{ durationLabel(lifeMinutes) }}
           div.cal-stat.cal-stat--total
             span Planned
             strong {{ durationLabel(plannedMinutes) }}
+          div.cal-stat.cal-stat--blocks
+            span Blocks
+            strong {{ rangeOccurrences.length }}
 
       section.cal-panel
         div.cal-panel-label
-          | Categories
-          button.cal-text-button(v-if="hiddenTypes.length > 0" type="button" @click="showAllTypes") Show all
+          | Projects
+          button.cal-text-button(v-if="hiddenProjects.length > 0" type="button" @click="showAllProjects") Show all
         div.cal-category-list
           button.cal-category(
-            v-for="option in categoryOptions"
+            v-for="option in projectFilterOptions"
             :key="option.value"
             type="button"
-            :class="{ 'cal-category--hidden': hiddenTypes.includes(option.value) }"
+            :class="{ 'cal-category--hidden': hiddenProjects.includes(option.value) }"
             :style="{ '--block-color': option.color }"
-            :aria-pressed="hiddenTypes.includes(option.value) ? 'false' : 'true'"
-            :title="hiddenTypes.includes(option.value) ? 'Show ' + option.text : 'Hide ' + option.text"
-            @click="toggleType(option.value)"
+            :aria-pressed="hiddenProjects.includes(option.value) ? 'false' : 'true'"
+            :title="hiddenProjects.includes(option.value) ? 'Show ' + option.text : 'Hide ' + option.text"
+            @click="toggleProject(option.value)"
           )
             span.cal-category-swatch
             span.cal-category-name {{ option.text }}
             span.cal-category-hours {{ option.minutes ? durationLabel(option.minutes) : '' }}
+
+      //- The Mac's calendars (Apple Calendar: iCloud, Google, Exchange, ...), shown read only.
+      section.cal-panel(v-if="calendarFeed")
+        div.cal-panel-label
+          | Calendars
+          button.cal-text-button(
+            v-if="hiddenCalendars.length > 0 && calendarFeed.status === 'granted'"
+            type="button"
+            @click="showAllCalendars"
+          ) Show all
+        div.cal-category-list(v-if="calendarFeed.status === 'granted' && calendarFeed.calendars.length")
+          button.cal-category(
+            v-for="calendar in calendarFeed.calendars"
+            :key="calendar.id"
+            type="button"
+            :class="{ 'cal-category--hidden': hiddenCalendars.includes(calendar.id) }"
+            :style="{ '--block-color': calendar.color }"
+            :aria-pressed="hiddenCalendars.includes(calendar.id) ? 'false' : 'true'"
+            :title="(hiddenCalendars.includes(calendar.id) ? 'Show ' : 'Hide ') + calendar.title + (calendar.source ? ' (' + calendar.source + ')' : '')"
+            @click="toggleCalendar(calendar.id)"
+          )
+            span.cal-category-swatch
+            span.cal-calendar-name
+              span.cal-category-name {{ calendar.title }}
+              small.cal-calendar-source(v-if="calendar.source") {{ calendar.source }}
+        p.cal-calendar-note(v-else-if="calendarFeed.status === 'granted'") This Mac has no calendars.
+        p.cal-calendar-note(v-else-if="calendarFeed.status === 'denied'")
+          | FocusFrog may not read your calendars. Allow “FocusFrog Calendar” in System Settings → Privacy & Security → Calendars.
+        p.cal-calendar-note(v-else)
+          | Waiting for your calendars. Open FocusFrog from the Dock, and allow calendar access when macOS asks.
 
       section.cal-panel
         div.cal-panel-label Quick blocks
@@ -117,7 +144,7 @@ div.cal-page
             v-for="template in templates"
             :key="template.key"
             type="button"
-            :style="{ '--block-color': blockTypeColor(template.type) }"
+            :style="{ '--block-color': inboxColor }"
             :title="'Add ' + template.title + ' on ' + focusLabel"
             @click="applyTemplate(template)"
           )
@@ -183,6 +210,18 @@ div.cal-page
                 span.cal-day-weekday {{ day.weekday }}
                 span.cal-day-number {{ day.dayNumber }}
               span.cal-day-load(v-if="day.plannedMinutes > 0") {{ durationLabel(day.plannedMinutes) }}
+              //- All-day entries of the Mac's calendars: two, then how many more.
+              div.cal-day-allday(v-if="allDayByDate[day.date] && allDayByDate[day.date].length")
+                span.cal-allday-chip(
+                  v-for="entry in allDayByDate[day.date].slice(0, 2)"
+                  :key="entry.id"
+                  :style="calendarColors(entry)"
+                  :title="calendarEntryLabel(entry, day.date)"
+                ) {{ entry.title || 'Busy' }}
+                span.cal-allday-more(
+                  v-if="allDayByDate[day.date].length > 2"
+                  :title="moreAllDayLabel(day.date)"
+                ) +{{ allDayByDate[day.date].length - 2 }} more
             div.cal-strip-pad
           div.cal-body-row(:style="gridStyle")
             div.cal-rail(ref="rail" :style="{ height: scheduleHeight + 'px' }")
@@ -206,8 +245,23 @@ div.cal-page
                 :style="rangeStyle(drag.startMinute, drag.endMinute)"
               )
                 span {{ minutesToTime(drag.startMinute) }}–{{ minutesToTime(drag.endMinute) }}
+              //- The Mac's calendar entries, read only: blocks can still be made over them.
+              div.cal-event.cal-event--calendar(
+                v-for="item in dayLayouts[day.date].calendar"
+                :key="'calendar-' + item.key"
+                :class="calendarEventClass(item)"
+                :style="calendarEventStyle(item)"
+                :title="calendarEntryLabel(item.entry, day.date)"
+                role="note"
+                :aria-label="'Calendar: ' + calendarEntryLabel(item.entry, day.date)"
+              )
+                span.cal-event-title {{ item.entry.title || 'Busy' }}
+                span.cal-event-time
+                  icon(name="calendar" scale="0.55")
+                  | {{ calendarTimeLabel(item.entry, day.date) }}
+                span.cal-event-notes(v-if="item.entry.location") {{ item.entry.location }}
               button.cal-event(
-                v-for="item in eventsByDate[day.date]"
+                v-for="item in dayLayouts[day.date].blocks"
                 :key="item.key"
                 type="button"
                 :class="eventClass(item)"
@@ -261,20 +315,44 @@ div.cal-page
           placeholder="Write intro, gym, dinner..."
           autocomplete="off"
         )
-      b-form-group(label="Category")
-        div.cal-type-picker(role="radiogroup" aria-label="Category")
-          button.cal-type-chip(
-            v-for="option in categoryOptions"
-            :key="'type-' + option.value"
+      b-form-group(label="Project (optional)" label-for="cal-block-project")
+        div.cal-project-field
+          b-form-select#cal-block-project(v-model="draft.projectId" :options="projectSelectOptions")
+          b-button(
+            variant="outline-secondary"
             type="button"
-            role="radio"
-            :aria-checked="draft.type === option.value ? 'true' : 'false'"
-            :class="{ 'cal-type-chip--active': draft.type === option.value }"
-            :style="{ '--block-color': option.color, '--block-soft': option.soft }"
-            @click="draft.type = option.value"
+            :aria-expanded="creatingProject ? 'true' : 'false'"
+            @click="toggleProjectComposer"
           )
-            span.cal-category-swatch
-            | {{ option.text }}
+            icon.mr-1(name="plus")
+            | Project
+        div.cal-project-composer(v-if="creatingProject")
+          b-form-input(
+            v-model.trim="newProjectName"
+            autofocus
+            placeholder="Project name"
+            autocomplete="off"
+            aria-label="Project name"
+            @keydown.enter.stop.prevent="createProject"
+          )
+          div.cal-project-colors(role="group" aria-label="Project color")
+            button.cal-project-color(
+              v-for="color in projectColors"
+              :key="'project-color-' + color"
+              type="button"
+              :class="{ 'cal-project-color--active': newProjectColor === color }"
+              :style="{ background: color }"
+              :aria-label="'Use color ' + color"
+              :aria-pressed="newProjectColor === color ? 'true' : 'false'"
+              @click="newProjectColor = color"
+            )
+          b-button(
+            size="sm"
+            variant="primary"
+            type="button"
+            :disabled="!newProjectName || savingProject"
+            @click="createProject"
+          ) Create
       div.cal-editor-grid
         b-form-group(:label="draft.repeat === 'none' ? 'Date' : 'Starts on'" label-for="cal-block-date")
           b-form-input#cal-block-date(v-model="draft.date" type="date" @input="syncRepeatDays")
@@ -315,7 +393,7 @@ div.cal-page
         icon(name="redo" scale="0.75")
         span Changes apply to every event in this series.
       div.cal-editor-actions
-        b-button(type="submit" variant="primary" :disabled="!canSaveDraft") {{ editingId ? 'Save' : 'Add block' }}
+        b-button(type="submit" variant="primary" :disabled="!canSaveDraft || savingProject") {{ editingId ? 'Save' : 'Add block' }}
         b-button(variant="outline-secondary" type="button" @click="editorOpen = false") Cancel
         span.cal-editor-spacer
         b-button(
@@ -330,6 +408,7 @@ div.cal-page
 </template>
 
 <script lang="ts">
+import 'vue-awesome/icons/calendar';
 import 'vue-awesome/icons/check';
 import 'vue-awesome/icons/chevron-left';
 import 'vue-awesome/icons/chevron-right';
@@ -346,8 +425,10 @@ import {
   saveStoredValue,
 } from '~/util/focusfrogStorage';
 import {
+  blockProjectId,
   DayPlan,
   firstFreeSlot,
+  isWorkArea,
   nextScheduled,
   normalizePlannableTodos,
   planCategories,
@@ -355,11 +436,28 @@ import {
   PlannableTodo,
   scheduledLabel,
   TODO_BLOCK_MINUTES,
-  todoBlockType,
 } from '~/util/todoPlanning';
-import { INBOX_PROJECT_COLOR, normalizeTodoProjects } from '~/util/todoProjects';
+import {
+  INBOX_PROJECT_COLOR,
+  nextProjectColor,
+  normalizeTodoProjects,
+  projectNamed,
+  TODO_PROJECT_COLORS,
+} from '~/util/todoProjects';
 import type { TodoProject } from '~/util/todoProjects';
 import { weekdayFeiertag } from '~/util/timeOff';
+import { IS_CLOUD_BUILD } from '~/sync/config';
+import { macServerOnThisMac } from '~/sync/macBridge';
+import {
+  allDayEntriesOn,
+  CalendarEntry,
+  CalendarFeed,
+  CalendarInfo,
+  CalendarOccurrence,
+  calendarTimeLabel,
+  normalizeCalendarFeed,
+  timedCalendarOccurrences,
+} from '~/util/calendarEntries';
 import {
   addDays,
   daysBetween,
@@ -385,8 +483,8 @@ import {
   REPEAT_RULES,
   RepeatRule,
   shiftSeries,
+  TIME_BLOCK_TYPES,
   TimeBlock,
-  TimeBlockType,
   timeToMinutes,
 } from '~/util/calendarBlocks';
 
@@ -397,7 +495,8 @@ const MIN_DAY_WIDTH: Record<ViewMode, number> = { day: 144, '3day': 80, week: 10
 
 interface TimeBlockDraft {
   title: string;
-  type: TimeBlockType;
+  // '' for the Inbox (no project), as on the Todos page.
+  projectId: string;
   date: string;
   start: string;
   end: string;
@@ -410,7 +509,6 @@ interface TimeBlockDraft {
 interface TimeBlockTemplate {
   key: string;
   title: string;
-  type: TimeBlockType;
   start: string;
   end: string;
   notes: string;
@@ -440,7 +538,14 @@ interface DragState {
 const TIME_BLOCK_STORAGE_KEY = 'focusfrog.timeBlocks.v1';
 const TIME_BLOCK_SERVER_KEY = 'timeBlocks';
 const VIEW_STORAGE_KEY = 'focusfrog.timeBlocks.view';
-const HIDDEN_TYPES_STORAGE_KEY = 'focusfrog.timeBlocks.hiddenTypes';
+const HIDDEN_PROJECTS_STORAGE_KEY = 'focusfrog.timeBlocks.hiddenProjects';
+const HIDDEN_CALENDARS_STORAGE_KEY = 'focusfrog.timeBlocks.hiddenCalendars';
+// Calendar entries are asked for around the days on screen, and again every minute.
+const CALENDAR_DAYS_BEFORE = 30;
+const CALENDAR_DAYS_AFTER = 60;
+const CALENDAR_REFRESH_MS = 60 * 1000;
+// The filter's key for blocks without a project.
+const INBOX_KEY = 'inbox';
 const SIDEBAR_STORAGE_KEY = 'focusfrog.timeBlocks.sidebar';
 const TODO_TRAY_STORAGE_KEY = 'focusfrog.timeBlocks.todoTray';
 const TODO_CATEGORY_STORAGE_KEY = 'focusfrog.timeBlocks.todoCategory';
@@ -453,27 +558,6 @@ const HOUR_HEIGHT = 52;
 const SNAP_MINUTES = 15;
 const DRAG_THRESHOLD = 4;
 const DATE_FORMAT = 'YYYY-MM-DD';
-
-const BLOCK_TYPE_CONFIG: Record<
-  TimeBlockType,
-  { text: string; color: string; soft: string; kind: 'work' | 'life' }
-> = {
-  work: { text: 'Work', color: '#10b981', soft: 'rgba(16, 185, 129, 0.16)', kind: 'work' },
-  'deep-work': {
-    text: 'Deep work',
-    color: '#2563eb',
-    soft: 'rgba(37, 99, 235, 0.15)',
-    kind: 'work',
-  },
-  'email-admin': {
-    text: 'Email & admin',
-    color: '#f59e0b',
-    soft: 'rgba(245, 158, 11, 0.18)',
-    kind: 'work',
-  },
-  life: { text: 'Life', color: '#ec4899', soft: 'rgba(236, 72, 153, 0.15)', kind: 'life' },
-  break: { text: 'Break', color: '#06b6d4', soft: 'rgba(6, 182, 212, 0.16)', kind: 'life' },
-};
 
 const WEEKDAYS = [
   { value: 1, short: 'Mo', long: 'Monday' },
@@ -492,7 +576,7 @@ function today(): string {
 function blankDraft(date = today()): TimeBlockDraft {
   return {
     title: '',
-    type: 'work',
+    projectId: '',
     date,
     start: '09:00',
     end: '10:00',
@@ -507,19 +591,13 @@ function inputTime(time: string): string {
   return time === '24:00' ? '00:00' : time;
 }
 
-function blockConfig(type: TimeBlockType) {
-  return BLOCK_TYPE_CONFIG[type] || BLOCK_TYPE_CONFIG.work;
-}
-
-// A block's colours: those of its todo's project, else those of its category.
-function blockColors(type: TimeBlockType, projectColor: string) {
-  const { color, soft } = blockConfig(type);
-  return projectColor
-    ? {
-        '--block-color': projectColor,
-        '--block-soft': `color-mix(in srgb, ${projectColor} 16%, transparent)`,
-      }
-    : { '--block-color': color, '--block-soft': soft };
+// A block's colours: those of its project, the Inbox's grey without one.
+function blockColors(projectColor: string) {
+  const color = projectColor || INBOX_PROJECT_COLOR;
+  return {
+    '--block-color': color,
+    '--block-soft': `color-mix(in srgb, ${color} 16%, transparent)`,
+  };
 }
 
 function snap(minute: number, step = SNAP_MINUTES): number {
@@ -554,14 +632,28 @@ function initialSidebarOpen(): boolean {
   return typeof window === 'undefined' || window.innerWidth >= 1200;
 }
 
-function initialHiddenTypes(): TimeBlockType[] {
+// Ids saved under `key`: the projects (and INBOX_KEY) or calendars that are hidden.
+function savedIdList(key: string): string[] {
   try {
-    const saved = JSON.parse(readPreference(HIDDEN_TYPES_STORAGE_KEY) || '[]');
-    return Array.isArray(saved) ? saved.filter(type => BLOCK_TYPE_CONFIG[type]) : [];
+    const saved = JSON.parse(readPreference(key) || '[]');
+    return Array.isArray(saved) ? saved.filter(id => typeof id === 'string') : [];
   } catch (err) {
     return [];
   }
 }
+
+// Where this page asks for the Mac's calendar entries: its own server on the Mac, or (the
+// hosted page) FocusFrog's server on this Mac. None on a phone.
+function calendarSource(): string | null {
+  if (!IS_CLOUD_BUILD) return '/focusfrog-calendar';
+  const server = macServerOnThisMac();
+  return server ? `${server}/focusfrog-calendar` : null;
+}
+
+type LaidOut<T> = T & { column: number; columns: number };
+type LayoutItem =
+  | (BlockOccurrence & { kind: 'block' })
+  | (CalendarOccurrence & { kind: 'calendar' });
 
 export default {
   name: 'TimeBlocking',
@@ -580,13 +672,30 @@ export default {
       stripObserver: null as ResizeObserver | null,
       monthDate: moment().startOf('month').format(DATE_FORMAT),
       viewMode: initialViewMode() as ViewMode,
-      hiddenTypes: initialHiddenTypes(),
+      hiddenProjects: savedIdList(HIDDEN_PROJECTS_STORAGE_KEY),
+      // The Mac's calendar entries around the days on screen (null: none here, as on a
+      // phone), and the days they were asked for.
+      calendarFeed: null as CalendarFeed | null,
+      calendarRange: null as { from: string; to: string } | null,
+      calendarRequest: 0,
+      calendarTimer: 0,
+      hiddenCalendars: savedIdList(HIDDEN_CALENDARS_STORAGE_KEY),
       sidebarOpen: initialSidebarOpen(),
       draft: blankDraft(),
       draftHasEnd: false,
       editingId: '',
       editingDate: '',
+      // The project the editor showed when it opened: a save writes the project only when
+      // it was changed, so one not loaded (yet) is never overwritten with none.
+      editingProjectId: '',
       editorOpen: false,
+      // Making a project from the block editor, as from the todo form.
+      creatingProject: false,
+      savingProject: false,
+      newProjectName: '',
+      newProjectColor: TODO_PROJECT_COLORS[0] as string,
+      projectColors: [...TODO_PROJECT_COLORS] as string[],
+      inboxColor: INBOX_PROJECT_COLOR,
       drag: null as DragState | null,
       suppressClick: false,
       // Todos to plan (read only: the Todos page keeps them).
@@ -609,37 +718,20 @@ export default {
       ],
       weekdayChoices: WEEKDAYS,
       weekdayInitials: WEEKDAYS.map(day => day.short.charAt(0)),
+      // A title and a time; the project is picked in the editor.
       templates: [
         {
           key: 'deep-morning',
           title: 'Deep work',
-          type: 'deep-work',
           start: '09:00',
           end: '11:00',
           notes: 'One important thing, no context switching.',
         },
         {
-          key: 'email-admin',
-          title: 'Email & admin',
-          type: 'email-admin',
-          start: '11:00',
-          end: '12:00',
-          notes: '',
-        },
-        {
           key: 'lunch',
           title: 'Lunch',
-          type: 'break',
           start: '12:30',
           end: '13:30',
-          notes: '',
-        },
-        {
-          key: 'evening-life',
-          title: 'Life block',
-          type: 'life',
-          start: '18:00',
-          end: '20:00',
           notes: '',
         },
       ] as TimeBlockTemplate[],
@@ -740,7 +832,7 @@ export default {
       return occurrencesForDates(this.blocks, this.rangeDates);
     },
     rangeOccurrences(): BlockOccurrence[] {
-      return this.allRangeOccurrences.filter(item => !this.hiddenTypes.includes(item.block.type));
+      return this.allRangeOccurrences.filter(item => this.isShown(item.block));
     },
     occurrencesByDate(): Record<string, BlockOccurrence[]> {
       const byDate: Record<string, BlockOccurrence[]> = {};
@@ -748,40 +840,83 @@ export default {
         byDate[date] = [];
       });
       occurrencesForDates(this.blocks, this.drawnDates)
-        .filter(item => !this.hiddenTypes.includes(item.block.type))
+        .filter(item => this.isShown(item.block))
         .forEach(item => byDate[item.date].push(item));
       return byDate;
     },
-    eventsByDate(): Record<string, PositionedOccurrence[]> {
-      const byDate: Record<string, PositionedOccurrence[]> = {};
-      Object.entries(this.occurrencesByDate).forEach(([date, items]) => {
-        byDate[date] = layoutDay(items as BlockOccurrence[]);
+    calendarsById(): Record<string, CalendarInfo> {
+      const calendars = (this.calendarFeed as CalendarFeed | null)?.calendars || [];
+      return Object.fromEntries(calendars.map(calendar => [calendar.id, calendar]));
+    },
+    // The entries of the calendars that are not hidden.
+    shownCalendarEntries(): CalendarEntry[] {
+      const feed = this.calendarFeed as CalendarFeed | null;
+      if (!feed) return [];
+      return feed.events.filter(entry => !this.hiddenCalendars.includes(entry.calendarId));
+    },
+    allDayByDate(): Record<string, CalendarEntry[]> {
+      return Object.fromEntries(
+        this.drawnDates.map(date => [date, allDayEntriesOn(this.shownCalendarEntries, date)])
+      );
+    },
+    // Each drawn day's blocks and timed calendar entries, laid out side by side together.
+    dayLayouts(): Record<
+      string,
+      { blocks: PositionedOccurrence[]; calendar: LaidOut<CalendarOccurrence>[] }
+    > {
+      const calendarByDate: Record<string, CalendarOccurrence[]> = {};
+      timedCalendarOccurrences(this.shownCalendarEntries, this.drawnDates).forEach(item => {
+        (calendarByDate[item.date] = calendarByDate[item.date] || []).push(item);
       });
-      return byDate;
+      const layouts = {};
+      Object.entries(this.occurrencesByDate).forEach(([date, items]) => {
+        const laidOut = layoutDay<LayoutItem>([
+          ...(items as BlockOccurrence[]).map(item => ({ ...item, kind: 'block' as const })),
+          ...(calendarByDate[date] || []).map(item => ({ ...item, kind: 'calendar' as const })),
+        ]);
+        layouts[date] = {
+          blocks: laidOut.filter(item => item.kind === 'block'),
+          calendar: laidOut.filter(item => item.kind === 'calendar'),
+        };
+      });
+      return layouts;
     },
     plannedMinutes(): number {
       return this.sumMinutes(this.rangeOccurrences);
     },
-    workMinutes(): number {
-      return this.sumMinutes(
-        this.rangeOccurrences.filter(item => blockConfig(item.block.type).kind === 'work')
+    projectIds(): Set<string> {
+      return new Set((this.todoProjects as TodoProject[]).map(project => project.id));
+    },
+    projectsById(): Record<string, TodoProject> {
+      return Object.fromEntries(
+        (this.todoProjects as TodoProject[]).map(project => [project.id, project])
       );
     },
-    lifeMinutes(): number {
-      return this.sumMinutes(
-        this.rangeOccurrences.filter(item => blockConfig(item.block.type).kind === 'life')
-      );
+    // The same choice as on the todo form.
+    projectSelectOptions() {
+      return [
+        { value: '', text: 'Inbox (no project)' },
+        ...(this.todoProjects as TodoProject[]).map(project => ({
+          value: project.id,
+          text: project.name,
+        })),
+      ];
     },
-    categoryOptions() {
-      return Object.entries(BLOCK_TYPE_CONFIG).map(([value, config]) => ({
-        value,
-        text: config.text,
-        color: config.color,
-        soft: config.soft,
-        minutes: this.sumMinutes(
-          this.allRangeOccurrences.filter(item => item.block.type === value)
-        ),
-      }));
+    // Every project and the Inbox, with the hours planned for each in view.
+    projectFilterOptions() {
+      const minutes: Record<string, number> = {};
+      (this.allRangeOccurrences as BlockOccurrence[]).forEach(item => {
+        const key = this.blockFilterKey(item.block);
+        minutes[key] = (minutes[key] || 0) + (item.endMinute - item.startMinute);
+      });
+      return [
+        ...(this.todoProjects as TodoProject[]).map(project => ({
+          value: project.id,
+          text: project.name,
+          color: project.color,
+        })),
+        { value: INBOX_KEY, text: 'Inbox', color: INBOX_PROJECT_COLOR },
+      ].map(option => ({ ...option, minutes: minutes[option.value] || 0 }));
     },
     monthLabel(): string {
       return moment(this.monthDate, DATE_FORMAT).format('MMMM YYYY');
@@ -801,9 +936,7 @@ export default {
           inMonth: value.isSame(month, 'month'),
           isToday: date === todayDate,
           inRange: range.has(date),
-          hasBlocks: this.blocks.some(
-            block => !this.hiddenTypes.includes(block.type) && occursOn(block, date)
-          ),
+          hasBlocks: this.blocks.some(block => this.isShown(block) && occursOn(block, date)),
         };
       });
     },
@@ -895,7 +1028,7 @@ export default {
           endMinute: drag.endMinute,
           style: {
             ...this.rangeStyle(drag.startMinute, drag.endMinute),
-            ...blockColors(todoBlockType(drag.todo.area), this.projectColor(drag.todo)),
+            ...blockColors(this.projectColor(drag.todo)),
           },
         };
       }
@@ -908,7 +1041,7 @@ export default {
         endMinute: drag.endMinute,
         style: {
           ...this.rangeStyle(drag.startMinute, drag.endMinute),
-          ...blockColors(block.type, this.blockProjectColor(block)),
+          ...blockColors(this.blockProjectColor(block)),
         },
       };
     },
@@ -916,6 +1049,7 @@ export default {
   watch: {
     focusDate(date: string) {
       this.monthDate = moment(date, DATE_FORMAT).startOf('month').format(DATE_FORMAT);
+      void this.loadCalendar();
     },
     'draft.repeat'(repeat: RepeatRule) {
       // Turning a series into a single event keeps the occurrence that was clicked.
@@ -941,6 +1075,12 @@ export default {
     this.nowTimer = window.setInterval(() => {
       this.nowTick = Date.now();
     }, 60 * 1000);
+    void this.loadCalendar(true);
+    this.calendarTimer = window.setInterval(
+      () => void this.loadCalendar(true),
+      CALENDAR_REFRESH_MS
+    );
+    window.addEventListener('focus', this.refreshCalendar);
     window.addEventListener('keydown', this.handleKeydown);
     this.measureStrip();
     if (typeof ResizeObserver !== 'undefined') {
@@ -956,6 +1096,8 @@ export default {
   },
   beforeDestroy() {
     if (this.nowTimer) window.clearInterval(this.nowTimer);
+    if (this.calendarTimer) window.clearInterval(this.calendarTimer);
+    window.removeEventListener('focus', this.refreshCalendar);
     window.removeEventListener('resize', this.fitToWindow);
     this.stripObserver?.disconnect();
     window.removeEventListener('keydown', this.handleKeydown);
@@ -1024,7 +1166,7 @@ export default {
       return {
         id: typeof block?.id === 'string' ? block.id : `block-${Date.now()}`,
         title: typeof block?.title === 'string' && block.title ? block.title : 'Untitled block',
-        type: BLOCK_TYPE_CONFIG[block?.type] ? block.type : 'work',
+        type: TIME_BLOCK_TYPES.includes(block?.type) ? block.type : 'work',
         date,
         start,
         end,
@@ -1035,6 +1177,8 @@ export default {
         skipDates: Array.isArray(block?.skipDates) ? block.skipDates.filter(isValidDate) : [],
         // Only blocks planned from a todo carry the link.
         ...(typeof block?.todoId === 'string' && block.todoId ? { todoId: block.todoId } : {}),
+        // Only blocks that were given a project (or none, '') in the editor carry one.
+        ...(typeof block?.projectId === 'string' ? { projectId: block.projectId } : {}),
         createdAt: typeof block?.createdAt === 'string' ? block.createdAt : moment().toISOString(),
         updatedAt: typeof block?.updatedAt === 'string' ? block.updatedAt : moment().toISOString(),
       };
@@ -1193,16 +1337,144 @@ export default {
       writePreference(SIDEBAR_STORAGE_KEY, this.sidebarOpen ? 'open' : 'closed');
     },
 
-    // Categories
-    toggleType(type: TimeBlockType) {
-      this.hiddenTypes = this.hiddenTypes.includes(type)
-        ? this.hiddenTypes.filter(item => item !== type)
-        : [...this.hiddenTypes, type];
-      writePreference(HIDDEN_TYPES_STORAGE_KEY, JSON.stringify(this.hiddenTypes));
+    // Projects
+    blockProject(block: TimeBlock): string {
+      return blockProjectId(block, this.todosById, this.projectIds);
     },
-    showAllTypes() {
-      this.hiddenTypes = [];
-      writePreference(HIDDEN_TYPES_STORAGE_KEY, '[]');
+    blockFilterKey(block: TimeBlock): string {
+      return this.blockProject(block) || INBOX_KEY;
+    },
+    isShown(block: TimeBlock): boolean {
+      return !this.hiddenProjects.includes(this.blockFilterKey(block));
+    },
+    toggleProject(key: string) {
+      this.hiddenProjects = this.hiddenProjects.includes(key)
+        ? this.hiddenProjects.filter(item => item !== key)
+        : [...this.hiddenProjects, key];
+      writePreference(HIDDEN_PROJECTS_STORAGE_KEY, JSON.stringify(this.hiddenProjects));
+    },
+    showAllProjects() {
+      this.hiddenProjects = [];
+      writePreference(HIDDEN_PROJECTS_STORAGE_KEY, '[]');
+    },
+
+    // The Mac's calendars: asked for when the page opens, every minute, when the window comes
+    // back, and when the days on screen leave what was asked for. Read only, never saved.
+    async loadCalendar(force = false) {
+      const source = calendarSource();
+      if (!source) return;
+      const todayDate = today();
+      const dates = this.drawnDates as string[];
+      const first = dates[0] < todayDate ? dates[0] : todayDate;
+      // Also the next weeks: "Next free slot" plans around the entries there.
+      const soon = addDays(todayDate, 21);
+      const last = dates[dates.length - 1] > soon ? dates[dates.length - 1] : soon;
+      const range = this.calendarRange as { from: string; to: string } | null;
+      if (!force && range && range.from <= first && last <= range.to) return;
+      const from = addDays(first, -CALENDAR_DAYS_BEFORE);
+      const to = addDays(last, CALENDAR_DAYS_AFTER);
+      const request = ++this.calendarRequest;
+      try {
+        const response = await fetch(`${source}?from=${from}&to=${to}`, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const feed = normalizeCalendarFeed(await response.json());
+        if (request !== this.calendarRequest) return;
+        this.calendarFeed = feed;
+        this.calendarRange = { from, to };
+      } catch (error) {
+        // No calendars here (FocusFrog's server is not reachable): the last ones stay.
+        if (request === this.calendarRequest && !this.calendarFeed) this.calendarRange = null;
+      }
+    },
+    refreshCalendar() {
+      void this.loadCalendar(true);
+    },
+    toggleCalendar(id: string) {
+      this.hiddenCalendars = this.hiddenCalendars.includes(id)
+        ? this.hiddenCalendars.filter(item => item !== id)
+        : [...this.hiddenCalendars, id];
+      writePreference(HIDDEN_CALENDARS_STORAGE_KEY, JSON.stringify(this.hiddenCalendars));
+    },
+    showAllCalendars() {
+      this.hiddenCalendars = [];
+      writePreference(HIDDEN_CALENDARS_STORAGE_KEY, '[]');
+    },
+    calendarColor(entry: CalendarEntry): string {
+      return this.calendarsById[entry.calendarId]?.color || INBOX_PROJECT_COLOR;
+    },
+    calendarColors(entry: CalendarEntry) {
+      return blockColors(this.calendarColor(entry));
+    },
+    calendarEntryLabel(entry: CalendarEntry, date: string): string {
+      return [
+        entry.title || 'Busy',
+        calendarTimeLabel(entry, date),
+        this.calendarsById[entry.calendarId]?.title,
+        entry.location,
+        entry.busy ? '' : 'free',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+    },
+    // The all-day entries that do not fit under the day, one per line.
+    moreAllDayLabel(date: string): string {
+      return (this.allDayByDate[date] || [])
+        .slice(2)
+        .map(entry => this.calendarEntryLabel(entry, date))
+        .join('\n');
+    },
+    calendarTimeLabel,
+    calendarEventStyle(item: LaidOut<CalendarOccurrence>) {
+      const width = 100 / item.columns;
+      return {
+        ...this.rangeStyle(item.startMinute, item.endMinute),
+        left: `calc(${item.column * width}% + 2px)`,
+        width: `calc(${width}% - 4px)`,
+        ...this.calendarColors(item.entry),
+      };
+    },
+    calendarEventClass(item: LaidOut<CalendarOccurrence>) {
+      const duration = item.endMinute - item.startMinute;
+      return {
+        'cal-event--compact': duration < 45,
+        'cal-event--tall': duration >= 90,
+        'cal-event--past': this.isPast(item),
+        'cal-event--free': !item.entry.busy,
+      };
+    },
+    toggleProjectComposer() {
+      this.creatingProject = !this.creatingProject;
+      if (this.creatingProject) this.newProjectColor = nextProjectColor(this.todoProjects);
+    },
+    resetProjectComposer() {
+      this.creatingProject = false;
+      this.newProjectName = '';
+    },
+    // A new project, kept with the todo projects (the Todos page shows it too), and picked
+    // for the block. A name that is taken picks that project.
+    async createProject() {
+      const name = this.newProjectName;
+      const color = this.newProjectColor;
+      if (!name || this.savingProject) return;
+      this.savingProject = true;
+      try {
+        // The newest list, loaded as the page that saves it, so the save adds just the new
+        // project and a project made or deleted elsewhere meanwhile stays so.
+        const stored = await loadStoredValue('todoProjects');
+        const projects = normalizeTodoProjects(stored.value).sort((a, b) =>
+          a.name.localeCompare(b.name)
+        );
+        const result = projectNamed(projects, name, color, moment().toISOString());
+        if (!result) return;
+        this.todoProjects = result.created
+          ? [...projects, result.project].sort((a, b) => a.name.localeCompare(b.name))
+          : projects;
+        if (result.created) void saveStoredValue('todoProjects', this.todoProjects);
+        this.draft.projectId = result.project.id;
+        this.resetProjectComposer();
+      } finally {
+        this.savingProject = false;
+      }
     },
 
     // Editor
@@ -1219,7 +1491,6 @@ export default {
       const date = this.focusDate;
       this.openNewBlock({
         title: template.title,
-        type: template.type,
         date,
         start: template.start,
         end: template.end,
@@ -1230,9 +1501,10 @@ export default {
       const block = item.block;
       this.editingId = block.id;
       this.editingDate = item.date;
+      this.editingProjectId = this.blockProject(block);
       this.draft = {
         title: block.title,
-        type: block.type,
+        projectId: this.editingProjectId,
         date: block.date,
         start: block.start,
         end: inputTime(block.end),
@@ -1251,6 +1523,8 @@ export default {
     resetEditor() {
       this.editingId = '';
       this.editingDate = '';
+      this.editingProjectId = '';
+      this.resetProjectComposer();
     },
     // Keep a single "weekly on" day in sync with the chosen date.
     syncRepeatDays(date: string) {
@@ -1265,12 +1539,17 @@ export default {
       this.draft.repeatDays = days.sort((a, b) => a - b);
     },
     saveDraft() {
-      if (!this.canSaveDraft) return;
+      if (!this.canSaveDraft || this.savingProject) return;
       const now = moment().toISOString();
       const end = this.draft.end === '00:00' ? '24:00' : this.draft.end;
       const usesDays = this.draft.repeat === 'weekly' || this.draft.repeat === 'biweekly';
+      const { projectId, ...draft } = this.draft;
+      // An edit keeps the block's project unless another was picked: a block from a todo
+      // keeps following its todo's.
+      const keepProject = Boolean(this.editingBlock) && projectId === this.editingProjectId;
       const fields = {
-        ...this.draft,
+        ...draft,
+        ...(keepProject ? {} : { projectId }),
         end,
         repeatDays: usesDays ? this.draft.repeatDays : [],
         repeatUntil: this.draft.repeat !== 'none' && this.draftHasEnd ? this.draft.repeatUntil : '',
@@ -1378,7 +1657,8 @@ export default {
     startCreate(date: string, event: PointerEvent) {
       if (event.button !== 0) return;
       const target = event.target as HTMLElement | null;
-      if (target?.closest('.cal-event')) return;
+      // Calendar entries are only shown: blocks can be made over them.
+      if (target?.closest('.cal-event:not(.cal-event--calendar)')) return;
       event.preventDefault();
       const minute = Math.max(
         0,
@@ -1567,7 +1847,9 @@ export default {
         peekStoredValue('todoDayPlan'),
       ]);
       this.todos = normalizePlannableTodos(todos.value);
-      this.todoProjects = normalizeTodoProjects(projects.value);
+      this.todoProjects = normalizeTodoProjects(projects.value).sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
       const plan = dayPlan.value as Partial<DayPlan> | null;
       this.dayPlan =
         plan && typeof plan.date === 'string' && Array.isArray(plan.todoIds)
@@ -1592,12 +1874,9 @@ export default {
       const project = (this.todoProjects as TodoProject[]).find(item => item.id === todo.projectId);
       return project ? project.color : '';
     },
-    // A block planned from a todo takes the colour of that todo's project.
+    // The colour of a block's project; empty for the Inbox.
     blockProjectColor(block: TimeBlock): string {
-      const todo = block.todoId
-        ? (this.todosById as Record<string, PlannableTodo>)[block.todoId]
-        : null;
-      return todo ? this.projectColor(todo) : '';
+      return this.projectsById[this.blockProject(block)]?.color || '';
     },
     dueLabel(todo: PlannableTodo): string {
       const due = moment(todo.dueDate, DATE_FORMAT);
@@ -1654,14 +1933,13 @@ export default {
     cancelPlacing() {
       this.placingTodo = null;
     },
-    // A one-hour block for the todo, with the todo's title and kind of work.
+    // A one-hour block for the todo, with its title; it shows the todo's project.
     placeTodo(todo: PlannableTodo, date: string, startMinute: number) {
       const start = Math.max(0, Math.min(DAY_MINUTES - TODO_BLOCK_MINUTES, startMinute));
       const now = moment().toISOString();
       const block = this.normalizeBlock({
         id: this.newBlockId(),
         title: todo.title,
-        type: todoBlockType(todo.area),
         date,
         start: minutesToTime(start),
         end: minutesToTime(start + TODO_BLOCK_MINUTES),
@@ -1687,13 +1965,18 @@ export default {
     async placeInNextFreeSlot() {
       const todo = this.placingTodo as PlannableTodo | null;
       if (!todo) return;
-      const type = todoBlockType(todo.area);
-      const forWork = blockConfig(type).kind === 'work';
+      const forWork = isWorkArea(todo.area);
       const slot = firstFreeSlot({
         from: this.rangeDates[0],
         todayKey: today(),
         nowMinute: this.nowMinute,
-        busyOn: date => occurrencesForDates(this.blocks, [date]),
+        busyOn: date => [
+          ...occurrencesForDates(this.blocks, [date]),
+          ...timedCalendarOccurrences(
+            (this.shownCalendarEntries as CalendarEntry[]).filter(entry => entry.busy),
+            [date]
+          ),
+        ],
         skipDay: date => forWork && (isoWeekday(date) >= 6 || Boolean(weekdayFeiertag(date))),
       });
       if (!slot) {
@@ -1731,7 +2014,7 @@ export default {
         ...this.rangeStyle(item.startMinute, endMinute),
         left: `calc(${item.column * width}% + 2px)`,
         width: `calc(${width}% - 4px)`,
-        ...blockColors(item.block.type, this.blockProjectColor(item.block)),
+        ...blockColors(this.blockProjectColor(item.block)),
       };
     },
     eventClass(item: PositionedOccurrence) {
@@ -1765,15 +2048,12 @@ export default {
       const repeat = describeRepeat(item.block);
       return [
         item.block.title,
-        blockConfig(item.block.type).text,
+        this.projectsById[this.blockProject(item.block)]?.name || 'Inbox',
         `${moment(item.date, DATE_FORMAT).format('dddd')} ${item.block.start} to ${item.block.end}`,
         repeat,
       ]
         .filter(Boolean)
         .join(', ');
-    },
-    blockTypeColor(type: TimeBlockType): string {
-      return blockConfig(type).color;
     },
     durationLabel(minutes: number): string {
       const safeMinutes = Math.max(0, Math.round(minutes));
@@ -1906,7 +2186,7 @@ export default {
 
 .cal-month-weekday {
   padding: 0.15rem 0;
-  color: #94a3b8;
+  color: #64748b;
   font-size: 0.68rem;
   font-weight: 800;
   text-align: center;
@@ -1934,7 +2214,7 @@ export default {
 }
 
 .cal-month-day--outside {
-  color: #b6c2d1;
+  color: #7c8ba1;
 }
 
 .cal-month-day--in-range {
@@ -1965,7 +2245,7 @@ export default {
 /* Stats */
 .cal-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.4rem;
 }
 
@@ -1988,14 +2268,9 @@ export default {
   font-size: 1rem;
 }
 
-.cal-stat--work {
+.cal-stat--blocks {
   border-top-color: #10b981;
   background: rgba(236, 253, 245, 0.9);
-}
-
-.cal-stat--life {
-  border-top-color: #ec4899;
-  background: rgba(253, 242, 248, 0.9);
 }
 
 .cal-stat--total {
@@ -2146,6 +2421,62 @@ export default {
   color: #64748b;
   font-size: 0.7rem;
   font-weight: 700;
+}
+
+.cal-day-allday {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 2px;
+  min-width: 0;
+  margin-top: 0.15rem;
+}
+
+.cal-allday-chip {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0.05rem 0.35rem;
+  border-left: 3px solid var(--block-color);
+  border-radius: 4px;
+  background: var(--block-soft);
+  color: #0f172a;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-allday-more {
+  padding-left: 0.35rem;
+  color: #475569;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+/* A calendar's name, and under it its account (iCloud, Exchange, ...). */
+.cal-calendar-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cal-calendar-source {
+  overflow: hidden;
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-calendar-note {
+  margin: 0;
+  color: #475569;
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 
 .cal-rail {
@@ -2430,32 +2761,52 @@ export default {
 }
 
 /* Editor */
-.cal-type-picker,
 .cal-weekday-picker {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
 }
 
-.cal-type-chip {
-  display: inline-flex;
+/* The project field, as on the todo form. */
+.cal-project-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.cal-project-composer {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) auto auto;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.3rem 0.65rem;
-  border: 1px solid rgba(148, 163, 184, 0.45);
+  gap: 0.7rem;
+  margin-top: 0.5rem;
+  padding: 0.72rem;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.88);
+}
+
+.cal-project-colors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cal-project-color {
+  appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 2px solid rgba(255, 255, 255, 0.95);
   border-radius: 999px;
-  background: #ffffff;
-  color: #334155;
-  font-size: 0.82rem;
-  font-weight: 700;
+  box-shadow: 0 0 0 1px rgba(100, 116, 139, 0.42);
   cursor: pointer;
 }
 
-.cal-type-chip--active {
-  border-color: var(--block-color);
-  background: var(--block-soft);
-  color: #0f172a;
-  box-shadow: 0 0 0 2px var(--block-soft);
+.cal-project-color--active {
+  box-shadow: 0 0 0 2px #0f172a;
+  transform: scale(1.08);
 }
 
 .cal-editor-grid {
@@ -2488,8 +2839,8 @@ export default {
 }
 
 .cal-weekday--active {
-  border-color: #10b981;
-  background: #10b981;
+  border-color: #047857;
+  background: #047857;
   color: #ffffff;
 }
 
@@ -2706,6 +3057,30 @@ export default {
   text-decoration: line-through;
 }
 
+/* The Mac's calendar entries: only shown, so striped, flat and without the grab hand. */
+.cal-event--calendar {
+  z-index: 2;
+  border-left-width: 3px;
+  background: repeating-linear-gradient(
+      135deg,
+      var(--block-soft) 0 6px,
+      rgba(255, 255, 255, 0.55) 6px 12px
+    ),
+    rgba(255, 255, 255, 0.94);
+  box-shadow: none;
+  cursor: default;
+  touch-action: auto;
+}
+
+.cal-event--calendar:hover {
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+}
+
+/* Marked "free" in the calendar: todos may be planned over it. */
+.cal-event--free {
+  border-left-style: dashed;
+}
+
 .cal-event--todo-done .cal-event-title::before {
   content: '✓ ';
 }
@@ -2738,7 +3113,7 @@ html[data-dashboard-theme='bright'] .cal-page button.cal-text-button:not(.btn) {
 }
 
 html[data-dashboard-theme='bright'] .cal-page button.cal-month-day--outside:not(.btn) {
-  color: #b6c2d1 !important;
+  color: #7c8ba1 !important;
 }
 
 html[data-dashboard-theme='bright'] .cal-page button.cal-month-day--in-range:not(.btn) {
@@ -2746,12 +3121,19 @@ html[data-dashboard-theme='bright'] .cal-page button.cal-month-day--in-range:not
 }
 
 html[data-dashboard-theme='bright'] .cal-page button.cal-category--hidden:not(.btn) {
-  color: #94a3b8 !important;
+  color: #7c8ba1 !important;
 }
 
 html[data-dashboard-theme='bright'] .cal-page .cal-day-head--today button:not(.btn),
-html[data-dashboard-theme='bright'] #cal-block-editor button.cal-weekday--active:not(.btn) {
+html[data-dashboard-theme='bright'] #cal-block-editor button.cal-weekday--active:not(.btn),
+html[data-dashboard-theme='flower'] #cal-block-editor button.cal-weekday--active:not(.btn) {
   color: #ffffff !important;
+}
+
+/* dark.css's light red is for dark backgrounds; on the white editor it needs to be darker. */
+html[data-dashboard-theme='bright'] #cal-block-editor .btn-outline-danger:not(:hover) {
+  border-color: #c53030 !important;
+  color: #c53030 !important;
 }
 
 html[data-dashboard-theme='flower'] .cal-page {
@@ -2765,6 +3147,10 @@ html[data-dashboard-theme='flower'] .cal-rail {
 
 html[data-dashboard-theme='flower'] .cal-head-row {
   background: rgba(255, 253, 245, 0.97);
+}
+
+html[data-dashboard-theme='flower'] .cal-project-composer {
+  background: rgba(255, 253, 245, 0.82);
 }
 
 html[data-dashboard-theme='contrast'] .cal-page {
@@ -2808,6 +3194,30 @@ html[data-dashboard-theme='contrast'] .cal-category--hidden {
 
 html[data-dashboard-theme='contrast'] .cal-stat {
   background: #0f172a;
+}
+
+html[data-dashboard-theme='contrast'] .cal-weekday {
+  border-color: rgba(148, 163, 184, 0.42);
+  background: #0f172a;
+}
+
+html[data-dashboard-theme='contrast'] .cal-weekday--active {
+  border-color: #34d399;
+  background: #047857;
+}
+
+html[data-dashboard-theme='contrast'] .cal-project-composer {
+  border-color: rgba(148, 163, 184, 0.42);
+  background: rgba(15, 23, 42, 0.78);
+  color: #e2e8f0;
+}
+
+html[data-dashboard-theme='contrast'] .cal-project-color {
+  border-color: #0f172a;
+}
+
+html[data-dashboard-theme='contrast'] .cal-project-color--active {
+  box-shadow: 0 0 0 2px #f8fafc;
 }
 
 html[data-dashboard-theme='contrast'] .cal-column {
@@ -2866,6 +3276,25 @@ html[data-dashboard-theme='contrast'] .cal-event--past {
   opacity: 0.78;
 }
 
+html[data-dashboard-theme='contrast'] .cal-event--calendar {
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--block-color) 30%, #0f172a) 0 6px,
+    color-mix(in srgb, var(--block-color) 18%, #0f172a) 6px 12px
+  );
+}
+
+html[data-dashboard-theme='contrast'] .cal-allday-chip {
+  background: color-mix(in srgb, var(--block-color) 30%, #0f172a);
+  color: #f8fafc;
+}
+
+html[data-dashboard-theme='contrast'] .cal-allday-more,
+html[data-dashboard-theme='contrast'] .cal-calendar-note,
+html[data-dashboard-theme='contrast'] .cal-calendar-source {
+  color: #cbd5e1;
+}
+
 @media (max-width: 960px) {
   .cal-layout {
     grid-template-columns: 1fr;
@@ -2887,6 +3316,10 @@ html[data-dashboard-theme='contrast'] .cal-event--past {
 
   .cal-editor-grid > :first-child {
     grid-column: 1 / -1;
+  }
+
+  .cal-project-composer {
+    grid-template-columns: 1fr;
   }
 }
 

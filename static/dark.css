@@ -309,15 +309,51 @@ html[data-dashboard-theme='flower'] .aw-navbar .brand-logo {
 html[data-dashboard-theme='flower'] .form-control,
 html[data-dashboard-theme='flower'] .custom-select,
 html[data-dashboard-theme='flower'] select,
-html[data-dashboard-theme='flower'] textarea {
+html[data-dashboard-theme='flower'] textarea,
+html[data-dashboard-theme='flower'] .input-group-text {
   background-color: rgba(255, 253, 245, 0.96) !important;
   border-color: rgba(30, 64, 110, 0.42) !important;
   color: #0b1f35 !important;
 }
 
+/* The dark style's alerts are dark; the light styles have dark text, so they get light tints. */
+html[data-dashboard-theme='bright'] .alert,
+html[data-dashboard-theme='bright'] .alert a {
+  color: #0f172a !important;
+}
+
+html[data-dashboard-theme='flower'] .alert,
+html[data-dashboard-theme='flower'] .alert a {
+  color: #0b1f35 !important;
+}
+
+html[data-dashboard-theme='bright'] .alert-success,
+html[data-dashboard-theme='flower'] .alert-success {
+  background-color: #d1fae5 !important;
+  border-color: #6ee7b7 !important;
+}
+
+html[data-dashboard-theme='bright'] .alert-info,
+html[data-dashboard-theme='flower'] .alert-info {
+  background-color: #dbeafe !important;
+  border-color: #93c5fd !important;
+}
+
+html[data-dashboard-theme='bright'] .alert-warning,
+html[data-dashboard-theme='flower'] .alert-warning {
+  background-color: #fef3c7 !important;
+  border-color: #fcd34d !important;
+}
+
+html[data-dashboard-theme='bright'] .alert-danger,
+html[data-dashboard-theme='flower'] .alert-danger {
+  background-color: #ffe4e6 !important;
+  border-color: #fda4af !important;
+}
+
 html[data-dashboard-theme='flower'] .btn-primary {
-  border-color: #10b981 !important;
-  background-color: #10b981 !important;
+  border-color: #047857 !important;
+  background-color: #047857 !important;
   color: #ffffff !important;
 }
 
@@ -367,6 +403,7 @@ html[data-dashboard-theme='flower'] .pomodoro-page h6 {
 }
 
 html[data-dashboard-theme='flower'] .text-muted,
+html[data-dashboard-theme='flower'] .todos-page .section-label,
 html[data-dashboard-theme='flower'] .todo-card-meta,
 html[data-dashboard-theme='flower'] .todo-card-notes,
 html[data-dashboard-theme='flower'] .todo-frog-copy,
@@ -508,15 +545,15 @@ html[data-dashboard-theme='flower'] .todo-check-button--mini {
 
 html[data-dashboard-theme='flower'] .todo-check-button:hover,
 html[data-dashboard-theme='flower'] .todo-check-button:focus {
-  border-color: #10b981 !important;
+  border-color: #047857 !important;
   background: #ecfdf5 !important;
   box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14) !important;
 }
 
 html[data-dashboard-theme='flower'] .todo-check-button--complete,
 html[data-dashboard-theme='flower'] .todo-check-button--done {
-  border-color: #10b981 !important;
-  background: #10b981 !important;
+  border-color: #047857 !important;
+  background: #047857 !important;
   color: #ffffff !important;
 }
 
@@ -549,8 +586,8 @@ html[data-dashboard-theme='flower'] .custom-control-label::after {
 }
 
 html[data-dashboard-theme='flower'] .custom-control-input:checked ~ .custom-control-label::before {
-  border-color: #10b981 !important;
-  background-color: #10b981 !important;
+  border-color: #047857 !important;
+  background-color: #047857 !important;
 }
 
 html[data-dashboard-theme='flower'] .custom-control-input:checked ~ .custom-control-label::after {
@@ -570,8 +607,8 @@ html[data-dashboard-theme='flower']
   .custom-switch
   .custom-control-input:checked
   ~ .custom-control-label::before {
-  background-color: #10b981 !important;
-  border-color: #10b981 !important;
+  background-color: #047857 !important;
+  border-color: #047857 !important;
 }
 
 html[data-dashboard-theme='flower'] .settings-nav .nav-link {
@@ -585,7 +622,7 @@ html[data-dashboard-theme='flower'] .settings-nav .nav-link:hover {
 
 html[data-dashboard-theme='flower'] .settings-nav .nav-link.active,
 html[data-dashboard-theme='flower'] .settings-nav .nav-link.active:hover {
-  background-color: #10b981 !important;
+  background-color: #047857 !important;
   color: #ffffff !important;
 }
 
@@ -605,7 +642,8 @@ html[data-dashboard-theme='flower'] .pomodoro-bloom {
 html[data-dashboard-theme='flower'] .pomodoro-kicker,
 html[data-dashboard-theme='flower'] .pomodoro-distraction-copy strong,
 html[data-dashboard-theme='flower'] .pomodoro-next-card--break strong {
-  color: #db2777 !important;
+  /* Dark enough to stay readable on the frosted glass over the darker pictures. */
+  color: #9d174d !important;
 }
 
 html[data-dashboard-theme='flower'] .pomodoro-distraction-icon {
@@ -1524,7 +1562,8 @@ html[data-dashboard-theme='bright']
 html[data-dashboard-theme='bright'] .form-control,
 html[data-dashboard-theme='bright'] .custom-select,
 html[data-dashboard-theme='bright'] select,
-html[data-dashboard-theme='bright'] textarea {
+html[data-dashboard-theme='bright'] textarea,
+html[data-dashboard-theme='bright'] .input-group-text {
   background-color: #ffffff !important;
   border-color: rgba(100, 116, 139, 0.42) !important;
   color: #0f172a !important;
@@ -2777,9 +2816,9 @@ html[data-dashboard-theme='flower'] .todos-page .todo-calendar-scroll::-webkit-s
 
 :root[data-dashboard-theme='flower'] body {
   background: linear-gradient(rgba(255, 252, 247, 0.04), rgba(255, 247, 245, 0.1)),
-    var(--focusfrog-flower-bg, url('/focusfrog-flower-clean-bg-v2.webp')) center center / cover
-      no-repeat fixed,
-    #fff8f3 !important;
+    var(--focusfrog-flower-bg, url('/focusfrog-flower-clean-bg-v2.webp')) center center /
+      var(--focusfrog-flower-size, cover) var(--focusfrog-flower-repeat, no-repeat) fixed,
+    var(--focusfrog-flower-color, #fff8f3) !important;
 }
 
 :root[data-dashboard-theme='flower'] .aw-navbar {
@@ -2844,4 +2883,77 @@ html[data-dashboard-theme='flower'] .todos-page .todo-calendar-scroll::-webkit-s
 :root[data-dashboard-theme='flower'] .cal-head-row {
   border-color: rgba(255, 255, 255, 0.7) !important;
   background: var(--ff-glass-item) !important;
+}
+
+/* Black flower: the contrast style's dark colours, with the flower pictures behind smoked
+   glass. The page has data-dashboard-theme="contrast" and the ff-black-flower class
+   (util/focusFrogTheme.ts). --focusfrog-flower-shade dims each picture so light text stays
+   readable (util/flowerBackgrounds.ts). The selectors name both, so they win over the
+   contrast style here and in the page styles. */
+:root[data-dashboard-theme='contrast'].ff-black-flower {
+  --ff-smoke-sheet: rgba(6, 9, 14, 0.56);
+  --ff-smoke-panel: rgba(14, 21, 31, 0.74);
+  --ff-smoke-item: rgba(20, 30, 43, 0.82);
+  --ff-smoke-edge: rgba(148, 163, 184, 0.26);
+  background: transparent !important;
+}
+
+:root[data-dashboard-theme='contrast'].ff-black-flower body {
+  background: linear-gradient(
+      rgba(4, 6, 9, var(--focusfrog-flower-shade, 0.5)),
+      rgba(4, 6, 9, var(--focusfrog-flower-shade, 0.5))
+    ),
+    var(--focusfrog-flower-bg, url('/focusfrog-flower-clean-bg-v2.webp')) center center /
+      var(--focusfrog-flower-size, cover) var(--focusfrog-flower-repeat, no-repeat) fixed,
+    var(--focusfrog-flower-color, #040609) !important;
+}
+
+:root[data-dashboard-theme='contrast'].ff-black-flower .aw-navbar {
+  border-color: var(--ff-smoke-edge) !important;
+  background: rgba(6, 9, 14, 0.74) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+  backdrop-filter: blur(24px) saturate(1.4);
+}
+
+:root[data-dashboard-theme='contrast'].ff-black-flower .aw-container,
+:root[data-dashboard-theme='contrast'].ff-black-flower .aw-container:has(.todos-page),
+:root[data-dashboard-theme='contrast'].ff-black-flower .aw-container:has(.vision-board-page) {
+  border: 1px solid var(--ff-smoke-edge) !important;
+  background: var(--ff-smoke-sheet) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(18px) saturate(1.3);
+}
+
+/* Page wrappers that paint their own wash let the smoked sheet show. */
+:root[data-dashboard-theme='contrast'].ff-black-flower .time-dashboard,
+:root[data-dashboard-theme='contrast'].ff-black-flower .pomodoro-page {
+  background: transparent !important;
+  backdrop-filter: none !important;
+}
+
+:root[data-dashboard-theme='contrast'].ff-black-flower .metric-tile,
+:root[data-dashboard-theme='contrast'].ff-black-flower .balance-section,
+:root[data-dashboard-theme='contrast'].ff-black-flower .chart-section,
+:root[data-dashboard-theme='contrast'].ff-black-flower .timeline-section,
+:root[data-dashboard-theme='contrast'].ff-black-flower .todos-page .todo-section,
+:root[data-dashboard-theme='contrast'].ff-black-flower .todos-page .todo-plan-view,
+:root[data-dashboard-theme='contrast'].ff-black-flower .todos-page .todo-calendar-view,
+:root[data-dashboard-theme='contrast'].ff-black-flower .todos-page .todo-matrix-view,
+:root[data-dashboard-theme='contrast'].ff-black-flower .pomodoro-card,
+:root[data-dashboard-theme='contrast'].ff-black-flower .pomodoro-next-card,
+:root[data-dashboard-theme='contrast'].ff-black-flower .cal-panel,
+:root[data-dashboard-theme='contrast'].ff-black-flower .vision-board-header,
+:root[data-dashboard-theme='contrast'].ff-black-flower .vision-filter-list,
+:root[data-dashboard-theme='contrast'].ff-black-flower .vision-empty,
+:root[data-dashboard-theme='contrast'].ff-black-flower .vision-no-results {
+  border-color: var(--ff-smoke-edge) !important;
+  background: var(--ff-smoke-panel) !important;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28) !important;
+  backdrop-filter: blur(14px) saturate(1.2);
+}
+
+/* The calendar's sticky header and hour rail stay solid enough to read over moving rows. */
+:root[data-dashboard-theme='contrast'].ff-black-flower .cal-head-row,
+:root[data-dashboard-theme='contrast'].ff-black-flower .cal-rail {
+  background: var(--ff-smoke-item) !important;
 }

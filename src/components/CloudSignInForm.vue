@@ -144,4 +144,13 @@ export default {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* On the dark panel of the contrast style (CloudAccount.vue). */
+html[data-dashboard-theme='contrast'] .cloud-signin-link {
+  color: #cbd5e1 !important;
+}
+
+html[data-dashboard-theme='contrast'] .cloud-signin-error {
+  color: #fca5a5 !important;
+}
 </style>

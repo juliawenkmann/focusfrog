@@ -1,6 +1,15 @@
 import moment from 'moment';
 
+// The fixed categories blocks had before they took projects. Still kept on each block, so
+// older copies of the app can read new blocks; nothing shows them any more.
 export type TimeBlockType = 'work' | 'deep-work' | 'email-admin' | 'life' | 'break';
+export const TIME_BLOCK_TYPES: TimeBlockType[] = [
+  'work',
+  'deep-work',
+  'email-admin',
+  'life',
+  'break',
+];
 export type RepeatRule = 'none' | 'daily' | 'weekdays' | 'weekly' | 'biweekly' | 'monthly';
 
 export interface TimeBlock {
@@ -19,6 +28,9 @@ export interface TimeBlock {
   skipDates: string[];
   // The todo this block was planned from (only set on such blocks).
   todoId?: string;
+  // The project picked for the block ('' for none). Unset on blocks planned from a todo
+  // and never given one: they take their todo's project (see blockProjectId).
+  projectId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -137,13 +149,18 @@ export function occurrencesForDates(blocks: TimeBlock[], dates: string[]): Block
   return occurrences;
 }
 
-// Places overlapping events of one day side by side, like most calendar apps.
-export function layoutDay(occurrences: BlockOccurrence[]): PositionedOccurrence[] {
+type Positioned<T> = T & { column: number; columns: number };
+
+// Places overlapping events of one day side by side, like most calendar apps. Blocks and the
+// Mac's calendar entries share the columns.
+export function layoutDay<T extends { startMinute: number; endMinute: number }>(
+  occurrences: T[]
+): Positioned<T>[] {
   const sorted = [...occurrences].sort(
     (a, b) => a.startMinute - b.startMinute || b.endMinute - a.endMinute
   );
-  const positioned: PositionedOccurrence[] = [];
-  let cluster: PositionedOccurrence[] = [];
+  const positioned: Positioned<T>[] = [];
+  let cluster: Positioned<T>[] = [];
   let clusterEnd = -1;
   let columnEnds: number[] = [];
 

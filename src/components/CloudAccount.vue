@@ -202,4 +202,35 @@ export default {
 .cloud-account-status[data-state='synced'] {
   color: #047857;
 }
+
+/* dark.css gives every button light text, and in the contrast style all text: the lock and
+   the panel are dark there, and keep their dark text in the bright style. */
+html[data-dashboard-theme='bright'] .cloud-account-toggle,
+html[data-dashboard-theme='bright'] .cloud-account-close {
+  color: #102033 !important;
+}
+
+html[data-dashboard-theme='contrast'] .cloud-account-toggle {
+  border-color: var(--ff-dark-border);
+  background: var(--ff-dark-surface-2);
+}
+
+html[data-dashboard-theme='contrast'] .cloud-account-dot {
+  border-color: var(--ff-dark-surface-2);
+}
+
+html[data-dashboard-theme='contrast'] .cloud-account-panel {
+  border-color: var(--ff-dark-border);
+  background: var(--ff-dark-surface-2);
+  color: var(--ff-dark-text);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+}
+
+html[data-dashboard-theme='contrast'] .cloud-account-status[data-state='synced'] {
+  color: var(--ff-dark-green) !important;
+}
+
+html[data-dashboard-theme='contrast'] .cloud-account-emulator {
+  color: #92400e !important;
+}
 </style>

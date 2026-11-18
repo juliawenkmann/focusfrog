@@ -1,6 +1,8 @@
 import type { TimeBlock } from '../../src/util/calendarBlocks';
 import {
+  blockProjectId,
   firstFreeSlot,
+  isWorkArea,
   nextFreeSlot,
   nextScheduled,
   normalizePlannableTodos,
@@ -8,7 +10,6 @@ import {
   PLANNING_DAY_START,
   scheduledLabel,
   slotSearchStart,
-  todoBlockType,
 } from '../../src/util/todoPlanning';
 
 const todo = (id: string, extra: Record<string, unknown> = {}) => ({
@@ -78,13 +79,41 @@ describe('categories of todos to plan', () => {
   });
 });
 
-describe('the block a todo becomes', () => {
-  test('work stays work, admin is email and admin, the rest is life', () => {
-    expect(todoBlockType('work')).toBe('work');
-    expect(todoBlockType('')).toBe('work');
-    expect(todoBlockType('admin')).toBe('email-admin');
-    expect(todoBlockType('health')).toBe('life');
-    expect(todoBlockType('home')).toBe('life');
+describe('work todos', () => {
+  test('work and admin are work, the other areas are not', () => {
+    expect(isWorkArea('work')).toBe(true);
+    expect(isWorkArea('')).toBe(true);
+    expect(isWorkArea('admin')).toBe(true);
+    expect(isWorkArea('health')).toBe(false);
+    expect(isWorkArea('home')).toBe(false);
+    expect(isWorkArea('personal')).toBe(false);
+  });
+});
+
+describe("a block's project", () => {
+  const projects = new Set(['p-thesis', 'p-frog']);
+  const todos = { t1: { projectId: 'p-frog' }, t2: { projectId: '' } };
+
+  test('the project picked for the block', () => {
+    expect(blockProjectId({ projectId: 'p-thesis' }, todos, projects)).toBe('p-thesis');
+  });
+
+  test("a block from a todo, never given a project, follows its todo's", () => {
+    expect(blockProjectId({ todoId: 't1' }, todos, projects)).toBe('p-frog');
+    expect(blockProjectId({ todoId: 't2' }, todos, projects)).toBe('');
+    expect(blockProjectId({ todoId: 'gone' }, todos, projects)).toBe('');
+  });
+
+  test("a project picked for a todo's block wins, also none", () => {
+    expect(blockProjectId({ todoId: 't1', projectId: 'p-thesis' }, todos, projects)).toBe(
+      'p-thesis'
+    );
+    expect(blockProjectId({ todoId: 't1', projectId: '' }, todos, projects)).toBe('');
+  });
+
+  test('no project, or one that was deleted, is the Inbox', () => {
+    expect(blockProjectId({}, todos, projects)).toBe('');
+    expect(blockProjectId({ projectId: 'p-deleted' }, todos, projects)).toBe('');
   });
 });
 

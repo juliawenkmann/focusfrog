@@ -1,7 +1,7 @@
 // Planning todos into the Time blocking calendar: which todos to offer, in which
 // categories, and where a new block fits. Pure functions, so they can be tested alone.
 import moment from 'moment';
-import type { TimeBlock, TimeBlockType } from '~/util/calendarBlocks';
+import type { TimeBlock } from '~/util/calendarBlocks';
 import type { TodoProject } from '~/util/todoProjects';
 import { INBOX_PROJECT_COLOR } from '~/util/todoProjects';
 
@@ -49,10 +49,24 @@ export function normalizePlannableTodos(value: unknown): PlannableTodo[] {
     }));
 }
 
-// Work stays work, admin is email and admin, everything else is life.
-export function todoBlockType(area: string): TimeBlockType {
-  if (area === 'admin') return 'email-admin';
-  return !area || area === 'work' ? 'work' : 'life';
+// Work and admin todos are work: they are not put on weekends or Feiertage.
+export function isWorkArea(area: string): boolean {
+  return !area || area === 'work' || area === 'admin';
+}
+
+// A block's project: the one picked for it, else (a block planned from a todo and never
+// given one) its todo's, so it follows the todo to another project. '' is no project, also
+// when the project was deleted.
+export function blockProjectId(
+  block: Pick<TimeBlock, 'projectId' | 'todoId'>,
+  todosById: Record<string, Pick<PlannableTodo, 'projectId'>>,
+  projectIds: Set<string>
+): string {
+  const id =
+    typeof block.projectId === 'string'
+      ? block.projectId
+      : (block.todoId && todosById[block.todoId]?.projectId) || '';
+  return projectIds.has(id) ? id : '';
 }
 
 // Due first (soonest first), then the rest, each by title.

@@ -53,6 +53,7 @@ div.focusfrog-widget.time-dashboard(:class="dashboardThemeClass")
 </template>
 
 <script lang="ts">
+import { pageTheme } from '~/util/focusFrogTheme';
 import moment from 'moment';
 import { getClient } from '~/util/awclient';
 import { useBucketsStore } from '~/stores/buckets';
@@ -127,8 +128,7 @@ export default {
   },
   computed: {
     dashboardThemeClass(): string {
-      const theme = this.settingsStore.focusFrogTheme;
-      return `theme-${theme === 'contrast' || theme === 'flower' ? theme : 'bright'}`;
+      return `theme-${pageTheme(this.settingsStore.focusFrogTheme)}`;
     },
     noSupportedHosts(): boolean {
       return this.supportedHosts.length === 0;

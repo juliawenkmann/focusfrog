@@ -13,6 +13,8 @@ import { SavedQuery } from '~/util/savedQueries';
 import { View, defaultViews } from '~/stores/views';
 import type { PrivacyFilterRule } from '~/util/privacyFilters';
 import { DEFAULT_FLOWER_BACKGROUND, normalizeFlowerBackground } from '~/util/flowerBackgrounds';
+import { normalizeFocusFrogTheme } from '~/util/focusFrogTheme';
+import type { FocusFrogTheme } from '~/util/focusFrogTheme';
 import { HolidayChoices, NO_HOLIDAY_CHOICES, normalizeHolidayChoices } from '~/util/timeOff';
 import { onOwnerSignIn } from '~/sync/cloud';
 import { IS_CLOUD_BUILD } from '~/sync/config';
@@ -27,11 +29,7 @@ function jsonEq(a: any, b: any) {
 
 let settingsLoadPromise: Promise<void> | null = null;
 
-export type FocusFrogTheme = 'bright' | 'contrast' | 'flower';
-
-function normalizeFocusFrogTheme(theme: unknown): FocusFrogTheme {
-  return theme === 'contrast' || theme === 'flower' ? theme : 'bright';
-}
+export type { FocusFrogTheme };
 
 const LEGACY_THEME_KEYS = ['timetracker.dashboardTheme', 'dayBloomTheme'];
 // Settings of removed pages (the Timeline view used `durationDefault`).

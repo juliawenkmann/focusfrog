@@ -20,7 +20,11 @@ div.app-header(:class="{'fixed-top-padding': fixedTopMenu}")
           :aria-label="option.title"
           @click="setFocusFrogTheme(option.value)"
         )
-          span.theme-flower-symbol(v-if="option.value === 'flower'" aria-hidden="true")
+          span.theme-flower-symbol(
+            v-if="option.value === 'flower' || option.value === 'blackflower'"
+            :class="{ 'theme-flower-symbol--black': option.value === 'blackflower' }"
+            aria-hidden="true"
+          )
             span.theme-flower-petal.theme-flower-petal--1
             span.theme-flower-petal.theme-flower-petal--2
             span.theme-flower-petal.theme-flower-petal--3
@@ -91,6 +95,11 @@ import CloudAccount from '~/components/CloudAccount.vue';
 import { IS_CLOUD_BUILD } from '~/sync/config';
 import { useSettingsStore } from '~/stores/settings';
 import { applyFlowerBackground, nextFlowerBackground } from '~/util/flowerBackgrounds';
+import {
+  applyFocusFrogTheme,
+  normalizeFocusFrogTheme,
+  showsFlowerPictures,
+} from '~/util/focusFrogTheme';
 
 export default {
   name: 'Header',
@@ -133,6 +142,15 @@ export default {
               ? 'Show another flower background'
               : 'Use the nostalgic flower FocusFrog style',
         },
+        {
+          value: 'blackflower',
+          text: 'Black flower',
+          icon: '',
+          title:
+            this.focusFrogTheme === 'blackflower'
+              ? 'Show another black flower background'
+              : 'Use the dark black flower FocusFrog style',
+        },
       ];
     },
   },
@@ -150,16 +168,13 @@ export default {
   },
   methods: {
     applyFocusFrogTheme(theme) {
-      if (typeof document === 'undefined') return;
-      document.documentElement.dataset.dashboardTheme =
-        theme === 'contrast' ? 'contrast' : theme === 'flower' ? 'flower' : 'bright';
+      applyFocusFrogTheme(theme);
     },
     async setFocusFrogTheme(theme) {
-      const nextTheme =
-        theme === 'contrast' ? 'contrast' : theme === 'flower' ? 'flower' : 'bright';
+      const nextTheme = normalizeFocusFrogTheme(theme);
       this.applyFocusFrogTheme(nextTheme);
-      // Every click on the flower button brings a new background.
-      if (nextTheme === 'flower') {
+      // Every click on a flower button (light or black) brings a new background.
+      if (showsFlowerPictures(nextTheme)) {
         const background = nextFlowerBackground(this.focusFrogFlowerBackground);
         applyFlowerBackground(background);
         await useSettingsStore().update({
@@ -356,6 +371,17 @@ export default {
   background: #fffdf4;
   box-shadow: inset 0 0 0 1px rgba(30, 64, 110, 0.28);
   transform: translate(-50%, -50%);
+}
+
+// Black flower: dark petals with a light edge, so they show on dark and light buttons.
+.theme-flower-symbol--black .theme-flower-petal {
+  border-color: rgba(226, 232, 240, 0.7);
+  background: linear-gradient(180deg, #334155, #020617);
+}
+
+.theme-flower-symbol--black .theme-flower-center {
+  background: #f472b6;
+  box-shadow: inset 0 0 0 1px rgba(2, 6, 23, 0.4);
 }
 
 @media (max-width: 991.98px) {
@@ -587,8 +613,8 @@ html[data-dashboard-theme='flower'] .aw-navbar .brand-logo {
 }
 
 html[data-dashboard-theme='flower'] .btn-primary {
-  border-color: #10b981 !important;
-  background-color: #10b981 !important;
+  border-color: #047857 !important;
+  background-color: #047857 !important;
   color: #ffffff !important;
 }
 
@@ -696,15 +722,15 @@ html[data-dashboard-theme='flower'] .todo-check-button--mini {
 
 html[data-dashboard-theme='flower'] .todo-check-button:hover,
 html[data-dashboard-theme='flower'] .todo-check-button:focus {
-  border-color: #10b981 !important;
+  border-color: #047857 !important;
   background: #ecfdf5 !important;
   box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14) !important;
 }
 
 html[data-dashboard-theme='flower'] .todo-check-button--complete,
 html[data-dashboard-theme='flower'] .todo-check-button--done {
-  border-color: #10b981 !important;
-  background: #10b981 !important;
+  border-color: #047857 !important;
+  background: #047857 !important;
   color: #ffffff !important;
 }
 
@@ -731,8 +757,8 @@ html[data-dashboard-theme='flower'] .custom-control-label::after {
 }
 
 html[data-dashboard-theme='flower'] .custom-control-input:checked ~ .custom-control-label::before {
-  border-color: #10b981 !important;
-  background-color: #10b981 !important;
+  border-color: #047857 !important;
+  background-color: #047857 !important;
 }
 
 html[data-dashboard-theme='flower'] .custom-control-input:focus ~ .custom-control-label::before {
@@ -748,8 +774,8 @@ html[data-dashboard-theme='flower']
   .custom-switch
   .custom-control-input:checked
   ~ .custom-control-label::before {
-  background-color: #10b981 !important;
-  border-color: #10b981 !important;
+  background-color: #047857 !important;
+  border-color: #047857 !important;
 }
 
 html[data-dashboard-theme='flower'] .settings-nav .nav-link {
@@ -763,7 +789,7 @@ html[data-dashboard-theme='flower'] .settings-nav .nav-link:hover {
 
 html[data-dashboard-theme='flower'] .settings-nav .nav-link.active,
 html[data-dashboard-theme='flower'] .settings-nav .nav-link.active:hover {
-  background-color: #10b981 !important;
+  background-color: #047857 !important;
   color: #ffffff !important;
 }
 

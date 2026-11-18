@@ -46,6 +46,7 @@ mkdir -p "$RESOURCES_DIR/tracking"
 cp "$ROOT_DIR"/scripts/tracking/*.mjs "$RESOURCES_DIR/tracking/"
 rm -f "$RESOURCES_DIR"/tracking/*.test.mjs
 bash "$ROOT_DIR/scripts/build-macos-tracker.sh" "$RESOURCES_DIR"
+bash "$ROOT_DIR/scripts/build-macos-calendar.sh" "$RESOURCES_DIR"
 
 sips -z 16 16 "$ICON_SRC" --out "$ICONSET_DIR/icon_16x16.png" >/dev/null
 sips -z 32 32 "$ICON_SRC" --out "$ICONSET_DIR/icon_16x16@2x.png" >/dev/null
@@ -130,6 +131,13 @@ BUNDLED_TRACKER="$RESOURCES_DIR/FocusFrog Tracker.app"
 TRACKER_APP="$SUPPORT_DIR/FocusFrog Tracker.app"
 TRACKER_LABEL="dev.focusfrog.tracker"
 TRACKER_PLIST="$HOME/Library/LaunchAgents/${TRACKER_LABEL}.plist"
+# The calendar helper too, for its Calendars permission; it has its own app so the
+# tracker is never replaced because of it.
+BUNDLED_CALENDAR="$RESOURCES_DIR/FocusFrog Calendar.app"
+CALENDAR_APP="$SUPPORT_DIR/FocusFrog Calendar.app"
+CALENDAR_LABEL="dev.focusfrog.calendar"
+CALENDAR_PLIST="$HOME/Library/LaunchAgents/${CALENDAR_LABEL}.plist"
+CALENDAR_LOG="$LOG_DIR/focusfrog-calendar.log"
 AW_DATA_DIR="$HOME/Library/Application Support/activitywatch/aw-server"
 
 export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.local/bin:$HOME/miniconda3/bin:$PATH"
@@ -159,7 +167,7 @@ focusfrog_server_current() {
   api_version="$(printf '%s' "$health" | /usr/bin/plutil -extract apiVersion raw -o - - 2>/dev/null)" || return 1
   native="$(printf '%s' "$health" | /usr/bin/plutil -extract capabilities.nativeTracking raw -o - - 2>/dev/null)" || return 1
   current_dist="$(printf '%s' "$health" | /usr/bin/plutil -extract distDir raw -o - - 2>/dev/null)" || return 1
-  [[ "$app" == "FocusFrog" && "$api_version" == "3" && "$native" == "true" && "$current_dist" == "$RESOURCES_DIR/webui" ]]
+  [[ "$app" == "FocusFrog" && "$api_version" == "4" && "$native" == "true" && "$current_dist" == "$RESOURCES_DIR/webui" ]]
 }
 
 load_agent() {
@@ -287,6 +295,56 @@ PLIST
   else
     rm -f "$TRACKER_PLIST.new"
   fi
+fi
+
+# Reads the Mac's calendars for Time blocking. The first time, macOS asks for access.
+if [[ -d "$BUNDLED_CALENDAR" ]]; then
+  CALENDAR_CHANGED=0
+  if [[ ! -d "$CALENDAR_APP" ]] || ! /usr/bin/cmp -s \
+    "$BUNDLED_CALENDAR/Contents/Resources/source.sha256" "$CALENDAR_APP/Contents/Resources/source.sha256"; then
+    rm -rf "$CALENDAR_APP"
+    /usr/bin/ditto "$BUNDLED_CALENDAR" "$CALENDAR_APP"
+    CALENDAR_CHANGED=1
+  fi
+
+  CALENDAR_BIN="$CALENDAR_APP/Contents/MacOS/FocusFrogCalendar"
+  cat > "$CALENDAR_PLIST.new" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$(xml_escape "$CALENDAR_LABEL")</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$(xml_escape "$CALENDAR_BIN")</string>
+    <string>http://127.0.0.1:$(xml_escape "$PORT")</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ProcessType</key>
+  <string>Interactive</string>
+  <key>StandardOutPath</key>
+  <string>$(xml_escape "$CALENDAR_LOG")</string>
+  <key>StandardErrorPath</key>
+  <string>$(xml_escape "$CALENDAR_LOG")</string>
+</dict>
+</plist>
+PLIST
+  if (( CALENDAR_CHANGED )) || ! /usr/bin/cmp -s "$CALENDAR_PLIST.new" "$CALENDAR_PLIST" \
+    || ! /bin/launchctl print "gui/$(id -u)/$CALENDAR_LABEL" >/dev/null 2>&1; then
+    mv "$CALENDAR_PLIST.new" "$CALENDAR_PLIST"
+    load_agent "$CALENDAR_PLIST" "$CALENDAR_LABEL"
+  else
+    rm -f "$CALENDAR_PLIST.new"
+  fi
+elif [[ -f "$CALENDAR_PLIST" ]]; then
+  # A FocusFrog without the helper: stop one an earlier version installed.
+  /bin/launchctl bootout "gui/$(id -u)" "$CALENDAR_PLIST" >/dev/null 2>&1 || true
+  rm -f "$CALENDAR_PLIST"
 fi
 
 /usr/bin/open "$FOCUSFROG_URL"

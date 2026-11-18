@@ -639,10 +639,9 @@ div.todos-page
               div
                 div.section-label Choose
                 h5.mb-0 Available todos
-              span.todo-count(v-if="!isCloudBuild") {{ planCandidateTodos.length }}
-              //- On the phone the list starts hidden, so the day plan fits on the screen.
+              //- The list starts hidden, with the page as narrow as Hours; opening it widens
+              //- the page (pageLayout) so the plan and the list fit side by side.
               button.todo-available-toggle(
-                v-else
                 type="button"
                 :aria-expanded="showAvailableTodos ? 'true' : 'false'"
                 @click="showAvailableTodos = !showAvailableTodos"
@@ -931,6 +930,7 @@ import {
   nextProjectColor,
   normalizeTodoProjects,
   ProjectProgressShare,
+  projectNamed,
   projectProgressShares,
   projectTint,
   TodoProject,
@@ -938,6 +938,7 @@ import {
 } from '~/util/todoProjects';
 import { IS_CLOUD_BUILD } from '~/sync/config';
 import { loadStoredValue, onStoredValueChange, saveStoredValue } from '~/util/focusfrogStorage';
+import { pageLayout } from '~/util/pageLayout';
 
 type RepeatRule = 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'custom';
 type TodoArea = 'work' | 'personal' | 'health' | 'home' | 'admin';
@@ -1097,7 +1098,7 @@ export default {
   data() {
     return {
       isCloudBuild: IS_CLOUD_BUILD,
-      showAvailableTodos: !IS_CLOUD_BUILD,
+      showAvailableTodos: false,
       todos: [] as TodoItem[],
       projects: [] as TodoProject[],
       activeProjectFilter: 'all',
@@ -1178,6 +1179,9 @@ export default {
     };
   },
   computed: {
+    wantsWidePage(): boolean {
+      return this.viewMode === 'plan' && this.showAvailableTodos;
+    },
     areaOptions() {
       return Object.entries(AREA_CONFIG).map(([value, config]) => ({
         value,
@@ -1544,6 +1548,13 @@ export default {
     },
   },
   watch: {
+    // The page is as narrow as Hours, and wide while the day plan shows the available todos.
+    wantsWidePage: {
+      immediate: true,
+      handler(wide: boolean) {
+        pageLayout.wide = wide;
+      },
+    },
     projectMenuTodo(todo) {
       if (!todo && this.projectMenuTodoId) this.closeProjectMenu();
     },
@@ -1590,6 +1601,7 @@ export default {
     ].forEach(stop => this.$once('hook:beforeDestroy', stop));
   },
   beforeDestroy() {
+    pageLayout.wide = false;
     this.closeProjectMenu();
     const menu = this.$refs.projectMenu as HTMLElement | undefined;
     menu?.parentNode?.removeChild(menu);
@@ -1663,22 +1675,15 @@ export default {
       }
     },
     createProject(name: string, color: string): TodoProject | null {
-      const cleanedName = cleanProjectName(name);
-      if (!cleanedName) return null;
-      const existing = findProjectByName(this.projects, cleanedName);
-      if (existing) return existing;
-
-      const now = moment().toISOString();
-      const project: TodoProject = {
-        id: `project-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        name: cleanedName,
-        color: isProjectColor(color) ? color : nextProjectColor(this.projects),
-        createdAt: now,
-        updatedAt: now,
-      };
-      this.projects = [...this.projects, project].sort((a, b) => a.name.localeCompare(b.name));
-      this.saveProjects();
-      return project;
+      const result = projectNamed(this.projects, name, color, moment().toISOString());
+      if (!result) return null;
+      if (result.created) {
+        this.projects = [...this.projects, result.project].sort((a, b) =>
+          a.name.localeCompare(b.name)
+        );
+        this.saveProjects();
+      }
+      return result.project;
     },
     createProjectFromBrowser() {
       const project = this.createProject(this.newProjectName, this.newProjectColor);
@@ -3377,7 +3382,7 @@ html[data-dashboard-theme='flower'] .todo-done-counter {
 
 html[data-dashboard-theme='flower'] .todo-done-counter strong,
 html[data-dashboard-theme='flower'] .todo-done-counter .fa-icon {
-  color: #10b981;
+  color: #047857;
 }
 
 html[data-dashboard-theme='flower'] .todo-done-counter-today {
@@ -3908,7 +3913,7 @@ html[data-dashboard-theme='bright'] .todo-project-tag--button {
 
 html[data-dashboard-theme='bright'] .todo-plan-filter-chip--idle,
 html[data-dashboard-theme='bright'] .todo-project-tag--empty {
-  color: #94a3b8 !important;
+  color: #7c8ba1 !important;
 }
 
 html[data-dashboard-theme='bright'] .todo-project-pill--active {
@@ -5384,6 +5389,17 @@ html[data-dashboard-theme='contrast'] .todo-plan-choice-group-header {
   color: #334155;
   font-size: 0.8rem;
   font-weight: 800;
+}
+
+/* dark.css gives every button light text, which vanished on the white pill. */
+html[data-dashboard-theme='bright'] .todo-available-toggle {
+  color: #334155 !important;
+}
+
+html[data-dashboard-theme='contrast'] .todo-available-toggle {
+  border-color: var(--ff-dark-border);
+  background: var(--ff-dark-surface-2);
+  color: var(--ff-dark-text) !important;
 }
 
 /* The phone: compact rows, so a screen shows many todos instead of a few. Only the

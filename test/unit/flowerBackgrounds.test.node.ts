@@ -15,6 +15,22 @@ describe('flower backgrounds', () => {
     }
   });
 
+  test('every picture says how much to frost it (flower) and dim it (black flower)', () => {
+    for (const background of FLOWER_BACKGROUNDS) {
+      expect(background.veil).toBeGreaterThan(0);
+      expect(background.veil).toBeLessThan(1);
+      expect(background.shade).toBeGreaterThan(0);
+      expect(background.shade).toBeLessThan(1);
+    }
+  });
+
+  test('has the frog pictures', () => {
+    const ids = FLOWER_BACKGROUNDS.map(background => background.id);
+    expect(ids).toEqual(
+      expect.arrayContaining(['frog-nouveau', 'frog-silhouettes', 'glass-frogs'])
+    );
+  });
+
   test('keeps the original roses as the default', () => {
     expect(DEFAULT_FLOWER_BACKGROUND).toBe('roses');
     expect(normalizeFlowerBackground('unknown')).toBe('roses');

@@ -199,10 +199,11 @@ function serveHealth(res) {
     JSON.stringify({
       ok: true,
       app: 'FocusFrog',
-      apiVersion: 3,
+      apiVersion: 4,
       pid: process.pid,
       capabilities: {
         visionBoardImages: true,
+        calendar: true,
         nativeTracking: Boolean(nativeApi),
       },
       tracking: trackingMode,
@@ -375,7 +376,13 @@ function isBridgeRead(method, pathname) {
   const route = pathname.replace(/\/+$/, '');
   if (method === 'POST') return route === '/api/0/query';
   if (method !== 'GET') return false;
-  return ['/focusfrog-healthz', '/api/0/settings', '/api/0/buckets'].includes(route);
+  return [
+    '/focusfrog-healthz',
+    '/api/0/settings',
+    '/api/0/buckets',
+    // This Mac's calendar entries, shown in Time blocking on this Mac only.
+    '/focusfrog-calendar',
+  ].includes(route);
 }
 
 // Answers what the hosted FocusFrog asks; true when the request has been answered here.
@@ -418,6 +425,124 @@ function handleBridgeRequest(req, res) {
   }
   for (const [name, value] of Object.entries(allow)) res.setHeader(name, value);
   return false;
+}
+
+// The calendars of this Mac, as FocusFrog Calendar (native/calendar) last read them. Only
+// kept in memory: Time blocking shows them, but they are never stored or synced.
+const calendarMaxBytes = 32 * 1024 * 1024;
+const calendarDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+const calendarStatuses = new Set(['granted', 'denied', 'waiting']);
+let calendarSnapshot = null;
+
+const textField = (value, maxLength) => (typeof value === 'string' ? value.slice(0, maxLength) : '');
+
+function normalizeCalendarEntry(entry) {
+  if (!entry || typeof entry !== 'object') return null;
+  const allDay = entry.allDay === true;
+  const start = textField(entry.start, 40);
+  const end = textField(entry.end, 40);
+  const valid = allDay
+    ? calendarDatePattern.test(start) && calendarDatePattern.test(end) && start < end
+    : Number.isFinite(Date.parse(start)) && Number.isFinite(Date.parse(end));
+  const id = textField(entry.id, 300);
+  if (!valid || !id) return null;
+  return {
+    id,
+    calendarId: textField(entry.calendarId, 300),
+    title: textField(entry.title, 500),
+    location: textField(entry.location, 500),
+    start,
+    end,
+    allDay,
+    busy: entry.busy !== false,
+  };
+}
+
+function normalizeCalendarSnapshot(value) {
+  const status = calendarStatuses.has(value?.status) ? value.status : 'waiting';
+  const calendars = (Array.isArray(value?.calendars) ? value.calendars : [])
+    .filter(calendar => calendar && typeof calendar.id === 'string' && calendar.id)
+    .map(calendar => ({
+      id: textField(calendar.id, 300),
+      title: textField(calendar.title, 200),
+      color: /^#[0-9a-f]{6}$/i.test(calendar.color) ? calendar.color : '#64748b',
+      source: textField(calendar.source, 200),
+    }));
+  const events = (Array.isArray(value?.events) ? value.events : [])
+    .map(normalizeCalendarEntry)
+    .filter(Boolean);
+  return {
+    status,
+    updatedAt: textField(value?.updatedAt, 40),
+    from: calendarDatePattern.test(value?.from) ? value.from : '',
+    to: calendarDatePattern.test(value?.to) ? value.to : '',
+    calendars: status === 'granted' ? calendars : [],
+    events: status === 'granted' ? events : [],
+  };
+}
+
+// The first moment of a local date, in ms.
+function localDayStart(date) {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(year, month - 1, day).getTime();
+}
+
+// The entries that touch the days from `from` through `to` (local dates, both included).
+function calendarEntriesBetween(events, from, to) {
+  if (!calendarDatePattern.test(from) || !calendarDatePattern.test(to)) return events;
+  const afterTo = new Date(localDayStart(to));
+  afterTo.setDate(afterTo.getDate() + 1);
+  const toExclusive = afterTo.getTime();
+  const fromMs = localDayStart(from);
+  return events.filter(entry => {
+    const start = entry.allDay ? localDayStart(entry.start) : Date.parse(entry.start);
+    const end = entry.allDay ? localDayStart(entry.end) : Date.parse(entry.end);
+    return start < toExclusive && (end > fromMs || (end === start && start >= fromMs));
+  });
+}
+
+async function serveCalendar(req, res) {
+  if (req.method === 'POST') {
+    // Only the helper on this Mac sends entries: no page, not even FocusFrog's own.
+    if (!isAllowedLocalMutation(req) || req.headers.origin) {
+      sendJson(res, 403, { error: 'Calendar entries come from FocusFrog Calendar only' });
+      return;
+    }
+    try {
+      const buffer = await readRequestBuffer(req, calendarMaxBytes);
+      calendarSnapshot = normalizeCalendarSnapshot(JSON.parse(buffer.toString('utf8')));
+      sendJson(res, 200, { ok: true, events: calendarSnapshot.events.length });
+    } catch (error) {
+      const statusCode = Number(error?.statusCode) || 400;
+      sendJson(res, statusCode, { error: 'Could not read the calendar entries' });
+    }
+    return;
+  }
+
+  if (req.method !== 'GET') {
+    sendJson(res, 405, { error: 'Method not allowed' });
+    return;
+  }
+  let loopback = false;
+  try {
+    loopback = isLoopbackHostname(new URL(`http://${req.headers.host || ''}`).hostname);
+  } catch (_error) {
+    loopback = false;
+  }
+  if (!loopback) {
+    sendJson(res, 403, { error: 'Forbidden' });
+    return;
+  }
+  const url = new URL(req.url || '/', 'http://127.0.0.1');
+  const snapshot = calendarSnapshot || normalizeCalendarSnapshot(null);
+  sendJson(res, 200, {
+    ...snapshot,
+    events: calendarEntriesBetween(
+      snapshot.events,
+      url.searchParams.get('from') || '',
+      url.searchParams.get('to') || ''
+    ),
+  });
 }
 
 function detectVisionImageFormat(buffer) {
@@ -1163,6 +1288,10 @@ const server = http.createServer((req, res) => {
   }
   if (req.url?.startsWith('/focusfrog-vision-images')) {
     serveVisionImage(req, res);
+    return;
+  }
+  if (req.url === '/focusfrog-calendar' || req.url?.startsWith('/focusfrog-calendar?')) {
+    void serveCalendar(req, res);
     return;
   }
   if (req.url?.startsWith('/focusfrog-storage/')) {

@@ -2999,6 +2999,13 @@ html[data-dashboard-theme='contrast'] .vision-board-attention-count {
   color: #fef3c7 !important;
 }
 
+/* dark.css gives every button light text here, which vanished on the white chips. */
+html[data-dashboard-theme='contrast'] .vision-starter-prompts button {
+  border-color: rgba(52, 211, 153, 0.42);
+  background: rgba(15, 23, 42, 0.72);
+  color: #a7f3d0 !important;
+}
+
 html[data-dashboard-theme='contrast'] .vision-empty,
 html[data-dashboard-theme='contrast'] .vision-filter-list {
   border-color: rgba(148, 163, 184, 0.36);

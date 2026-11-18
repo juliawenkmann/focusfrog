@@ -93,4 +93,15 @@ export default {
   font-size: 0.8rem;
   font-weight: 700;
 }
+
+/* The contrast style makes all text light (dark.css): the card is dark there. */
+html[data-dashboard-theme='contrast'] .cloud-gate-card {
+  border-color: var(--ff-dark-border);
+  background: rgba(20, 30, 43, 0.92);
+  color: var(--ff-dark-text);
+}
+
+html[data-dashboard-theme='contrast'] .cloud-gate-lead {
+  color: #cbd5e1 !important;
+}
 </style>
