@@ -485,13 +485,26 @@ div.todos-page
               span.todo-plan-filter-count(
                 :class="{ 'todo-plan-filter-count--progress': option.done > 0, 'todo-plan-filter-count--complete': option.count > 0 && option.done === option.count }"
               ) {{ progressCountLabel(option.done, option.count) }}
-        div.todo-plan-layout
+        //- The available todos start hidden: the plan shows alone and the page is narrow.
+        //- Opening them adds their column and widens the page (pageLayout) to fit both.
+        div.todo-plan-layout(:class="{ 'todo-plan-layout--alone': !showAvailableTodos }")
           section.todo-plan-panel.todo-plan-panel--selected
             div.todo-section-header
               div
                 div.section-label Order
                 h5.mb-0 Plan day
-              span.todo-plan-subtle {{ planProgressLabel }}
+              div.todo-plan-header-side
+                span.todo-plan-subtle {{ planProgressLabel }}
+                button.todo-available-toggle(
+                  v-if="!showAvailableTodos"
+                  type="button"
+                  aria-expanded="false"
+                  title="Show the todos you can add to the plan"
+                  @click="showAvailableTodos = true"
+                )
+                  span.todo-count {{ planCandidateTodos.length }}
+                  span Available
+                  icon(name="chevron-right")
             div.todo-frog-card(
               :class="{ 'todo-frog-card--empty': !frogTodo && !frogIsEaten, 'todo-frog-card--drop-active': draggedFrogTodoId || draggedPlanTodoId, 'todo-frog-card--drop-over': frogDropActive, 'todo-frog-card--eaten': frogIsEaten, 'todo-frog-card--can-wake': frogIsEaten && openPlannedTodos.length > 0, 'todo-frog-card--waking': frogJustWoke }"
               @dragover.prevent="handleFrogDragOver"
@@ -634,24 +647,22 @@ div.todos-page
             div.todo-plan-hidden(v-if="hiddenPlannedCount > 0")
               span {{ hiddenPlannedCount }} more planned in other projects
               b-button(size="sm" variant="link" type="button" @click="selectProjectFilter('all')") Show all
-          section.todo-plan-panel.todo-plan-panel--available
+          section.todo-plan-panel.todo-plan-panel--available(v-if="showAvailableTodos")
             div.todo-section-header
               div
                 div.section-label Choose
                 h5.mb-0 Available todos
-              //- The list starts hidden, with the page as narrow as Hours; opening it widens
-              //- the page (pageLayout) so the plan and the list fit side by side.
               button.todo-available-toggle(
                 type="button"
-                :aria-expanded="showAvailableTodos ? 'true' : 'false'"
-                @click="showAvailableTodos = !showAvailableTodos"
+                aria-expanded="true"
+                @click="showAvailableTodos = false"
               )
                 span.todo-count {{ planCandidateTodos.length }}
-                span {{ showAvailableTodos ? 'Hide' : 'Show' }}
-                icon(:name="showAvailableTodos ? 'chevron-up' : 'chevron-down'")
-            div.todo-empty(v-if="showAvailableTodos && planCandidateTodos.length === 0") Nothing else available.
+                span Hide
+                icon(name="chevron-left")
+            div.todo-empty(v-if="planCandidateTodos.length === 0") Nothing else available.
             div.todo-plan-choice-group(
-              v-for="group in showAvailableTodos ? planCandidateGroups : []"
+              v-for="group in planCandidateGroups"
               :key="'choice-group-' + group.id"
             )
               div.todo-plan-choice-group-header
@@ -904,8 +915,8 @@ import 'vue-awesome/icons/calendar-alt';
 import 'vue-awesome/icons/calendar-day';
 import 'vue-awesome/icons/check';
 import 'vue-awesome/icons/check-circle';
-import 'vue-awesome/icons/chevron-down';
-import 'vue-awesome/icons/chevron-up';
+import 'vue-awesome/icons/chevron-left';
+import 'vue-awesome/icons/chevron-right';
 import 'vue-awesome/icons/clipboard-list';
 import 'vue-awesome/icons/filter';
 import 'vue-awesome/icons/grip-lines';
@@ -939,6 +950,7 @@ import {
 import { IS_CLOUD_BUILD } from '~/sync/config';
 import { loadStoredValue, onStoredValueChange, saveStoredValue } from '~/util/focusfrogStorage';
 import { pageLayout } from '~/util/pageLayout';
+import type { PageWidth } from '~/util/pageLayout';
 
 type RepeatRule = 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'custom';
 type TodoArea = 'work' | 'personal' | 'health' | 'home' | 'admin';
@@ -1179,8 +1191,10 @@ export default {
     };
   },
   computed: {
-    wantsWidePage(): boolean {
-      return this.viewMode === 'plan' && this.showAvailableTodos;
+    // The day plan alone is narrow; with the available todos beside it, the full window.
+    pageWidth(): PageWidth {
+      if (this.viewMode !== 'plan') return 'normal';
+      return this.showAvailableTodos ? 'wide' : 'narrow';
     },
     areaOptions() {
       return Object.entries(AREA_CONFIG).map(([value, config]) => ({
@@ -1548,11 +1562,10 @@ export default {
     },
   },
   watch: {
-    // The page is as narrow as Hours, and wide while the day plan shows the available todos.
-    wantsWidePage: {
+    pageWidth: {
       immediate: true,
-      handler(wide: boolean) {
-        pageLayout.wide = wide;
+      handler(width: PageWidth) {
+        pageLayout.width = width;
       },
     },
     projectMenuTodo(todo) {
@@ -1601,7 +1614,7 @@ export default {
     ].forEach(stop => this.$once('hook:beforeDestroy', stop));
   },
   beforeDestroy() {
-    pageLayout.wide = false;
+    pageLayout.width = 'normal';
     this.closeProjectMenu();
     const menu = this.$refs.projectMenu as HTMLElement | undefined;
     menu?.parentNode?.removeChild(menu);
@@ -4881,6 +4894,18 @@ html[data-dashboard-theme='contrast'] .todo-project-tag--empty {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr);
   gap: 0.9rem;
+}
+
+.todo-plan-layout--alone {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.todo-plan-header-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .todo-plan-panel {
