@@ -34,3 +34,8 @@ __pycache__
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+
+# Private pictures: kept on this Mac (and built into the app), never on GitHub.
+static/focusfrog-flower-bg-frog-nouveau.webp
+static/focusfrog-flower-bg-frog-silhouettes.webp
+static/focusfrog-flower-bg-glass-frogs.webp
