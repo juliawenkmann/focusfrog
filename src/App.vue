@@ -12,7 +12,7 @@ div#wrapper(v-if="loaded")
     aw-header(v-if="!chromeless")
     frog-reminder(v-if="!chromeless")
 
-    div.app-content(:class="{'container': !fullContainer, 'container-fluid': fullContainer, 'app-content--narrow': narrowContainer}").px-0.px-md-2
+    div.app-content(:class="{'container': !fullContainer, 'container-fluid': fullContainer}").px-0.px-md-2
       div.aw-container.my-sm-3.p-3(:class="{ 'aw-container-widget': chromeless }")
         error-boundary
           user-satisfaction-poll(v-if="!chromeless && !isCloudBuild")
@@ -53,10 +53,6 @@ export default {
     // The full window width: pages that always need it, or one that asks for it right now.
     fullContainer() {
       return Boolean(this.$route.meta.fullContainer) || pageLayout.width === 'wide';
-    },
-    // Narrower than Hours, with more room left and right.
-    narrowContainer() {
-      return !this.fullContainer && pageLayout.width === 'narrow';
     },
     chromeless() {
       return Boolean(this.$route.meta.chromeless);
@@ -122,11 +118,6 @@ html[data-dashboard-theme='flower'] #wrapper > .app-content,
 html.ff-black-flower #wrapper > .app-content {
   position: relative;
   z-index: 1;
-}
-
-// A page that asks for it (pageLayout 'narrow') leaves more room left and right.
-#wrapper > .app-content.app-content--narrow {
-  max-width: 52rem;
 }
 
 // Room for the phone build's tab bar at the bottom of the screen.

@@ -485,7 +485,7 @@ div.todos-page
               span.todo-plan-filter-count(
                 :class="{ 'todo-plan-filter-count--progress': option.done > 0, 'todo-plan-filter-count--complete': option.count > 0 && option.done === option.count }"
               ) {{ progressCountLabel(option.done, option.count) }}
-        //- The available todos start hidden: the plan shows alone and the page is narrow.
+        //- The available todos start hidden: the plan shows alone, as wide as Hours.
         //- Opening them adds their column and widens the page (pageLayout) to fit both.
         div.todo-plan-layout(:class="{ 'todo-plan-layout--alone': !showAvailableTodos }")
           section.todo-plan-panel.todo-plan-panel--selected
@@ -1191,10 +1191,9 @@ export default {
     };
   },
   computed: {
-    // The day plan alone is narrow; with the available todos beside it, the full window.
+    // As wide as Hours; with the available todos beside the day plan, the full window.
     pageWidth(): PageWidth {
-      if (this.viewMode !== 'plan') return 'normal';
-      return this.showAvailableTodos ? 'wide' : 'narrow';
+      return this.viewMode === 'plan' && this.showAvailableTodos ? 'wide' : 'normal';
     },
     areaOptions() {
       return Object.entries(AREA_CONFIG).map(([value, config]) => ({
