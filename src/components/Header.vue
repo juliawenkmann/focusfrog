@@ -94,7 +94,8 @@ import { mapState } from 'pinia';
 import CloudAccount from '~/components/CloudAccount.vue';
 import { IS_CLOUD_BUILD } from '~/sync/config';
 import { useSettingsStore } from '~/stores/settings';
-import { applyFlowerBackground, nextFlowerBackground } from '~/util/flowerBackgrounds';
+import { backgroundPictures, showFlowerBackground } from '~/sync/backgroundPictures';
+import { nextFlowerBackground } from '~/util/flowerBackgrounds';
 import {
   applyFocusFrogTheme,
   normalizeFocusFrogTheme,
@@ -118,7 +119,11 @@ export default {
         .filter(route => route.meta?.tab)
         .map(route => ({ to: route.path, ...route.meta.tab }));
     },
-    ...mapState(useSettingsStore, ['focusFrogTheme', 'focusFrogFlowerBackground']),
+    ...mapState(useSettingsStore, [
+      'focusFrogTheme',
+      'focusFrogFlowerBackground',
+      'focusFrogHiddenBackgrounds',
+    ]),
     focusFrogThemeOptions() {
       return [
         {
@@ -159,12 +164,12 @@ export default {
       this.applyFocusFrogTheme(theme);
     },
     focusFrogFlowerBackground(background) {
-      applyFlowerBackground(background);
+      showFlowerBackground(background);
     },
   },
   mounted() {
     this.applyFocusFrogTheme(this.focusFrogTheme);
-    applyFlowerBackground(this.focusFrogFlowerBackground);
+    showFlowerBackground(this.focusFrogFlowerBackground);
   },
   methods: {
     applyFocusFrogTheme(theme) {
@@ -173,10 +178,16 @@ export default {
     async setFocusFrogTheme(theme) {
       const nextTheme = normalizeFocusFrogTheme(theme);
       this.applyFocusFrogTheme(nextTheme);
-      // Every click on a flower button (light or black) brings a new background.
+      // Every click on a flower button (light or black) brings a new background, also one of
+      // the owner's own pictures, never one removed (BackgroundPictures in the lock's panel).
       if (showsFlowerPictures(nextTheme)) {
-        const background = nextFlowerBackground(this.focusFrogFlowerBackground);
-        applyFlowerBackground(background);
+        const background = nextFlowerBackground(
+          this.focusFrogFlowerBackground,
+          Math.random,
+          backgroundPictures.items.map(picture => picture.id),
+          this.focusFrogHiddenBackgrounds
+        );
+        showFlowerBackground(background);
         await useSettingsStore().update({
           focusFrogTheme: nextTheme,
           focusFrogFlowerBackground: background,

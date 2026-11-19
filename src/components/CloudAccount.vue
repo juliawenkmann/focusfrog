@@ -35,6 +35,7 @@ div.cloud-account(v-if="cloud.available")
       p.cloud-account-text(v-if="cloud.email") Signed in as #[strong {{ cloud.email }}]
       p.cloud-account-text(v-if="cloud.status === 'notAllowed'")
         | FocusFrog only syncs for its owner. Sign out and use the owner account.
+      background-pictures(v-if="cloud.canUse")
       button.btn.btn-outline-secondary.btn-sm(type="button" :disabled="signingOut" @click="signOut")
         | {{ signingOut ? 'Signing out…' : 'Sign out' }}
 </template>
@@ -43,13 +44,14 @@ div.cloud-account(v-if="cloud.available")
 import 'vue-awesome/icons/lock';
 import 'vue-awesome/icons/lock-open';
 import 'vue-awesome/icons/times';
+import BackgroundPictures from '~/components/BackgroundPictures.vue';
 import CloudSignInForm from '~/components/CloudSignInForm.vue';
 import { useCloudStore } from '~/stores/cloud';
 
 // The lock in the top bar: sign in to sync with the phone, see whether it is synced.
 export default {
   name: 'CloudAccount',
-  components: { CloudSignInForm },
+  components: { BackgroundPictures, CloudSignInForm },
   data() {
     return { open: false, signingOut: false };
   },
@@ -145,12 +147,31 @@ export default {
   top: calc(100% + 0.5rem);
   right: 0;
   width: min(22rem, calc(100vw - 2rem));
+  // The pictures make it tall: it scrolls rather than running off a short window or phone.
+  max-height: calc(100vh - 5rem);
+  max-height: calc(100dvh - 5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 1rem;
   border: 1px solid rgba(15, 23, 42, 0.14);
   border-radius: 16px;
   background: #ffffff;
   color: #102033;
   box-shadow: 0 18px 44px rgba(15, 23, 42, 0.2);
+}
+
+// On small screens the lock sits mid-bar, so a panel hanging from it ran off the left edge:
+// there it hangs from the bar's right edge instead (the bar is the next positioned box).
+@media (max-width: 991.98px) {
+  .cloud-account {
+    position: static;
+  }
+
+  .cloud-account-panel {
+    right: 1rem;
+    max-height: calc(100vh - 9rem);
+    max-height: calc(100dvh - 9rem);
+  }
 }
 
 .cloud-account-head {

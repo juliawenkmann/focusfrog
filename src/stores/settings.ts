@@ -12,7 +12,11 @@ import {
 import { SavedQuery } from '~/util/savedQueries';
 import { View, defaultViews } from '~/stores/views';
 import type { PrivacyFilterRule } from '~/util/privacyFilters';
-import { DEFAULT_FLOWER_BACKGROUND, normalizeFlowerBackground } from '~/util/flowerBackgrounds';
+import {
+  DEFAULT_FLOWER_BACKGROUND,
+  normalizeFlowerBackground,
+  normalizeHiddenBackgrounds,
+} from '~/util/flowerBackgrounds';
 import { normalizeFocusFrogTheme } from '~/util/focusFrogTheme';
 import type { FocusFrogTheme } from '~/util/focusFrogTheme';
 import { HolidayChoices, NO_HOLIDAY_CHOICES, normalizeHolidayChoices } from '~/util/timeOff';
@@ -40,6 +44,7 @@ const LANDING_PAGE_REDIRECTS: Record<string, string> = { '/timeline': '/time-blo
 const CLOUD_SETTING_KEYS = [
   'focusFrogTheme',
   'focusFrogFlowerBackground',
+  'focusFrogHiddenBackgrounds',
   'startOfDay',
   'startOfWeek',
   'holidayData',
@@ -60,6 +65,11 @@ function normalizeCloudSettings(value: unknown): Record<string, unknown> {
   }
   if (raw.focusFrogFlowerBackground !== undefined) {
     settings.focusFrogFlowerBackground = normalizeFlowerBackground(raw.focusFrogFlowerBackground);
+  }
+  if (raw.focusFrogHiddenBackgrounds !== undefined) {
+    settings.focusFrogHiddenBackgrounds = normalizeHiddenBackgrounds(
+      raw.focusFrogHiddenBackgrounds
+    );
   }
   if (typeof raw.startOfDay === 'string' && /^\d{2}:\d{2}$/.test(raw.startOfDay)) {
     settings.startOfDay = raw.startOfDay;
@@ -96,6 +106,8 @@ interface State {
   focusFrogTheme: FocusFrogTheme;
   // Which picture the flower theme shows (see util/flowerBackgrounds).
   focusFrogFlowerBackground: string;
+  // Built-in pictures removed in the lock button's panel (see util/flowerBackgrounds).
+  focusFrogHiddenBackgrounds: string[];
   // Holidays added or excluded by hand (see util/timeOff).
   holidayData: HolidayChoices;
 
@@ -146,6 +158,7 @@ export const useSettingsStore = defineStore('settings', {
     theme: 'auto',
     focusFrogTheme: 'bright',
     focusFrogFlowerBackground: DEFAULT_FLOWER_BACKGROUND,
+    focusFrogHiddenBackgrounds: [],
     holidayData: NO_HOLIDAY_CHOICES,
 
     newReleaseCheckData: {
@@ -253,7 +266,8 @@ export const useSettingsStore = defineStore('settings', {
           targetKey == 'classes' ||
           targetKey == 'category_sets' ||
           targetKey == 'active_set_ids' ||
-          targetKey == 'saved_queries';
+          targetKey == 'saved_queries' ||
+          targetKey == 'focusFrogHiddenBackgrounds';
         try {
           if (isJsonKey) {
             let parsed = JSON.parse(raw);
@@ -278,6 +292,7 @@ export const useSettingsStore = defineStore('settings', {
       this.$patch({
         focusFrogTheme: normalizeFocusFrogTheme(this.focusFrogTheme),
         focusFrogFlowerBackground: normalizeFlowerBackground(this.focusFrogFlowerBackground),
+        focusFrogHiddenBackgrounds: normalizeHiddenBackgrounds(this.focusFrogHiddenBackgrounds),
         classes: normalizeFocusFrogCategories(this.classes || []),
         category_sets: (this.category_sets || []).map(set => ({
           ...set,

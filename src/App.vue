@@ -25,7 +25,7 @@ import { useCloudStore } from '~/stores/cloud';
 import { useServerStore } from '~/stores/server';
 import { useSettingsStore } from '~/stores/settings';
 import { IS_CLOUD_BUILD } from '~/sync/config';
-import { applyFlowerBackground } from '~/util/flowerBackgrounds';
+import { showFlowerBackground, startBackgroundPictures } from '~/sync/backgroundPictures';
 import { applyFocusFrogTheme } from '~/util/focusFrogTheme';
 import CloudGate from '~/components/CloudGate.vue';
 import FrogReminder from '~/components/FrogReminder.vue';
@@ -60,13 +60,14 @@ export default {
   async beforeCreate() {
     // Phone sync (does nothing until FocusFrog has a cloud project).
     useCloudStore().start();
+    startBackgroundPictures();
     if (IS_CLOUD_BUILD) document.documentElement.classList.add('ff-cloud');
 
     // Get Theme From LocalStorage
     const settingsStore = useSettingsStore();
     await settingsStore.ensureLoaded();
     applyFocusFrogTheme(settingsStore.focusFrogTheme);
-    applyFlowerBackground(settingsStore.focusFrogFlowerBackground);
+    showFlowerBackground(settingsStore.focusFrogFlowerBackground);
 
     // FocusFrog's bright, contrast, and flower palettes all live in dark.css.
     // Load it independently of ActivityWatch's legacy light/dark preference.

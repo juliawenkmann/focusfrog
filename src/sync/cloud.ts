@@ -299,6 +299,34 @@ export async function readCloudImage(id: string): Promise<ResizedImage | null> {
   }
 }
 
+// The pictures whose id starts with `prefix` (the uploaded backgrounds share the photos'
+// collection and document shape, so the security rules need no change); null when the owner
+// is not signed in or the cloud cannot be reached.
+export async function readCloudImagesWithPrefix(
+  prefix: string
+): Promise<{ id: string; image: ResizedImage }[] | null> {
+  const firebase = await signedInFirebase();
+  const uid = cloudUserId();
+  if (!firebase || !uid) return null;
+  const api = firebase.firestoreApi;
+  try {
+    const snapshot = await api.getDocs(
+      api.query(
+        api.collection(firebase.db, 'users', uid, 'visionImages'),
+        api.where(api.documentId(), '>=', prefix),
+        api.where(api.documentId(), '<', `${prefix}`)
+      )
+    );
+    return snapshot.docs.map(picture => ({
+      id: picture.id,
+      image: picture.data() as ResizedImage,
+    }));
+  } catch (error) {
+    console.warn('FocusFrog cloud: could not list the background pictures', error);
+    return null;
+  }
+}
+
 export async function writeCloudImage(id: string, photo: ResizedImage): Promise<boolean> {
   const image = await visionImageRef(id);
   if (!image) return false;
