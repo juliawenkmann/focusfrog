@@ -65,7 +65,7 @@ const macRoutes = [
   { path: '/buckets/:id', component: Bucket, props: true },
   // The Timeline page was replaced by the Time Blocking calendar.
   { path: '/timeline', redirect: '/time-blocking' },
-  // As narrow as Hours; the page widens itself while its available todos are open.
+  // As wide as Hours, also with the available todos open.
   { path: '/todos', component: Todos },
   { path: '/vision-board', component: VisionBoard, meta: { fullContainer: true } },
   { path: '/time-blocking', component: TimeBlocking, meta: { fullContainer: true } },
@@ -118,7 +118,7 @@ const cloudRoutes = [
   {
     path: '/todos',
     component: Todos,
-    // As narrow as Hours; the page widens itself while its available todos are open.
+    // As wide as Hours, also with the available todos open.
     meta: { tab: { icon: 'tasks', label: 'Todos' } },
   },
   {

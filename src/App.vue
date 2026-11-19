@@ -27,7 +27,6 @@ import { useSettingsStore } from '~/stores/settings';
 import { IS_CLOUD_BUILD } from '~/sync/config';
 import { applyFlowerBackground } from '~/util/flowerBackgrounds';
 import { applyFocusFrogTheme } from '~/util/focusFrogTheme';
-import { pageLayout } from '~/util/pageLayout';
 import CloudGate from '~/components/CloudGate.vue';
 import FrogReminder from '~/components/FrogReminder.vue';
 
@@ -50,9 +49,8 @@ export default {
     showCloudGate(): boolean {
       return IS_CLOUD_BUILD && !useCloudStore().canUse;
     },
-    // The full window width: pages that always need it, or one that asks for it right now.
     fullContainer() {
-      return Boolean(this.$route.meta.fullContainer) || pageLayout.width === 'wide';
+      return Boolean(this.$route.meta.fullContainer);
     },
     chromeless() {
       return Boolean(this.$route.meta.chromeless);

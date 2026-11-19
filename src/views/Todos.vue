@@ -485,8 +485,8 @@ div.todos-page
               span.todo-plan-filter-count(
                 :class="{ 'todo-plan-filter-count--progress': option.done > 0, 'todo-plan-filter-count--complete': option.count > 0 && option.done === option.count }"
               ) {{ progressCountLabel(option.done, option.count) }}
-        //- The available todos start hidden: the plan shows alone, as wide as Hours.
-        //- Opening them adds their column and widens the page (pageLayout) to fit both.
+        //- The page is as wide as Hours. The available todos start hidden and the plan shows
+        //- alone; opening them adds their column beside it.
         div.todo-plan-layout(:class="{ 'todo-plan-layout--alone': !showAvailableTodos }")
           section.todo-plan-panel.todo-plan-panel--selected
             div.todo-section-header
@@ -949,8 +949,6 @@ import {
 } from '~/util/todoProjects';
 import { IS_CLOUD_BUILD } from '~/sync/config';
 import { loadStoredValue, onStoredValueChange, saveStoredValue } from '~/util/focusfrogStorage';
-import { pageLayout } from '~/util/pageLayout';
-import type { PageWidth } from '~/util/pageLayout';
 
 type RepeatRule = 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'custom';
 type TodoArea = 'work' | 'personal' | 'health' | 'home' | 'admin';
@@ -1191,10 +1189,6 @@ export default {
     };
   },
   computed: {
-    // As wide as Hours; with the available todos beside the day plan, the full window.
-    pageWidth(): PageWidth {
-      return this.viewMode === 'plan' && this.showAvailableTodos ? 'wide' : 'normal';
-    },
     areaOptions() {
       return Object.entries(AREA_CONFIG).map(([value, config]) => ({
         value,
@@ -1561,12 +1555,6 @@ export default {
     },
   },
   watch: {
-    pageWidth: {
-      immediate: true,
-      handler(width: PageWidth) {
-        pageLayout.width = width;
-      },
-    },
     projectMenuTodo(todo) {
       if (!todo && this.projectMenuTodoId) this.closeProjectMenu();
     },
@@ -1613,7 +1601,6 @@ export default {
     ].forEach(stop => this.$once('hook:beforeDestroy', stop));
   },
   beforeDestroy() {
-    pageLayout.width = 'normal';
     this.closeProjectMenu();
     const menu = this.$refs.projectMenu as HTMLElement | undefined;
     menu?.parentNode?.removeChild(menu);
